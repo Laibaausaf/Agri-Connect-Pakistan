@@ -718,7 +718,7 @@ const baseUrl =
 
 const model =
   process.env.OPENROUTER_MODEL ??
-  'openrouter/free';
+  'openrouter/auto';
 
 if (!apiKey) {
   throw new Error(
@@ -895,10 +895,16 @@ ${today}
     2
   );
 
+  // Hard stop so a slow or hung OpenRouter request can never freeze the chat.
+  // On abort the askAi catch block falls back to the rule-based assistant.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
   const response = await fetch(
   `${baseUrl}/chat/completions`,
   {
     method: 'POST',
+    signal: controller.signal,
 
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -935,6 +941,8 @@ ${today}
     }),
   }
 );
+
+clearTimeout(timeoutId);
 
  if (!response.ok) {
   const body = await response.text();
@@ -1167,11 +1175,11 @@ export async function askAi(formData: FormData) {
     const nextHistory: StoredHistory[] = [
       ...history,
       {
-        role: 'user',
+        role: 'user' as const,
         text: message,
       },
       {
-        role: 'ai',
+        role: 'ai' as const,
         text: aiResult.reply,
       },
     ].slice(-12);

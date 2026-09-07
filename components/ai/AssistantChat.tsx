@@ -246,7 +246,11 @@ export default function AssistantChat({
 
       const result = await askAi(formData);
 
-      if (result.error) {
+      /*
+       * askAi returns a discriminated union. `success` exists on every
+       * member, so checking it first narrows the type for the error branch.
+       */
+      if (!result.success) {
         setError(result.error);
         return;
       }
@@ -490,7 +494,7 @@ export default function AssistantChat({
         previous.filter((action) => action.id !== actionId)
       );
 
-      if (result.href) {
+      if ('href' in result && result.href) {
         router.push(result.href);
       }
     } finally {
