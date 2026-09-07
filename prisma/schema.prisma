@@ -1,0 +1,1111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  FARMER
+  ARHTI
+  VENDOR
+  SHOPKEEPER
+  CONSUMER
+  ADMIN
+}
+
+enum AccountStatus {
+  PENDING
+  VERIFIED
+  SUSPENDED
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  phone        String?       @unique
+  passwordHash String        @map("password_hash")
+  name         String
+  role         UserRole
+  status       AccountStatus @default(PENDING)
+  location     String?
+  latitude     Float?
+  longitude    Float?
+  avatarUrl    String?       @map("avatar_url")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  farmerProfile     FarmerProfile?
+  arhtiProfile      ArhtiProfile?
+  vendorProfile     VendorProfile?
+  shopkeeperProfile ShopkeeperProfile?
+  consumerProfile   ConsumerProfile?
+
+  // Stage 1 — farmer production
+  cropBatches FarmerCropBatch[]
+
+  // Stage 2 — farmer <-> arhti sourcing
+  demandRequests ArhtiDemandRequest[]
+  offersAsArhti  FarmerArhtiOffer[]   @relation("OfferArhti")
+  offersAsFarmer FarmerArhtiOffer[]   @relation("OfferFarmer")
+  dealsAsFarmer  FarmerArhtiDeal[]    @relation("DealFarmer")
+  dealsAsArhti   FarmerArhtiDeal[]    @relation("DealArhti")
+  pickupsConfirmed PickupRecord[]     @relation("PickupConfirmedBy")
+
+  // Stage 3 — arhti inventory + mandi auction
+  inventoryLots ArhtiInventoryLot[]
+  auctions      Auction[]
+  bids          Bid[]
+
+  // Stage 4 — arhti -> vendor
+  salesAsArhti      ArhtiVendorSale[] @relation("ArhtiVendorSaleArhti")
+  purchasesAsVendor ArhtiVendorSale[] @relation("ArhtiVendorSaleVendor")
+  vendorInventory   VendorInventory[]
+  vendorOffers      VendorOffer[]
+
+  // Stage 5 — vendor -> shopkeeper
+  salesAsVendor         VendorShopkeeperSale[] @relation("VendorShopkeeperSaleVendor")
+  purchasesAsShopkeeper VendorShopkeeperSale[] @relation("VendorShopkeeperSaleShopkeeper")
+  shopkeeperInventory   ShopkeeperInventory[]
+  retailListings        RetailListing[]
+
+  // Stage 6 — shopkeeper -> consumer
+  consumerOrders ConsumerOrder[] @relation("ConsumerOrderConsumer")
+  shopOrders     ConsumerOrder[] @relation("ConsumerOrderShopkeeper")
+
+  // Money, trust, comms
+  settlements      Settlement[]
+  paymentPayer     PaymentRecord[] @relation("PaymentPayer")
+  paymentRecipient PaymentRecord[] @relation("PaymentRecipient")
+  ratingsGiven     Rating[]        @relation("RatingRater")
+  ratingsReceived  Rating[]        @relation("RatingTarget")
+  conversationsA   Conversation[]  @relation("ConversationUserA")
+  conversationsB   Conversation[]  @relation("ConversationUserB")
+  messagesSent     Message[]
+  notifications    Notification[]
+  agentSessions    AgentSession[]
+  chainEvents      SupplyChainEvent[]
+
+  @@index([role])
+  @@map("users")
+}
+
+model FarmerProfile {
+  id           String  @id @default(cuid())
+  userId       String  @unique @map("user_id")
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName String? @map("business_name")
+  primaryCrops Json    @default("[]") @map("primary_crops")
+  farmAreaAcres Float? @map("farm_area_acres")
+  village      String?
+  averageRate  Float?  @map("average_rate")
+
+  @@map("farmer_profiles")
+}
+
+model ArhtiProfile {
+  id             String  @id @default(cuid())
+  userId         String  @unique @map("user_id")
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName   String? @map("business_name")
+  licenseNumber  String? @map("license_number")
+  mandiId        String? @map("mandi_id")
+  mandi          Mandi?  @relation(fields: [mandiId], references: [id])
+  commissionRate Float   @default(0.02) @map("commission_rate")
+
+  @@map("arhti_profiles")
+}
+
+model VendorProfile {
+  id             String  @id @default(cuid())
+  userId         String  @unique @map("user_id")
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName   String? @map("business_name")
+  warehouseCity  String? @map("warehouse_city")
+  warehouseAddress String? @map("warehouse_address")
+  servesCities   Json    @default("[]") @map("serves_cities")
+  minOrderKg     Float   @default(50) @map("min_order_kg")
+  rating         Float   @default(4.5)
+
+  @@map("vendor_profiles")
+}
+
+model ShopkeeperProfile {
+  id                String  @id @default(cuid())
+  userId            String  @unique @map("user_id")
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shopName          String  @map("shop_name")
+  shopAddress       String? @map("shop_address")
+  shopImageUrl      String? @map("shop_image_url")
+  city              String?
+  deliveryRadiusKm  Float   @default(4) @map("delivery_radius_km")
+  avgDeliveryMinutes Int    @default(35) @map("avg_delivery_minutes")
+  opensAt           String? @map("opens_at")
+  closesAt          String? @map("closes_at")
+  rating            Float   @default(4.6)
+  ratingCount       Int     @default(0) @map("rating_count")
+
+  @@map("shopkeeper_profiles")
+}
+
+model ConsumerProfile {
+  id              String  @id @default(cuid())
+  userId          String  @unique @map("user_id")
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveryAddress String? @map("delivery_address")
+  preferredCity   String? @map("preferred_city")
+  householdSize   Int     @default(4) @map("household_size")
+
+  @@map("consumer_profiles")
+}
+
+// ---------------------------------------------------------------------------
+// Reference data
+// ---------------------------------------------------------------------------
+
+model Mandi {
+  id                  String   @id @default(cuid())
+  name                String
+  city                String
+  province            String
+  address             String?
+  phone               String?
+  category            String
+  operatingHours      String?  @map("operating_hours")
+  latitude            Float?
+  longitude           Float?
+  activeAuctionsCount Int      @default(0) @map("active_auctions_count")
+  todayVolumeTonnes   Float    @default(0) @map("today_volume_tonnes")
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  auctions       Auction[]
+  arhtiProfiles  ArhtiProfile[]
+  marketPrices   MarketPrice[]
+  demandRequests ArhtiDemandRequest[]
+  offers         FarmerArhtiOffer[]
+  deals          FarmerArhtiDeal[]
+  inventoryLots  ArhtiInventoryLot[]
+
+  @@map("mandis")
+}
+
+enum CropCategory {
+  VEGETABLE
+  FRUIT
+  GRAIN
+  OILSEED
+  SPICE
+}
+
+model Crop {
+  id            String       @id @default(cuid())
+  name          String       @unique
+  nameUrdu      String?      @map("name_urdu")
+  category      CropCategory
+  standardUnit  String       @default("kg") @map("standard_unit")
+  varieties     Json         @default("[]")
+  shelfLifeDays Int          @default(7) @map("shelf_life_days")
+  imageUrl      String?      @map("image_url")
+  isActive      Boolean      @default(true) @map("is_active")
+
+  batches             FarmerCropBatch[]
+  demandRequests      ArhtiDemandRequest[]
+  deals               FarmerArhtiDeal[]
+  inventoryLots       ArhtiInventoryLot[]
+  vendorInventory     VendorInventory[]
+  vendorOffers        VendorOffer[]
+  shopkeeperInventory ShopkeeperInventory[]
+  retailListings      RetailListing[]
+  marketPrices        MarketPrice[]
+
+  @@map("crops")
+}
+
+// ---------------------------------------------------------------------------
+// STAGE 1 — Farmer production (no mandi, no price discovery here)
+// ---------------------------------------------------------------------------
+
+enum CropBatchStatus {
+  GROWING
+  READY_FOR_SALE
+  NEGOTIATING
+  RESERVED
+  SOLD_OUT
+  ARCHIVED
+}
+
+model FarmerCropBatch {
+  id             String          @id @default(cuid())
+  batchNumber    String          @unique @map("batch_number")
+  cropId         String          @map("crop_id")
+  crop           Crop            @relation(fields: [cropId], references: [id])
+  farmerId       String          @map("farmer_id")
+  farmer         User            @relation(fields: [farmerId], references: [id])
+  variety        String?
+  quantityKg     Float           @map("quantity_kg")
+  availableKg    Float           @map("available_kg")
+  grade          String
+  originVillage  String?         @map("origin_village")
+  originCity     String          @map("origin_city")
+  originProvince String          @map("origin_province")
+  harvestDate    DateTime        @map("harvest_date")
+  readyDate      DateTime?       @map("ready_date")
+  packaging      String?
+  askingPricePerKg Float?        @map("asking_price_per_kg")
+  photos         Json            @default("[]")
+  notes          String?
+  status         CropBatchStatus @default(READY_FOR_SALE)
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  offers        FarmerArhtiOffer[]
+  deals         FarmerArhtiDeal[]
+  inventoryLots ArhtiInventoryLot[]
+  chainEvents   SupplyChainEvent[]
+
+  @@index([farmerId, status])
+  @@index([cropId])
+  @@index([status])
+  @@map("farmer_crop_batches")
+}
+
+// ---------------------------------------------------------------------------
+// STAGE 2 — Farmer <-> Arhti sourcing
+// ---------------------------------------------------------------------------
+
+enum DemandStatus {
+  OPEN
+  PARTIALLY_FULFILLED
+  FULFILLED
+  CLOSED
+}
+
+model ArhtiDemandRequest {
+  id               String       @id @default(cuid())
+  requestNumber    String       @unique @map("request_number")
+  arhtiId          String       @map("arhti_id")
+  arhti            User         @relation(fields: [arhtiId], references: [id])
+  cropId           String       @map("crop_id")
+  crop             Crop         @relation(fields: [cropId], references: [id])
+  minQuantityKg    Float        @map("min_quantity_kg")
+  maxQuantityKg    Float        @map("max_quantity_kg")
+  gradeWanted      String?      @map("grade_wanted")
+  preferredOrigins Json         @default("[]") @map("preferred_origins")
+  targetPriceMin   Float?       @map("target_price_min")
+  targetPriceMax   Float?       @map("target_price_max")
+  neededBy         DateTime     @map("needed_by")
+  transportOffered Boolean      @default(true) @map("transport_offered")
+  mandiId          String       @map("mandi_id")
+  mandi            Mandi        @relation(fields: [mandiId], references: [id])
+  notes            String?
+  status           DemandStatus @default(OPEN)
+  createdAt        DateTime     @default(now()) @map("created_at")
+
+  @@index([status])
+  @@index([arhtiId])
+  @@index([cropId])
+  @@map("arhti_demand_requests")
+}
+
+enum OfferDirection {
+  ARHTI_TO_FARMER
+  FARMER_TO_ARHTI
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  EXPIRED
+}
+
+enum TransportResponsibility {
+  FARMER
+  ARHTI
+  MUTUAL
+}
+
+model FarmerArhtiOffer {
+  id                      String                  @id @default(cuid())
+  batchId                 String                  @map("batch_id")
+  batch                   FarmerCropBatch         @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  arhtiId                 String                  @map("arhti_id")
+  arhti                   User                    @relation("OfferArhti", fields: [arhtiId], references: [id])
+  farmerId                String                  @map("farmer_id")
+  farmer                  User                    @relation("OfferFarmer", fields: [farmerId], references: [id])
+  direction               OfferDirection
+  quantityKg              Float                   @map("quantity_kg")
+  pricePerKg              Float                   @map("price_per_kg")
+  destinationMandiId      String                  @map("destination_mandi_id")
+  destinationMandi        Mandi                   @relation(fields: [destinationMandiId], references: [id])
+  transportResponsibility TransportResponsibility @default(ARHTI) @map("transport_responsibility")
+  proposedPickupAt        DateTime?               @map("proposed_pickup_at")
+  note                    String?
+  status                  OfferStatus             @default(PENDING)
+  createdAt               DateTime                @default(now()) @map("created_at")
+  respondedAt             DateTime?               @map("responded_at")
+
+  deal FarmerArhtiDeal?
+
+  @@index([batchId, status])
+  @@index([arhtiId, status])
+  @@index([farmerId, status])
+  @@map("farmer_arhti_offers")
+}
+
+enum DealStatus {
+  AGREED
+  PICKUP_SCHEDULED
+  PICKED_UP
+  IN_TRANSIT
+  RECEIVED_BY_ARHTI
+  WEIGHT_VERIFIED
+  PAYMENT_PENDING
+  PAID
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+model FarmerArhtiDeal {
+  id                      String                  @id @default(cuid())
+  dealNumber              String                  @unique @map("deal_number")
+  offerId                 String?                 @unique @map("offer_id")
+  offer                   FarmerArhtiOffer?       @relation(fields: [offerId], references: [id])
+  batchId                 String                  @map("batch_id")
+  batch                   FarmerCropBatch         @relation(fields: [batchId], references: [id])
+  cropId                  String                  @map("crop_id")
+  crop                    Crop                    @relation(fields: [cropId], references: [id])
+  farmerId                String                  @map("farmer_id")
+  farmer                  User                    @relation("DealFarmer", fields: [farmerId], references: [id])
+  arhtiId                 String                  @map("arhti_id")
+  arhti                   User                    @relation("DealArhti", fields: [arhtiId], references: [id])
+  agreedQuantityKg        Float                   @map("agreed_quantity_kg")
+  agreedPricePerKg        Float                   @map("agreed_price_per_kg")
+  grossAmount             Float                   @map("gross_amount")
+  sourceCity              String                  @map("source_city")
+  sourceProvince          String                  @map("source_province")
+  destinationMandiId      String                  @map("destination_mandi_id")
+  destinationMandi        Mandi                   @relation(fields: [destinationMandiId], references: [id])
+  transportResponsibility TransportResponsibility @map("transport_responsibility")
+  transportCost           Float?                  @map("transport_cost")
+  receivedQuantityKg      Float?                  @map("received_quantity_kg")
+  weightDifferenceKg      Float?                  @map("weight_difference_kg")
+  weightVerifiedAt        DateTime?               @map("weight_verified_at")
+  weightVerifierName      String?                 @map("weight_verifier_name")
+  receivedAt              DateTime?               @map("received_at")
+  status                  DealStatus              @default(AGREED)
+  notes                   String?
+  createdAt               DateTime                @default(now()) @map("created_at")
+  updatedAt               DateTime                @updatedAt @map("updated_at")
+
+  pickup        PickupRecord?
+  inventoryLot  ArhtiInventoryLot?
+  settlement    Settlement?
+
+  @@index([farmerId, status])
+  @@index([arhtiId, status])
+  @@index([status])
+  @@map("farmer_arhti_deals")
+}
+
+model TransportOption {
+  id              String  @id @default(cuid())
+  driverName      String  @map("driver_name")
+  driverPhone     String  @map("driver_phone")
+  vehicleType     String  @map("vehicle_type")
+  vehiclePlate    String  @unique @map("vehicle_plate")
+  capacityKg      Float   @map("capacity_kg")
+  currentLocation String  @map("current_location")
+  latitude        Float?
+  longitude       Float?
+  estimatedCost   Float   @map("estimated_cost")
+  baseRatePerKm   Float   @map("base_rate_per_km")
+  rating          Float   @default(4.5)
+  tripsCount      Int     @default(0) @map("trips_count")
+  isAvailable     Boolean @default(true) @map("is_available")
+
+  pickups PickupRecord[]
+
+  @@map("transport_options")
+}
+
+// A driver never needs an account — pickup is operational data on the deal.
+model PickupRecord {
+  id                String           @id @default(cuid())
+  dealId            String           @unique @map("deal_id")
+  deal              FarmerArhtiDeal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  transportOptionId String?          @map("transport_option_id")
+  transportOption   TransportOption? @relation(fields: [transportOptionId], references: [id])
+  driverName        String           @map("driver_name")
+  driverPhone       String           @map("driver_phone")
+  vehicleType       String?          @map("vehicle_type")
+  vehiclePlate      String?          @map("vehicle_plate")
+  arrangedBy        TransportResponsibility @map("arranged_by")
+  estimatedCost     Float?           @map("estimated_cost")
+  scheduledAt       DateTime         @map("scheduled_at")
+  confirmedAt       DateTime?        @map("confirmed_at")
+  confirmedByUserId String?          @map("confirmed_by_user_id")
+  confirmedBy       User?            @relation("PickupConfirmedBy", fields: [confirmedByUserId], references: [id])
+  expectedArrivalAt DateTime?        @map("expected_arrival_at")
+  arrivedAt         DateTime?        @map("arrived_at")
+  notes             String?
+  createdAt         DateTime         @default(now()) @map("created_at")
+
+  tracking DeliveryTracking?
+
+  @@map("pickup_records")
+}
+
+enum DeliveryStage {
+  PENDING
+  PICKUP
+  IN_TRANSIT
+  MANDI_ARRIVAL
+  DELIVERED
+}
+
+model DeliveryTracking {
+  id          String        @id @default(cuid())
+  pickupId    String        @unique @map("pickup_id")
+  pickup      PickupRecord  @relation(fields: [pickupId], references: [id], onDelete: Cascade)
+  origin      String
+  destination String
+  stage       DeliveryStage @default(PENDING)
+  currentLat  Float         @map("current_lat")
+  currentLng  Float         @map("current_lng")
+  etaMinutes  Int           @map("eta_minutes")
+  statusNotes String?       @map("status_notes")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  @@map("delivery_tracking")
+}
+
+// ---------------------------------------------------------------------------
+// STAGE 3 — Arhti inventory + mandi auction
+// ---------------------------------------------------------------------------
+
+enum InventoryLotStatus {
+  IN_STOCK
+  PARTIALLY_AUCTIONED
+  IN_AUCTION
+  SOLD_OUT
+  SPOILED
+}
+
+model ArhtiInventoryLot {
+  id                 String             @id @default(cuid())
+  lotNumber          String             @unique @map("lot_number")
+  arhtiId            String             @map("arhti_id")
+  arhti              User               @relation(fields: [arhtiId], references: [id])
+  dealId             String             @unique @map("deal_id")
+  deal               FarmerArhtiDeal    @relation(fields: [dealId], references: [id])
+  batchId            String             @map("batch_id")
+  batch              FarmerCropBatch    @relation(fields: [batchId], references: [id])
+  cropId             String             @map("crop_id")
+  crop               Crop               @relation(fields: [cropId], references: [id])
+  mandiId            String             @map("mandi_id")
+  mandi              Mandi              @relation(fields: [mandiId], references: [id])
+  receivedQuantityKg Float              @map("received_quantity_kg")
+  availableQuantityKg Float             @map("available_quantity_kg")
+  grade              String
+  purchasePricePerKg Float              @map("purchase_price_per_kg")
+  sourceCity         String             @map("source_city")
+  sourceFarmerName   String             @map("source_farmer_name")
+  photos             Json               @default("[]")
+  status             InventoryLotStatus @default(IN_STOCK)
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  auctions Auction[]
+
+  @@index([arhtiId, status])
+  @@index([mandiId])
+  @@map("arhti_inventory_lots")
+}
+
+enum AuctionStatus {
+  PENDING
+  ACTIVE
+  SOLD
+  EXPIRED
+  CANCELLED
+}
+
+model Auction {
+  id                String            @id @default(cuid())
+  auctionNumber     String            @unique @map("auction_number")
+  inventoryLotId    String            @map("inventory_lot_id")
+  inventoryLot      ArhtiInventoryLot @relation(fields: [inventoryLotId], references: [id], onDelete: Cascade)
+  arhtiId           String            @map("arhti_id")
+  arhti             User              @relation(fields: [arhtiId], references: [id])
+  mandiId           String            @map("mandi_id")
+  mandi             Mandi             @relation(fields: [mandiId], references: [id])
+  quantityKg        Float             @map("quantity_kg")
+  grade             String
+  photos            Json              @default("[]")
+  startTime         DateTime          @map("start_time")
+  endTime           DateTime          @map("end_time")
+  reservePrice      Float             @map("reserve_price")
+  currentHighestBid Float?            @map("current_highest_bid")
+  minimumIncrement  Float             @default(1) @map("minimum_increment")
+  bidCount          Int               @default(0) @map("bid_count")
+  status            AuctionStatus     @default(PENDING)
+  winnerId          String?           @map("winner_id")
+  winningBidId      String?           @unique @map("winning_bid_id")
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  bids Bid[]
+  sale ArhtiVendorSale?
+
+  @@index([status])
+  @@index([endTime])
+  @@index([mandiId, status])
+  @@map("auctions")
+}
+
+model Bid {
+  id          String   @id @default(cuid())
+  auctionId   String   @map("auction_id")
+  auction     Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  bidderId    String   @map("bidder_id")
+  bidder      User     @relation(fields: [bidderId], references: [id])
+  amountPerKg Float    @map("amount_per_kg")
+  timestamp   DateTime @default(now())
+
+  @@unique([auctionId, bidderId, amountPerKg])
+  @@index([auctionId, amountPerKg])
+  @@map("bids")
+}
+
+// ---------------------------------------------------------------------------
+// STAGE 4 — Arhti -> Vendor (auction settlement) and vendor stock
+// ---------------------------------------------------------------------------
+
+enum SaleStatus {
+  PENDING_PAYMENT
+  PAID
+  DISPATCHED
+  RECEIVED
+  COMPLETED
+  CANCELLED
+}
+
+model ArhtiVendorSale {
+  id           String     @id @default(cuid())
+  saleNumber   String     @unique @map("sale_number")
+  auctionId    String     @unique @map("auction_id")
+  auction      Auction    @relation(fields: [auctionId], references: [id])
+  arhtiId      String     @map("arhti_id")
+  arhti        User       @relation("ArhtiVendorSaleArhti", fields: [arhtiId], references: [id])
+  vendorId     String     @map("vendor_id")
+  vendor       User       @relation("ArhtiVendorSaleVendor", fields: [vendorId], references: [id])
+  rootBatchId  String     @map("root_batch_id")
+  quantityKg   Float      @map("quantity_kg")
+  ratePerKg    Float      @map("rate_per_kg")
+  grossAmount  Float      @map("gross_amount")
+  commission   Float      @default(0)
+  mandiId      String     @map("mandi_id")
+  status       SaleStatus @default(PENDING_PAYMENT)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  vendorInventory VendorInventory?
+
+  @@index([arhtiId])
+  @@index([vendorId])
+  @@map("arhti_vendor_sales")
+}
+
+enum StockStatus {
+  IN_STOCK
+  LOW_STOCK
+  SOLD_OUT
+}
+
+model VendorInventory {
+  id             String          @id @default(cuid())
+  stockNumber    String          @unique @map("stock_number")
+  vendorId       String          @map("vendor_id")
+  vendor         User            @relation(fields: [vendorId], references: [id])
+  saleId         String          @unique @map("sale_id")
+  sale           ArhtiVendorSale @relation(fields: [saleId], references: [id])
+  rootBatchId    String          @map("root_batch_id")
+  cropId         String          @map("crop_id")
+  crop           Crop            @relation(fields: [cropId], references: [id])
+  quantityKg     Float           @map("quantity_kg")
+  availableKg    Float           @map("available_kg")
+  grade          String
+  costPerKg      Float           @map("cost_per_kg")
+  sourceMandiCity String         @map("source_mandi_city")
+  sourceFarmCity String          @map("source_farm_city")
+  photos         Json            @default("[]")
+  status         StockStatus     @default(IN_STOCK)
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  offers VendorOffer[]
+
+  @@index([vendorId, status])
+  @@map("vendor_inventory")
+}
+
+enum OfferListingStatus {
+  ACTIVE
+  PAUSED
+  SOLD_OUT
+  CLOSED
+}
+
+model VendorOffer {
+  id             String             @id @default(cuid())
+  offerNumber    String             @unique @map("offer_number")
+  vendorId       String             @map("vendor_id")
+  vendor         User               @relation(fields: [vendorId], references: [id])
+  stockId        String             @map("stock_id")
+  stock          VendorInventory    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  rootBatchId    String             @map("root_batch_id")
+  cropId         String             @map("crop_id")
+  crop           Crop               @relation(fields: [cropId], references: [id])
+  offeredQuantityKg Float           @map("offered_quantity_kg")
+  remainingKg    Float              @map("remaining_kg")
+  pricePerKg     Float              @map("price_per_kg")
+  minOrderKg     Float              @default(50) @map("min_order_kg")
+  grade          String
+  deliveryCities Json               @default("[]") @map("delivery_cities")
+  deliveryEtaHours Int              @default(12) @map("delivery_eta_hours")
+  photos         Json               @default("[]")
+  status         OfferListingStatus @default(ACTIVE)
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  sales VendorShopkeeperSale[]
+
+  @@index([status])
+  @@index([vendorId, status])
+  @@map("vendor_offers")
+}
+
+// ---------------------------------------------------------------------------
+// STAGE 5 — Vendor -> Shopkeeper wholesale
+// ---------------------------------------------------------------------------
+
+model VendorShopkeeperSale {
+  id           String      @id @default(cuid())
+  saleNumber   String      @unique @map("sale_number")
+  offerId      String      @map("offer_id")
+  offer        VendorOffer @relation(fields: [offerId], references: [id])
+  vendorId     String      @map("vendor_id")
+  vendor       User        @relation("VendorShopkeeperSaleVendor", fields: [vendorId], references: [id])
+  shopkeeperId String      @map("shopkeeper_id")
+  shopkeeper   User        @relation("VendorShopkeeperSaleShopkeeper", fields: [shopkeeperId], references: [id])
+  rootBatchId  String      @map("root_batch_id")
+  quantityKg   Float       @map("quantity_kg")
+  ratePerKg    Float       @map("rate_per_kg")
+  grossAmount  Float       @map("gross_amount")
+  deliveryCity String?     @map("delivery_city")
+  status       SaleStatus  @default(PENDING_PAYMENT)
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  shopkeeperInventory ShopkeeperInventory?
+
+  @@index([vendorId])
+  @@index([shopkeeperId])
+  @@map("vendor_shopkeeper_sales")
+}
+
+model ShopkeeperInventory {
+  id           String               @id @default(cuid())
+  stockNumber  String               @unique @map("stock_number")
+  shopkeeperId String               @map("shopkeeper_id")
+  shopkeeper   User                 @relation(fields: [shopkeeperId], references: [id])
+  saleId       String               @unique @map("sale_id")
+  sale         VendorShopkeeperSale @relation(fields: [saleId], references: [id])
+  rootBatchId  String               @map("root_batch_id")
+  cropId       String               @map("crop_id")
+  crop         Crop                 @relation(fields: [cropId], references: [id])
+  quantityKg   Float                @map("quantity_kg")
+  availableKg  Float                @map("available_kg")
+  grade        String
+  costPerKg    Float                @map("cost_per_kg")
+  photos       Json                 @default("[]")
+  status       StockStatus          @default(IN_STOCK)
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+
+  listings RetailListing[]
+
+  @@index([shopkeeperId, status])
+  @@map("shopkeeper_inventory")
+}
+
+// ---------------------------------------------------------------------------
+// STAGE 6 — Shopkeeper retail -> Consumer
+// ---------------------------------------------------------------------------
+
+model RetailListing {
+  id             String              @id @default(cuid())
+  listingNumber  String              @unique @map("listing_number")
+  shopkeeperId   String              @map("shopkeeper_id")
+  shopkeeper     User                @relation(fields: [shopkeeperId], references: [id])
+  stockId        String              @map("stock_id")
+  stock          ShopkeeperInventory @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  rootBatchId    String              @map("root_batch_id")
+  cropId         String              @map("crop_id")
+  crop           Crop                @relation(fields: [cropId], references: [id])
+  title          String
+  listedQuantityKg Float             @map("listed_quantity_kg")
+  remainingKg    Float               @map("remaining_kg")
+  pricePerKg     Float               @map("price_per_kg")
+  packSizeKg     Float               @default(1) @map("pack_size_kg")
+  imageUrl       String?             @map("image_url")
+  originLabel    String?             @map("origin_label")
+  status         OfferListingStatus  @default(ACTIVE)
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  orderItems ConsumerOrderItem[]
+
+  @@index([status])
+  @@index([shopkeeperId, status])
+  @@map("retail_listings")
+}
+
+enum ConsumerOrderStatus {
+  PLACED
+  CONFIRMED
+  PREPARING
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+model ConsumerOrder {
+  id              String              @id @default(cuid())
+  orderNumber     String              @unique @map("order_number")
+  consumerId      String              @map("consumer_id")
+  consumer        User                @relation("ConsumerOrderConsumer", fields: [consumerId], references: [id])
+  shopkeeperId    String              @map("shopkeeper_id")
+  shopkeeper      User                @relation("ConsumerOrderShopkeeper", fields: [shopkeeperId], references: [id])
+  totalAmount     Float               @map("total_amount")
+  deliveryFee     Float               @default(0) @map("delivery_fee")
+  deliveryAddress String?             @map("delivery_address")
+  etaMinutes      Int                 @default(35) @map("eta_minutes")
+  status          ConsumerOrderStatus @default(PLACED)
+  placedAt        DateTime            @default(now()) @map("placed_at")
+  deliveredAt     DateTime?           @map("delivered_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  items ConsumerOrderItem[]
+
+  @@index([consumerId, status])
+  @@index([shopkeeperId, status])
+  @@map("consumer_orders")
+}
+
+model ConsumerOrderItem {
+  id          String        @id @default(cuid())
+  orderId     String        @map("order_id")
+  order       ConsumerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  listingId   String        @map("listing_id")
+  listing     RetailListing @relation(fields: [listingId], references: [id])
+  rootBatchId String        @map("root_batch_id")
+  quantityKg  Float         @map("quantity_kg")
+  pricePerKg  Float         @map("price_per_kg")
+  lineTotal   Float         @map("line_total")
+
+  @@index([orderId])
+  @@map("consumer_order_items")
+}
+
+// ---------------------------------------------------------------------------
+// Traceability — structured provenance across the whole chain
+// ---------------------------------------------------------------------------
+
+enum SupplyChainStage {
+  FARMER_HARVEST
+  FARMER_ARHTI_OFFER
+  FARMER_ARHTI_DEAL
+  PICKUP
+  ARHTI_RECEIPT
+  MANDI_AUCTION
+  ARHTI_VENDOR_SALE
+  VENDOR_WHOLESALE_OFFER
+  VENDOR_SHOPKEEPER_SALE
+  RETAIL_LISTING
+  CONSUMER_ORDER
+}
+
+model SupplyChainEvent {
+  id          String           @id @default(cuid())
+  batchId     String           @map("batch_id")
+  batch       FarmerCropBatch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  stage       SupplyChainStage
+  actorId     String?          @map("actor_id")
+  actor       User?            @relation(fields: [actorId], references: [id])
+  actorRole   UserRole?        @map("actor_role")
+  title       String
+  description String
+  quantityKg  Float?           @map("quantity_kg")
+  pricePerKg  Float?           @map("price_per_kg")
+  refType     String?          @map("ref_type")
+  refId       String?          @map("ref_id")
+  isConfidential Boolean       @default(false) @map("is_confidential")
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  @@index([batchId, createdAt])
+  @@index([stage])
+  @@map("supply_chain_events")
+}
+
+// ---------------------------------------------------------------------------
+// Money, receipts, trust — polymorphic across transaction types
+// ---------------------------------------------------------------------------
+
+enum TransactionType {
+  FARMER_ARHTI
+  ARHTI_VENDOR
+  VENDOR_SHOPKEEPER
+  SHOPKEEPER_CONSUMER
+}
+
+model Settlement {
+  id              String          @id @default(cuid())
+  dealId          String          @unique @map("deal_id")
+  deal            FarmerArhtiDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  farmerId        String          @map("farmer_id")
+  farmer          User            @relation(fields: [farmerId], references: [id])
+  grossAmount     Float           @map("gross_amount")
+  deductionsTotal Float           @map("deductions_total")
+  netPayable      Float           @map("net_payable")
+  status          String          @default("pending")
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  deductions SettlementDeduction[]
+
+  @@index([farmerId])
+  @@map("settlements")
+}
+
+enum DeductionType {
+  TRANSPORT
+  ARHTI_COMMISSION
+  MANDI_CESS
+  UNLOADING
+  MARKET_FEE
+  OTHER
+}
+
+model SettlementDeduction {
+  id           String        @id @default(cuid())
+  settlementId String        @map("settlement_id")
+  settlement   Settlement    @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  type         DeductionType
+  amount       Float
+  description  String
+
+  @@map("settlement_deductions")
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
+
+model PaymentRecord {
+  id              String          @id @default(cuid())
+  transactionType TransactionType @map("transaction_type")
+  transactionId   String          @map("transaction_id")
+  amount          Float
+  payerId         String          @map("payer_id")
+  payer           User            @relation("PaymentPayer", fields: [payerId], references: [id])
+  recipientId     String          @map("recipient_id")
+  recipient       User            @relation("PaymentRecipient", fields: [recipientId], references: [id])
+  status          PaymentStatus   @default(PENDING)
+  reference       String?
+  method          String          @default("RAAST Instant SBP")
+  paidAt          DateTime?       @map("paid_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  @@unique([transactionType, transactionId])
+  @@index([payerId])
+  @@index([recipientId])
+  @@map("payment_records")
+}
+
+model Receipt {
+  id              String          @id @default(cuid())
+  receiptNumber   String          @unique @map("receipt_number")
+  transactionType TransactionType @map("transaction_type")
+  transactionId   String          @map("transaction_id")
+  rootBatchId     String?         @map("root_batch_id")
+  issuedAt        DateTime        @default(now()) @map("issued_at")
+  data            Json
+
+  @@unique([transactionType, transactionId])
+  @@map("receipts")
+}
+
+model Rating {
+  id                  String          @id @default(cuid())
+  transactionType     TransactionType @map("transaction_type")
+  transactionId       String          @map("transaction_id")
+  raterId             String          @map("rater_id")
+  rater               User            @relation("RatingRater", fields: [raterId], references: [id])
+  targetUserId        String          @map("target_user_id")
+  target              User            @relation("RatingTarget", fields: [targetUserId], references: [id])
+  overallRating       Int             @map("overall_rating")
+  paymentTimeliness   Int?            @map("payment_timeliness")
+  communication       Int?
+  reliability         Int?
+  produceQuality      Int?            @map("produce_quality")
+  descriptionAccuracy Int?            @map("description_accuracy")
+  quantityAccuracy    Int?            @map("quantity_accuracy")
+  timeliness          Int?
+  transparency        Int?
+  comment             String?
+  createdAt           DateTime        @default(now()) @map("created_at")
+
+  @@unique([transactionType, transactionId, raterId, targetUserId])
+  @@index([targetUserId])
+  @@map("ratings")
+}
+
+// ---------------------------------------------------------------------------
+// Messaging, notifications, market data, AI
+// ---------------------------------------------------------------------------
+
+model Conversation {
+  id             String   @id @default(cuid())
+  userAId        String   @map("user_a_id")
+  userA          User     @relation("ConversationUserA", fields: [userAId], references: [id])
+  userBId        String   @map("user_b_id")
+  userB          User     @relation("ConversationUserB", fields: [userBId], references: [id])
+  relatedRefType String?  @map("related_ref_type")
+  relatedRefId   String?  @map("related_ref_id")
+  lastMessageAt  DateTime @default(now()) @map("last_message_at")
+
+  messages Message[]
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String       @map("sender_id")
+  sender         User         @relation(fields: [senderId], references: [id])
+  text           String
+  imageUrl       String?      @map("image_url")
+  sharedRefType  String?      @map("shared_ref_type")
+  sharedRefId    String?      @map("shared_ref_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  isRead         Boolean      @default(false) @map("is_read")
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+enum NotificationType {
+  NEW_OFFER
+  OFFER_ACCEPTED
+  OFFER_REJECTED
+  PICKUP_SCHEDULED
+  PICKUP_CONFIRMED
+  PRODUCE_RECEIVED
+  WEIGHT_VERIFICATION
+  NEW_BID
+  OUTBID
+  AUCTION_ENDING
+  AUCTION_WON
+  AUCTION_CLOSED
+  WHOLESALE_ORDER
+  RETAIL_ORDER
+  ORDER_DELIVERED
+  PAYMENT_RECEIVED
+  RECEIPT
+  RATING_REQUEST
+  INFO
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model MarketPrice {
+  id                 String   @id @default(cuid())
+  cropId             String   @map("crop_id")
+  crop               Crop     @relation(fields: [cropId], references: [id])
+  mandiId            String   @map("mandi_id")
+  mandi              Mandi    @relation(fields: [mandiId], references: [id])
+  ratePerKg          Float    @map("rate_per_kg")
+  changePercent      Float    @default(0) @map("change_percent")
+  trend              String   @default("stable")
+  high24h            Float?   @map("high_24h")
+  low24h             Float?   @map("low_24h")
+  dailyArrivalTonnes Float?   @map("daily_arrival_tonnes")
+  recordedAt         DateTime @default(now()) @map("recorded_at")
+
+  @@unique([cropId, mandiId])
+  @@index([mandiId])
+  @@map("market_prices")
+}
+
+model AgentSession {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt DateTime @default(now()) @map("started_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  context   Json?
+
+  actions AgentAction[]
+
+  @@map("agent_sessions")
+}
+
+enum AgentActionStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+model AgentAction {
+  id           String            @id @default(cuid())
+  sessionId    String            @map("session_id")
+  session      AgentSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  actionType   String            @map("action_type")
+  payload      Json
+  humanSummary String            @map("human_summary")
+  status       AgentActionStatus @default(PENDING)
+  createdAt    DateTime          @default(now()) @map("created_at")
+  confirmedAt  DateTime?         @map("confirmed_at")
+
+  @@map("agent_actions")
+}

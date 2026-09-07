@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --natural-bg: #F8F9F5;
+    --natural-card: #FFFFFF;
+    --natural-text: #2D3436;
+    --natural-muted: #636E72;
+    --natural-border: #E5E7EB;
+    --natural-primary: #1B4332;
+    --natural-primary-hover: #143326;
+    --natural-tint: #E8F3EE;
+    --natural-tint-border: #B7D4C8;
+    --natural-accent: #2D5A47;
+    --natural-chip: #F2F4F7;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #F8F9F5;
+    color: #2D3436;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
