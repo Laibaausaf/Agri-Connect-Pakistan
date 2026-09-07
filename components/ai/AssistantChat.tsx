@@ -3,10 +3,11 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { askAi, confirmAgentAction, cancelAgentAction } from '@/lib/actions/ai';
+import {askAi, confirmAgentAction, cancelAgentAction,} from '@/lib/actions/natural-ai';
 import { UserRole } from '@prisma/client';
 import {
   Mic,
+  MicOff,
   Send,
   Sparkles,
   User,
@@ -21,7 +22,11 @@ import {
   Loader2,
 } from 'lucide-react';
 
-type UserSummary = { id: string; name: string; role: UserRole };
+type UserSummary = {
+  id: string;
+  name: string;
+  role: UserRole;
+};
 
 type PendingAction = {
   id: string;
@@ -33,8 +38,70 @@ type ChatMessage = {
   role: 'user' | 'ai';
   text: string;
   tool?: string;
-  actions?: { label: string; href: string }[];
+  actions?: {
+    label: string;
+    href: string;
+  }[];
 };
+
+/*
+ * Type declarations for the browser Web Speech API.
+ *
+ * Chrome and Edge commonly expose this as webkitSpeechRecognition.
+ * Some browsers expose SpeechRecognition directly.
+ */
+interface SpeechRecognitionAlternativeLike {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  length: number;
+  [index: number]: SpeechRecognitionAlternativeLike;
+}
+
+interface SpeechRecognitionResultListLike {
+  length: number;
+  [index: number]: SpeechRecognitionResultLike;
+}
+
+interface SpeechRecognitionEventLike extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultListLike;
+}
+
+interface SpeechRecognitionErrorEventLike extends Event {
+  error: string;
+  message?: string;
+}
+
+interface SpeechRecognitionLike {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
+
+type VoiceLanguage = 'ur-PK' | 'en-US';
 
 const toolIcons: Record<string, React.ElementType> = {
   prices: TrendingUp,
@@ -57,6 +124,16 @@ const toolIcons: Record<string, React.ElementType> = {
   help: HelpCircle,
 };
 
+/*
+ * Detect Urdu script so the UI can decide which AI response to show.
+ *
+ * Roman Urdu is intentionally treated as Latin text. The existing backend
+ * already understands a number of Roman Urdu agricultural terms.
+ */
+function containsUrduScript(text: string) {
+  return /[\u0600-\u06FF]/.test(text);
+}
+
 export default function AssistantChat({
   user,
   initialSessionId,
@@ -71,102 +148,375 @@ export default function AssistantChat({
   quickPrompts: string[];
 }) {
   const router = useRouter();
+
   const [sessionId, setSessionId] = useState(initialSessionId);
+
   const [messages, setMessages] = useState<ChatMessage[]>(
     initialHistory.length
       ? initialHistory
       : [
           {
             role: 'ai',
-            text: `As-salamu alaykum ${user.name}! I am AgriConnect AI, set up for your ${user.role.toLowerCase()} work. Ask me anything on your desk — or say "help" to see what I can pull up.`,
+            text: `As-salamu alaykum ${user.name}! I am AgriConnect AI, set up for your ${user.role.toLowerCase()} work. You can type or speak in English, Urdu, or Roman Urdu.`,
             tool: 'help',
           },
         ]
   );
+
   const [input, setInput] = useState('');
   const [pending, setPending] = useState<PendingAction[]>(pendingActions);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /*
+   * Voice state
+   */
+  const [speechSupported, setSpeechSupported] = useState(true);
+  const [isListening, setIsListening] = useState(false);
+  const [interimTranscript, setInterimTranscript] = useState('');
+  const [voiceLanguage, setVoiceLanguage] = useState<VoiceLanguage>('ur-PK');
+
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  /*
+   * Keeps the message area scrolled to the latest message.
+   */
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+    bottomRef.current?.scrollIntoView({
+      behavior: 'smooth',
+    });
+  }, [messages, loading, interimTranscript]);
 
-  async function handleSubmit(e?: React.FormEvent) {
-    e?.preventDefault();
-    const text = input.trim();
-    if (!text || loading) return;
+  /*
+   * Detect browser speech-recognition support.
+   *
+   * Nothing is started here because browsers require speech recognition
+   * to begin from a user interaction such as pressing the microphone.
+   */
+  useEffect(() => {
+    const supported =
+      typeof window !== 'undefined' &&
+      Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+    setSpeechSupported(supported);
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+        recognitionRef.current = null;
+      }
+    };
+  }, []);
+
+  /*
+   * Submit either typed text or a recognised voice transcript.
+   *
+   * Providing text directly is useful for speech recognition because React
+   * state updates are asynchronous.
+   */
+  async function submitMessage(textOverride?: string) {
+    const text = (textOverride ?? input).trim();
+
+    if (!text || loading) {
+      return;
+    }
 
     setLoading(true);
     setError(null);
     setInput('');
-    setMessages((prev) => [...prev, { role: 'user', text }]);
+    setInterimTranscript('');
 
-    const formData = new FormData();
-    if (sessionId) formData.set('sessionId', sessionId);
-    formData.set('message', text);
+    setMessages((previous) => [
+      ...previous,
+      {
+        role: 'user',
+        text,
+      },
+    ]);
 
-    const result = await askAi(formData);
-    setLoading(false);
+    try {
+      const formData = new FormData();
 
-    if (result.error) {
-      setError(result.error);
+      if (sessionId) {
+        formData.set('sessionId', sessionId);
+      }
+
+      formData.set('message', text);
+
+      const result = await askAi(formData);
+
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      if (result.success) {
+        setSessionId(result.sessionId);
+
+        /*
+         * Urdu-script users receive the Urdu response when available.
+         *
+         * English and Roman-Urdu users receive the English response.
+         *
+         * This avoids displaying both languages after every message.
+         */
+        const responseText =
+          containsUrduScript(text) && result.replyUrdu
+            ? result.replyUrdu
+            : result.reply;
+
+        setMessages((previous) => [
+          ...previous,
+          {
+            role: 'ai',
+            text: responseText,
+            tool: result.tool,
+            actions: result.suggestedActions,
+          },
+        ]);
+
+        if (result.pendingActionId) {
+          setPending((previous) => [
+            ...previous,
+            {
+              id: result.pendingActionId!,
+              actionType: result.pendingActionType ?? result.tool,
+              humanSummary:
+                result.pendingActionSummary ?? 'Review requested action',
+            },
+          ]);
+        }
+      }
+    } catch (requestError) {
+      console.error('AgriConnect AI request failed:', requestError);
+
+      setError(
+        'AgriConnect AI could not process your request. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSubmit(event?: React.FormEvent) {
+    event?.preventDefault();
+
+    await submitMessage();
+  }
+
+  /*
+   * Starts actual microphone recognition.
+   *
+   * Urdu mode:
+   *   language = ur-PK
+   *
+   * English mode:
+   *   language = en-US
+   *
+   * Roman Urdu does not have its own speech locale because Roman Urdu is
+   * Urdu language written in Latin characters. For speech, the user should
+   * use Urdu mode. Typed Roman Urdu can be entered normally.
+   */
+  function startVoiceRecognition() {
+    setError(null);
+
+    if (isListening) {
+      recognitionRef.current?.stop();
       return;
     }
 
-    if (result.success) {
-      setSessionId(result.sessionId);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'ai',
-          text: result.replyUrdu ? `${result.reply}\n\n${result.replyUrdu}` : result.reply,
-          tool: result.tool,
-          actions: result.suggestedActions,
-        },
-      ]);
-      if (result.pendingActionId) {
-        setPending((prev) => [
-          ...prev,
-          {
-            id: result.pendingActionId!,
-            actionType: result.pendingActionType ?? result.tool,
-            humanSummary: result.pendingActionSummary ?? 'Review requested action',
-          },
-        ]);
-      }
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setSpeechSupported(false);
+
+      setError(
+        'Voice input is not supported in this browser. Please use Chrome or Microsoft Edge, or type your message.'
+      );
+
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+
+      recognition.lang = voiceLanguage;
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      recognitionRef.current = recognition;
+
+      let finalTranscript = '';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setInterimTranscript('');
+        setError(null);
+      };
+
+      recognition.onresult = (event) => {
+        let interim = '';
+
+        for (
+          let index = event.resultIndex;
+          index < event.results.length;
+          index += 1
+        ) {
+          const result = event.results[index];
+
+          if (!result?.[0]) {
+            continue;
+          }
+
+          const transcript = result[0].transcript.trim();
+
+          if (result.isFinal) {
+            finalTranscript += `${finalTranscript ? ' ' : ''}${transcript}`;
+          } else {
+            interim += `${interim ? ' ' : ''}${transcript}`;
+          }
+        }
+
+        if (finalTranscript) {
+          setInput(finalTranscript);
+          setInterimTranscript('');
+        } else {
+          setInterimTranscript(interim);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        setIsListening(false);
+        setInterimTranscript('');
+
+        /*
+         * "aborted" usually means the user manually stopped recognition.
+         * We do not need to show that as an error.
+         */
+        if (event.error === 'aborted') {
+          return;
+        }
+
+        if (
+          event.error === 'not-allowed' ||
+          event.error === 'service-not-allowed'
+        ) {
+          setError(
+            'Microphone access is blocked. Allow microphone permission for this website and try again.'
+          );
+
+          return;
+        }
+
+        if (event.error === 'no-speech') {
+          setError(
+            voiceLanguage === 'ur-PK'
+              ? 'Awaaz samajh nahi aayi. Dobara microphone press karke bolain.'
+              : 'I could not hear anything. Press the microphone and try again.'
+          );
+
+          return;
+        }
+
+        if (event.error === 'audio-capture') {
+          setError(
+            'No microphone was detected. Check your microphone and browser permissions.'
+          );
+
+          return;
+        }
+
+        if (event.error === 'network') {
+          setError(
+            'Speech recognition could not connect. Check your internet connection and try again.'
+          );
+
+          return;
+        }
+
+        setError(
+          `Voice recognition failed${
+            event.error ? ` (${event.error})` : ''
+          }. You can still type your message.`
+        );
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        setInterimTranscript('');
+
+        recognitionRef.current = null;
+
+        /*
+         * We intentionally do NOT automatically send the transcript.
+         *
+         * The recognised sentence is placed inside the input field so the
+         * user can quickly correct names, quantities or crop terms before
+         * submitting a financially relevant agricultural request.
+         */
+      };
+
+      recognition.start();
+    } catch (recognitionError) {
+      console.error('Unable to start speech recognition:', recognitionError);
+
+      setIsListening(false);
+
+      setError(
+        'The microphone could not be started. Check browser microphone permission and try again.'
+      );
     }
   }
 
   async function handleConfirm(actionId: string) {
     setLoading(true);
+    setError(null);
+
     const formData = new FormData();
     formData.set('actionId', actionId);
-    const result = await confirmAgentAction(formData);
-    setLoading(false);
-    if (result.error) {
-      setError(result.error);
-      return;
+
+    try {
+      const result = await confirmAgentAction(formData);
+
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      setPending((previous) =>
+        previous.filter((action) => action.id !== actionId)
+      );
+
+      if (result.href) {
+        router.push(result.href);
+      }
+    } finally {
+      setLoading(false);
     }
-    setPending((prev) => prev.filter((a) => a.id !== actionId));
-    if (result.href) router.push(result.href);
   }
 
   async function handleCancel(actionId: string) {
     const formData = new FormData();
     formData.set('actionId', actionId);
+
     const result = await cancelAgentAction(formData);
+
     if (result.error) {
       setError(result.error);
       return;
     }
-    setPending((prev) => prev.filter((a) => a.id !== actionId));
+
+    setPending((previous) =>
+      previous.filter((action) => action.id !== actionId)
+    );
   }
 
   function renderTextWithLineBreaks(text: string) {
-    return text.split('\n').map((line, i) => (
-      <span key={i} className="block">
+    return text.split('\n').map((line, index) => (
+      <span key={index} className="block">
         {line}
       </span>
     ));
@@ -180,11 +530,18 @@ export default function AssistantChat({
           <div className="w-9 h-9 rounded-full bg-agri-900 text-white flex items-center justify-center">
             <Sparkles className="w-4 h-4" />
           </div>
+
           <div>
-            <h1 className="text-sm font-bold text-agri-900">AgriConnect AI</h1>
-            <p className="text-[10px] text-agri-900/80">Voice-first mandi assistant</p>
+            <h1 className="text-sm font-bold text-agri-900">
+              AgriConnect AI
+            </h1>
+
+            <p className="text-[10px] text-agri-900/80">
+              English · Urdu · Roman Urdu
+            </p>
           </div>
         </div>
+
         <span className="text-[10px] bg-white text-agri-900 border border-[#B7D4C8] px-2 py-0.5 rounded-full font-semibold">
           {user.role}
         </span>
@@ -193,30 +550,44 @@ export default function AssistantChat({
       {/* Pending actions */}
       {pending.length > 0 && (
         <div className="bg-amber-50 border-b border-amber-200 p-3 space-y-2">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Pending Actions</div>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
+            Pending Actions
+          </div>
+
           {pending.map((action) => (
             <div
               key={action.id}
-              className="flex items-center justify-between bg-white border border-amber-200 rounded-lg p-2.5"
+              className="flex items-center justify-between gap-3 bg-white border border-amber-200 rounded-lg p-2.5"
             >
-              <div className="text-xs text-charcoal">
-                <span className="font-semibold">{action.actionType.replace(/_/g, ' ')}</span>
-                <span className="text-[#636E72] ml-1">— {action.humanSummary}</span>
+              <div className="text-xs text-charcoal min-w-0">
+                <span className="font-semibold">
+                  {action.actionType.replace(/_/g, ' ')}
+                </span>
+
+                <span className="text-[#636E72] ml-1">
+                  — {action.humanSummary}
+                </span>
               </div>
-              <div className="flex items-center gap-1.5">
+
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
+                  type="button"
                   onClick={() => handleConfirm(action.id)}
                   disabled={loading}
                   className="flex items-center gap-1 bg-agri-900 hover:bg-agri-800 disabled:opacity-50 text-white text-[10px] font-semibold px-2 py-1 rounded transition-colors"
                 >
-                  <CheckCircle2 className="w-3 h-3" /> Confirm
+                  <CheckCircle2 className="w-3 h-3" />
+                  Confirm
                 </button>
+
                 <button
+                  type="button"
                   onClick={() => handleCancel(action.id)}
                   disabled={loading}
                   className="flex items-center gap-1 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 disabled:opacity-50 text-[10px] font-semibold px-2 py-1 rounded transition-colors"
                 >
-                  <XCircle className="w-3 h-3" /> Cancel
+                  <XCircle className="w-3 h-3" />
+                  Cancel
                 </button>
               </div>
             </div>
@@ -226,18 +597,30 @@ export default function AssistantChat({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#F8F9F5]">
-        {messages.map((msg, idx) => {
-          const isUser = msg.role === 'user';
-          const Icon = isUser ? User : toolIcons[msg.tool || 'help'] || Bot;
+        {messages.map((message, index) => {
+          const isUser = message.role === 'user';
+
+          const Icon = isUser
+            ? User
+            : toolIcons[message.tool || 'help'] || Bot;
+
           return (
-            <div key={idx} className={`flex gap-2.5 ${isUser ? 'flex-row-reverse' : ''}`}>
+            <div
+              key={index}
+              className={`flex gap-2.5 ${
+                isUser ? 'flex-row-reverse' : ''
+              }`}
+            >
               <div
                 className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center ${
-                  isUser ? 'bg-[#E5E7EB] text-charcoal' : 'bg-agri-900 text-white'
+                  isUser
+                    ? 'bg-[#E5E7EB] text-charcoal'
+                    : 'bg-agri-900 text-white'
                 }`}
               >
                 <Icon className="w-4 h-4" />
               </div>
+
               <div className="max-w-[80%] space-y-2">
                 <div
                   className={`rounded-2xl px-4 py-2.5 text-xs leading-relaxed whitespace-pre-line ${
@@ -246,38 +629,70 @@ export default function AssistantChat({
                       : 'bg-white border border-[#E5E7EB] text-charcoal rounded-bl-none shadow-sm'
                   }`}
                 >
-                  {renderTextWithLineBreaks(msg.text)}
+                  {renderTextWithLineBreaks(message.text)}
                 </div>
-                {!isUser && msg.actions && msg.actions.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {msg.actions.map((action) => (
-                      <Link
-                        key={action.href + action.label}
-                        href={action.href}
-                        className="text-[10px] font-semibold text-agri-900 bg-white border border-[#B7D4C8] hover:bg-[#E8F3EE] rounded-full px-2.5 py-1 transition-colors"
-                      >
-                        {action.label}
-                      </Link>
-                    ))}
-                  </div>
-                )}
+
+                {!isUser &&
+                  message.actions &&
+                  message.actions.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {message.actions.map((action) => (
+                        <Link
+                          key={`${action.href}-${action.label}`}
+                          href={action.href}
+                          className="text-[10px] font-semibold text-agri-900 bg-white border border-[#B7D4C8] hover:bg-[#E8F3EE] rounded-full px-2.5 py-1 transition-colors"
+                        >
+                          {action.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
               </div>
             </div>
           );
         })}
+
+        {isListening && (
+          <div className="flex gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-rose-600 text-white flex items-center justify-center">
+              <Mic className="w-4 h-4 animate-pulse" />
+            </div>
+
+            <div className="bg-white border border-rose-200 rounded-2xl rounded-bl-none px-4 py-2.5 text-xs text-charcoal">
+              <div className="font-semibold text-rose-700">
+                {voiceLanguage === 'ur-PK'
+                  ? 'Listening... Urdu mein bolain'
+                  : 'Listening... Speak in English'}
+              </div>
+
+              {interimTranscript && (
+                <div className="mt-1 text-[#636E72]">
+                  {interimTranscript}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {loading && (
           <div className="flex gap-2.5">
             <div className="w-8 h-8 rounded-full bg-agri-900 text-white flex items-center justify-center">
               <Bot className="w-4 h-4" />
             </div>
+
             <div className="bg-white border border-[#E5E7EB] rounded-2xl rounded-bl-none px-4 py-2.5 text-xs text-[#636E72] flex items-center gap-2">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" /> AgriConnect AI is thinking...
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              AgriConnect AI is thinking...
             </div>
           </div>
         )}
+
         {error && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-lg">{error}</div>
+          <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-lg">
+            {error}
+          </div>
         )}
+
         <div ref={bottomRef} />
       </div>
 
@@ -286,6 +701,7 @@ export default function AssistantChat({
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
           {quickPrompts.map((prompt) => (
             <button
+              type="button"
               key={prompt}
               onClick={() => setInput(prompt)}
               className="flex items-center gap-1.5 bg-[#F8F9F5] hover:bg-[#E8F3EE] text-charcoal border border-[#E5E7EB] rounded-full px-3 py-1.5 text-[11px] font-medium whitespace-nowrap transition-colors"
@@ -298,31 +714,104 @@ export default function AssistantChat({
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="p-4 bg-white border-t border-[#E5E7EB]">
+      <form
+        onSubmit={handleSubmit}
+        className="p-4 bg-white border-t border-[#E5E7EB]"
+      >
+        {/* Voice language selector */}
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[10px] text-[#636E72]">
+            Speak in Urdu or English · Roman Urdu can be typed
+          </span>
+
+          <div className="flex items-center rounded-lg border border-[#E5E7EB] overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setVoiceLanguage('ur-PK')}
+              disabled={isListening}
+              className={`px-2.5 py-1 text-[10px] font-semibold transition-colors ${
+                voiceLanguage === 'ur-PK'
+                  ? 'bg-agri-900 text-white'
+                  : 'bg-white text-[#636E72] hover:bg-[#F8F9F5]'
+              }`}
+            >
+              Urdu
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setVoiceLanguage('en-US')}
+              disabled={isListening}
+              className={`px-2.5 py-1 text-[10px] font-semibold transition-colors ${
+                voiceLanguage === 'en-US'
+                  ? 'bg-agri-900 text-white'
+                  : 'bg-white text-[#636E72] hover:bg-[#F8F9F5]'
+              }`}
+            >
+              English
+            </button>
+          </div>
+        </div>
+
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="p-2.5 rounded-full bg-[#F8F9F5] hover:bg-[#E8F3EE] text-agri-900 border border-[#E5E7EB] transition-colors"
-            title="Voice input (simulated)"
-            onClick={() => setInput('Tomato price today?')}
+            onClick={startVoiceRecognition}
+            disabled={!speechSupported || loading}
+            title={
+              !speechSupported
+                ? 'Voice input is not supported by this browser'
+                : isListening
+                  ? 'Stop listening'
+                  : voiceLanguage === 'ur-PK'
+                    ? 'Urdu voice input'
+                    : 'English voice input'
+            }
+            aria-label={
+              isListening ? 'Stop voice recognition' : 'Start voice recognition'
+            }
+            className={`p-2.5 rounded-full border transition-all ${
+              isListening
+                ? 'bg-rose-600 border-rose-600 text-white shadow-sm'
+                : 'bg-[#F8F9F5] hover:bg-[#E8F3EE] text-agri-900 border-[#E5E7EB]'
+            } disabled:opacity-40 disabled:cursor-not-allowed`}
           >
-            <Mic className="w-4 h-4" />
+            {isListening ? (
+              <MicOff className="w-4 h-4" />
+            ) : (
+              <Mic className="w-4 h-4" />
+            )}
           </button>
+
           <input
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask AgriConnect AI in English or Urdu..."
-            className="flex-1 bg-[#F8F9F5] border border-[#E5E7EB] rounded-xl px-4 py-2.5 text-xs text-charcoal placeholder:text-[#636E72] focus:outline-none focus:ring-2 focus:ring-agri-900/20"
+            onChange={(event) => setInput(event.target.value)}
+            placeholder="Ask in English, Urdu, or Roman Urdu..."
+            disabled={loading}
+            className="flex-1 bg-[#F8F9F5] border border-[#E5E7EB] rounded-xl px-4 py-2.5 text-xs text-charcoal placeholder:text-[#636E72] focus:outline-none focus:ring-2 focus:ring-agri-900/20 disabled:opacity-60"
           />
+
           <button
             type="submit"
-            disabled={!input.trim() || loading}
+            disabled={!input.trim() || loading || isListening}
             className="p-2.5 rounded-full bg-agri-900 hover:bg-agri-800 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+            aria-label="Send message"
           >
-            <Send className="w-4 h-4" />
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
           </button>
         </div>
+
+        {!speechSupported && (
+          <p className="text-[10px] text-amber-700 mt-2">
+            Voice recognition is unavailable in this browser. Use Chrome or
+            Microsoft Edge, or continue by typing.
+          </p>
+        )}
       </form>
     </div>
   );
