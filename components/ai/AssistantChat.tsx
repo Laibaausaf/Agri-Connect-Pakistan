@@ -177,16 +177,23 @@ export default function AssistantChat({
   const [voiceLanguage, setVoiceLanguage] = useState<VoiceLanguage>('ur-PK');
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   /*
    * Keeps the message area scrolled to the latest message.
    */
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({
+    // Scroll only the chat message pane, never the whole document/page.
+    // This prevents the assistant screen from jumping when a reply arrives.
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    container.scrollTo({
+      top: container.scrollHeight,
       behavior: 'smooth',
     });
-  }, [messages, loading, interimTranscript]);
+  }, [messages, loading]);
 
   /*
    * Detect browser speech-recognition support.
@@ -519,7 +526,13 @@ export default function AssistantChat({
   }
 
   function renderTextWithLineBreaks(text: string) {
-    return text.split('\n').map((line, index) => (
+    // Models sometimes return escaped Markdown markers; show clean text.
+    const cleanedText = text
+      .replace(/\\\*\\\*/g, '')
+      .replace(/\*\*/g, '')
+      .replace(/^\s*[-•]\s*/gm, '• ');
+
+    return cleanedText.split('\n').map((line, index) => (
       <span key={index} className="block">
         {line}
       </span>
@@ -527,7 +540,7 @@ export default function AssistantChat({
   }
 
   return (
-    <div className="flex flex-col h-full bg-white border border-[#E5E7EB] rounded-2xl shadow-sm overflow-hidden">
+    <div className="flex flex-col h-full min-h-0 bg-white border border-[#E5E7EB] rounded-2xl shadow-sm overflow-hidden">
       {/* Header */}
       <div className="bg-[#E8F3EE] border-b border-[#B7D4C8] p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -600,7 +613,7 @@ export default function AssistantChat({
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#F8F9F5]">
+      <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 bg-[#F8F9F5] overscroll-contain">
         {messages.map((message, index) => {
           const isUser = message.role === 'user';
 
@@ -625,7 +638,7 @@ export default function AssistantChat({
                 <Icon className="w-4 h-4" />
               </div>
 
-              <div className="max-w-[80%] space-y-2">
+              <div className="max-w-[88%] space-y-2">
                 <div
                   className={`rounded-2xl px-4 py-2.5 text-xs leading-relaxed whitespace-pre-line ${
                     isUser

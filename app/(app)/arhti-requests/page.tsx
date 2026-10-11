@@ -56,11 +56,11 @@ export default async function ArhtiRequestsPage() {
       <PageHeader
         title="Arhti Requests"
         titleUrdu="آڑھتی کی طلب"
-        subtitle="Price offers arhtis have sent for your crop, and what commission agents are looking to buy this week."
+        subtitle="Review a price, then accept or decline. آفر دیکھیں، پھر منظور یا انکار کریں۔"
       />
 
-      <h2 className="text-xs font-bold uppercase tracking-wider text-[#636E72] mb-2">
-        Offers waiting for your answer
+      <h2 className="text-base font-bold text-charcoal mb-1">
+        Offers waiting for your answer <span className="font-normal text-sm text-[#636E72]">(جواب دینا ہے)</span>
       </h2>
       {pendingOffers.length === 0 ? (
         <EmptyState
@@ -145,9 +145,9 @@ export default async function ArhtiRequestsPage() {
         </div>
       )}
 
-      <h2 className="text-xs font-bold uppercase tracking-wider text-[#636E72] mt-8 mb-2">
-        What arhtis are buying this week
-      </h2>
+      <details className="mt-6 rounded-xl border border-[#E5E7EB] bg-white p-3">
+        <summary className="cursor-pointer text-sm font-bold text-charcoal">What arhtis need this week <span className="font-normal text-[#636E72]">(اس ہفتے آڑھتیوں کو کیا چاہیے)</span></summary>
+        <div className="pt-3">
       {openDemand.length === 0 ? (
         <Card>
           <p className="text-xs text-[#636E72]">No open buy requests at the moment.</p>
@@ -210,6 +210,8 @@ export default async function ArhtiRequestsPage() {
           </Card>
         </>
       )}
+        </div>
+      </details>
     </div>
   );
 }

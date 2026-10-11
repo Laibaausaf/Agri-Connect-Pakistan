@@ -43,9 +43,7 @@ export default function MobileNav({ role, badges }: MobileNavProps) {
                   </span>
                 )}
               </div>
-              <span className="text-[10px] mt-0.5 tracking-tight truncate max-w-full">
-                {item.label}
-              </span>
+              <span className="mt-0.5 max-w-full truncate text-[10px] leading-tight tracking-tight">{item.label}</span>{role === UserRole.FARMER && <span className="max-w-full truncate text-[9px] leading-tight opacity-75">{item.labelUrdu}</span>}
             </Link>
           );
         })}

@@ -80,7 +80,7 @@ export default function Sidebar({ role, badges, userName, userCity, aiHint }: Si
                     <Icon
                       className={`w-4 h-4 shrink-0 ${isActive ? 'text-agri-900' : 'text-[#636E72]'}`}
                     />
-                    <span className="truncate">{item.label}</span>
+                    <span className="min-w-0 truncate"><span className="block truncate">{item.label}</span>{role === UserRole.FARMER && <span className="block truncate text-[10px] font-normal opacity-75">{item.labelUrdu}</span>}</span>
                   </div>
                   {badge && (
                     <span

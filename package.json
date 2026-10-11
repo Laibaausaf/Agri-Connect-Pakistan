@@ -14,7 +14,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force && npm run db:seed",
     "db:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "verify:amis-data": "tsx scripts/verify-amis-data.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",

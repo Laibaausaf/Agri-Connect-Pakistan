@@ -39,12 +39,12 @@ export default async function DealsPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <PageHeader
-        title={isFarmer ? 'My Deals' : 'Farmer Deals'}
+        title={isFarmer ? 'میرے سودے' : 'Farmer Deals'}
         titleUrdu={isFarmer ? 'میرے سودے' : 'کسان سودے'}
         subtitle={
           isFarmer
-            ? 'Every accepted offer becomes a deal. Track pickup, weighing at the mandi and your payment here.'
-            : 'Produce you have committed to buy from farmers, from agreement through weighing to payment.'
+            ? 'اپنی فصل، وزن، ترسیل اور ادائیگی کی صورتحال یہاں دیکھیں۔'
+            : 'Track purchases from agreement through weighing to payment.'
         }
       />
 
@@ -121,22 +121,22 @@ function DealRow({ deal, isFarmer }: { deal: DealListItem; isFarmer: boolean }) 
             <div className="text-[11px] text-[#636E72] font-mono mt-0.5">{deal.dealNumber}</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
               <div>
-                <div className="text-[10px] text-[#636E72]">{isFarmer ? 'Arhti' : 'Farmer'}</div>
+                <div className="text-[10px] text-[#636E72]">{isFarmer ? 'آڑھتی' : 'Farmer'}</div>
                 <div className="font-semibold text-charcoal truncate">
                   {isFarmer ? deal.arhti.name : deal.farmer.name}
                 </div>
               </div>
               <div>
-                <div className="text-[10px] text-[#636E72]">Quantity</div>
+                <div className="text-[10px] text-[#636E72]">مقدار</div>
                 <div className="font-semibold text-charcoal">{qty(quantity)}</div>
               </div>
               <div>
-                <div className="text-[10px] text-[#636E72]">Rate</div>
+                <div className="text-[10px] text-[#636E72]">فی کلو نرخ</div>
                 <div className="font-semibold text-agri-900">{money(deal.agreedPricePerKg)}/kg</div>
               </div>
               <div>
                 <div className="text-[10px] text-[#636E72]">
-                  {isFarmer ? 'Net payable' : 'Destination'}
+                  {isFarmer ? 'آپ کو ملنے ہیں' : 'Destination'}
                 </div>
                 <div className="font-semibold text-charcoal truncate">
                   {isFarmer

@@ -6,6 +6,12 @@ import { requireCapability, type SessionUser } from '@/lib/authz';
 import { can, type Capability, ROLE_LABEL } from '@/lib/permissions';
 import { askAiSchema, confirmAgentActionSchema } from '@/lib/validations/ai';
 import {
+  AMIS_DEFAULT_CITIES,
+  AMIS_TOMATO_PRICES,
+  AMIS_TOMATO_REPORT_DATE,
+  AMIS_TOMATO_SOURCE,
+} from '@/lib/data/amis-tomato-prices';
+import {
   AuctionStatus,
   ConsumerOrderStatus,
   CropBatchStatus,
@@ -92,6 +98,67 @@ function cropFrom(text: string): string | null {
 
 async function pricesTool(_user: SessionUser, text: string): Promise<ToolReply> {
   const crop = cropFrom(text);
+  const lowerText = text.toLowerCase();
+
+  // The supplied AMIS PDF contains a dated tomato report. Prefer that source
+  // over demo MarketPrice rows whenever the user asks about tomato.
+  if (crop === 'Tomato') {
+    const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cityAliases: Record<string, string[]> = {
+      'TTSingh': ['ttsingh', 't t singh', 't.t. singh', 'tobateksingh'],
+      'RahimYarKhan': ['rahim yar khan', 'rahimyarkhan'],
+      'BahawalPur': ['bahawalpur', 'bahawal pur'],
+      'DGKHAN': ['dg khan', 'dgkhan', 'dera ghazi khan'],
+      'MandiBahaudin': ['mandi bahaudin', 'mandi bahauddin'],
+      'PirMahal': ['pir mahal', 'pirmahal'],
+      'Jauharabad': ['jauharabad', 'joharabad'],
+    };
+    const matchedCity = AMIS_TOMATO_PRICES.find((row) => {
+      const names = [row.city, ...(cityAliases[row.city] ?? [])];
+      return names.some((name) => {
+        const normalizedName = normalize(name);
+        return normalizedName.length >= 4 && normalize(lowerText).includes(normalizedName);
+      });
+    });
+
+    const rows = matchedCity
+      ? [matchedCity]
+      : AMIS_DEFAULT_CITIES
+          .map((city) => AMIS_TOMATO_PRICES.find((row) => row.city === city))
+          .filter((row): row is (typeof AMIS_TOMATO_PRICES)[number] => Boolean(row));
+
+    const quantityMatch = text.match(/([0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:kg|kgs|kilograms|کلو)/i);
+    const quantityKg = quantityMatch ? Number(quantityMatch[1].replace(/,/g, '')) : null;
+
+    const lines = rows.map((row) => {
+      if (row.fqp === null) {
+        return `${row.city}: no Min/Max/FQP price was reported in this AMIS table.`;
+      }
+      const fqpPerKg = row.fqp / 100;
+      const minText = row.min === null ? 'not reported' : `${money(row.min / 100)}/kg`;
+      const maxText = row.max === null ? 'not reported' : `${money(row.max / 100)}/kg`;
+      const line = `${row.city}: FQP ${money(row.fqp)} per 100 kg (about ${money(fqpPerKg)}/kg); reported range ${minText}–${maxText}.`;
+      if (quantityKg && quantityKg > 0 && matchedCity?.city === row.city) {
+        return `${line} At ${kg(quantityKg)}, the FQP-based wholesale reference is about ${money(quantityKg * fqpPerKg)} before transport, commission, grading, and other costs.`;
+      }
+      return line;
+    });
+
+    const locationNote = /islamabad/i.test(text)
+      ? ' Islamabad is not listed in this tomato table; Rawalpindi is a separate listed market and should not be treated as an Islamabad quote.'
+      : '';
+    const unitWarning =
+      'Unit caution: the supplied PDF does not print the price unit. The per-kg figures above assume AMIS prices are reported per 100 kg; verify this against the original AMIS page before relying on the conversion.';
+    const farmerNote =
+      'These are mandi/wholesale reference prices, not guaranteed farm-gate offers or a promise of what a farmer will receive. Compare them with actual arhti offers.';
+
+    return {
+      reply: `AMIS tomato price reference — ${AMIS_TOMATO_REPORT_DATE}\\nSource: ${AMIS_TOMATO_SOURCE}\\n\\n${lines.join('\\n')}\\n\\n${unitWarning}${locationNote}\\n${farmerNote}`,
+      replyUrdu: `AMIS ٹماٹر قیمت حوالہ — ${AMIS_TOMATO_REPORT_DATE}\\n${lines.join('\\n')}\\n\\nیہ منڈی کے حوالہ جاتی نرخ ہیں، کسان کو ملنے والی یقینی قیمت نہیں۔ فراہم کردہ PDF میں قیمت کی اکائی واضح نہیں، اس لیے فی کلو تبدیلی کی تصدیق ضروری ہے۔`,
+      suggestedActions: [{ label: 'Add crop batch', href: '/crops/new' }],
+    };
+  }
+
   const prices = await prisma.marketPrice.findMany({
     where: crop ? { crop: { name: crop } } : undefined,
     include: { crop: true, mandi: true },
@@ -101,28 +168,22 @@ async function pricesTool(_user: SessionUser, text: string): Promise<ToolReply> 
 
   if (!prices.length) {
     return {
-      reply: 'No published mandi rates yet. Rates appear once the mandi records the day’s arrivals.',
-      replyUrdu: 'ابھی منڈی کے نرخ شامل نہیں کیے گئے۔',
+      reply: 'No matching price records are available in the app database. I cannot provide a verified current quote from the attached documents for this crop yet.',
+      replyUrdu: 'اس فصل کے لیے ایپ میں قیمت کا ریکارڈ موجود نہیں۔ منسلک دستاویزات سے موجودہ تصدیق شدہ نرخ فراہم نہیں کیا جا سکتا۔',
     };
   }
 
   const lines = prices.map((p) => {
-    const arrow = p.trend === 'up' ? '▲' : p.trend === 'down' ? '▼' : '=';
-    const sign = p.changePercent >= 0 ? '+' : '';
-    return `${p.crop.name} · ${p.mandi.name}: ${money(p.ratePerKg)}/kg ${arrow} ${sign}${p.changePercent}%`;
+    const date = p.recordedAt.toISOString().slice(0, 10);
+    return `${p.crop.name} · ${p.mandi.name}: ${money(p.ratePerKg)}/kg (app database record dated ${date}; source/current status not independently verified)`;
   });
-
   const urduLines = prices.map(
     (p) => `${p.crop.nameUrdu ?? p.crop.name} · ${p.mandi.name}: ${money(p.ratePerKg)}/کلو`
   );
 
-  const arrivals = prices.find((p) => p.dailyArrivalTonnes !== null)?.dailyArrivalTonnes;
-
   return {
-    reply: `${crop ? `${crop} rates` : 'Latest mandi rates'}:\n\n${lines.join('\n')}${
-      arrivals ? `\n\nToday's arrivals: about ${arrivals} tonnes.` : ''
-    }`,
-    replyUrdu: `${crop ? 'نرخ' : 'منڈی کے تازہ نرخ'}:\n\n${urduLines.join('\n')}`,
+    reply: `App database price records (not verified as live official quotations):\\n\\n${lines.join('\\n')}\\n\\nUse these only as application reference data unless their source and date are independently confirmed.`,
+    replyUrdu: `ایپ کے ڈیٹابیس میں قیمتوں کا ریکارڈ (موجودہ سرکاری نرخ کے طور پر تصدیق شدہ نہیں):\\n\\n${urduLines.join('\\n')}`,
   };
 }
 

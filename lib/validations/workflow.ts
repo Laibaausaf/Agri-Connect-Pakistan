@@ -12,9 +12,9 @@ export const createCropBatchSchema = z.object({
   originCity: z.string().min(2, 'Enter your city or tehsil'),
   originProvince: z.string().min(2, 'Select your province'),
   harvestDate: z.coerce.date(),
-  readyDate: z.coerce.date().optional(),
+  readyDate: z.preprocess((value) => value === '' || value == null ? undefined : value, z.coerce.date().optional()),
   packaging: z.string().optional(),
-  askingPricePerKg: z.coerce.number().positive().optional(),
+  askingPricePerKg: z.preprocess((value) => value === '' || value == null ? undefined : value, z.coerce.number().positive().optional()),
   photos: z.string().optional(),
   notes: z.string().max(500).optional(),
 });

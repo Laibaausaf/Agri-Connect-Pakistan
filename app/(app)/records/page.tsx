@@ -91,14 +91,13 @@ export default async function RecordsPage() {
       <PageHeader
         title="Payments & Records"
         titleUrdu="ادائیگی اور پرچی"
-        subtitle="Every settlement the arhti raised against your produce, with the exact deductions and your parchee receipt."
+        subtitle="See how much you received and what is still due. رقم ملا یا باقی ہے، یہاں دیکھیں۔"
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 gap-3 mb-4">
         <StatCard label="Received" value={money(earned)} tone="accent" />
         <StatCard label="Awaiting payment" value={money(awaited)} tone={awaited > 0 ? 'warn' : 'default'} />
-        <StatCard label="Total deductions" value={money(deducted)} hint="Commission, freight, cess" />
-        <StatCard label="Settlements" value={String(settlements.length)} />
+        
       </div>
 
       {settlements.length === 0 ? (
@@ -154,7 +153,9 @@ export default async function RecordsPage() {
                   </div>
                 </div>
 
-                <dl className="mt-3 pt-3 border-t border-[#E5E7EB] text-xs space-y-1.5">
+                <details className="mt-3 border-t border-[#E5E7EB] pt-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-agri-900">View payment breakdown <span className="font-normal text-[#636E72]">(تفصیل دیکھیں)</span></summary>
+                <dl className="mt-3 text-sm space-y-2">
                   <div className="flex justify-between">
                     <dt className="text-[#636E72]">Gross</dt>
                     <dd className="font-semibold text-charcoal">{money(settlement.grossAmount)}</dd>
@@ -170,6 +171,7 @@ export default async function RecordsPage() {
                     <dd className="font-bold text-agri-900">{money(settlement.netPayable)}</dd>
                   </div>
                 </dl>
+                </details>
 
                 <div className="mt-3 flex items-center gap-3">
                   <Link
