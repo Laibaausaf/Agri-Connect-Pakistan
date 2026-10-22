@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserRole } from '@prisma/client';
 import { ROLE_MOBILE_NAV, type NavBadges } from '@/lib/navigation';
+import { useI18n } from '@/components/i18n/LanguageProvider';
 import { navIcon } from './navIcons';
 
 type MobileNavProps = {
@@ -13,6 +14,7 @@ type MobileNavProps = {
 
 export default function MobileNav({ role, badges }: MobileNavProps) {
   const pathname = usePathname() ?? '';
+  const { nav } = useI18n();
   const items = ROLE_MOBILE_NAV[role] ?? [];
 
   return (
@@ -38,12 +40,14 @@ export default function MobileNav({ role, badges }: MobileNavProps) {
               <div className="relative">
                 <Icon className={`w-5 h-5 ${isActive ? 'text-agri-900' : 'text-[#636E72]'}`} />
                 {count > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-1 bg-agri-900 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                  <span className="absolute -top-1 -end-1 min-w-[14px] h-[14px] px-1 bg-agri-900 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
                     {count > 9 ? '9+' : count}
                   </span>
                 )}
               </div>
-              <span className="mt-0.5 max-w-full truncate text-[10px] leading-tight tracking-tight">{item.label}</span>{role === UserRole.FARMER && <span className="max-w-full truncate text-[9px] leading-tight opacity-75">{item.labelUrdu}</span>}
+              <span className="mt-0.5 max-w-full truncate text-[10px] leading-tight tracking-tight">
+                {nav(item.label, role)}
+              </span>
             </Link>
           );
         })}

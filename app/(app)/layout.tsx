@@ -1,4 +1,6 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { Noto_Nastaliq_Urdu } from 'next/font/google';
 import { UserRole } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
@@ -6,14 +8,25 @@ import Header from '@/components/layout/Header';
 import ConsumerHeader from '@/components/layout/ConsumerHeader';
 import Sidebar from '@/components/layout/Sidebar';
 import MobileNav from '@/components/layout/MobileNav';
+import { LanguageProvider } from '@/components/i18n/LanguageProvider';
 import { loadNavBadges } from '@/lib/navBadges';
+import { getI18n } from '@/lib/i18n/server';
 
-const AI_HINTS: Partial<Record<UserRole, string>> = {
-  FARMER: 'Ask “Aaj tamatar ka bhao kya hai?” before you accept an arhti offer.',
-  ARHTI: 'Ask which lots are worth auctioning today and at what reserve.',
-  VENDOR: 'Ask for the wholesale margin on your current warehouse stock.',
-  SHOPKEEPER: 'Ask which crop is selling fastest in your locality this week.',
-};
+// Urdu font for Urdu mode, downloaded at build time and served by the app.
+const urduFont = Noto_Nastaliq_Urdu({
+  subsets: ['arabic'],
+  weight: ['400', '700'],
+  variable: '--font-urdu',
+  display: 'swap',
+});
+
+// Browser tab title in the chosen language (English keeps the root title).
+export async function generateMetadata(): Promise<Metadata> {
+  const { isUrdu, t } = await getI18n();
+  return isUrdu ? { title: t('meta.title'), description: t('meta.description') } : {};
+}
+
+const AI_HINT_ROLES: UserRole[] = [UserRole.FARMER, UserRole.ARHTI, UserRole.VENDOR, UserRole.SHOPKEEPER];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -41,11 +54,25 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const role = user.role;
   const badges = await loadNavBadges(user.id, role);
+  const i18n = await getI18n();
+
+  // Urdu mode: right-to-left layout and the Urdu font for everything inside.
+  const wrap = (content: React.ReactNode) => (
+    <LanguageProvider lang={i18n.lang}>
+      <div
+        lang={i18n.lang}
+        dir={i18n.dir}
+        className={i18n.isUrdu ? `${urduFont.variable} urdu-mode` : undefined}
+      >
+        {content}
+      </div>
+    </LanguageProvider>
+  );
 
   if (role === UserRole.CONSUMER) {
     const address = user.consumerProfile?.deliveryAddress;
     const city = user.consumerProfile?.preferredCity ?? user.location ?? 'Islamabad';
-    return (
+    return wrap(
       <div className="min-h-screen bg-surface flex flex-col">
         <ConsumerHeader name={user.name} location={address ? `${address}` : city} />
         <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-4 pb-24">{children}</main>
@@ -64,10 +91,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
 
   const mandi = user.arhtiProfile?.mandi;
-  const contextLabel = mandi ? mandi.name.split('(')[0].trim() : user.location ?? 'Pakistan Pilot Network';
-  const contextDetail = mandi?.city ?? undefined;
+  const contextLabel = mandi
+    ? i18n.place(mandi.name.split('(')[0].trim())
+    : user.location
+      ? i18n.place(user.location)
+      : i18n.t('header.pilotNetwork');
+  const contextDetail = mandi?.city ? i18n.place(mandi.city) : undefined;
 
-  return (
+  return wrap(
     <div className="min-h-screen bg-surface flex flex-col">
       <Header
         user={{
@@ -87,8 +118,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           role={role}
           badges={badges}
           userName={user.name}
-          userCity={user.location}
-          aiHint={AI_HINTS[role]}
+          userCity={user.location ? i18n.place(user.location) : null}
+          aiHint={AI_HINT_ROLES.includes(role) ? i18n.t(`aiHint.${role}` as 'aiHint.FARMER') : undefined}
         />
         <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6">{children}</main>
       </div>

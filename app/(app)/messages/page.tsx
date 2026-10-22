@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import { MessageSquare, ArrowLeft } from 'lucide-react';
+import { getI18n } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,7 @@ export default async function MessagesPage() {
   if (!session?.user?.id) redirect('/login');
 
   const userId = session.user.id;
+  const { t, date } = await getI18n();
 
   const conversations = await prisma.conversation.findMany({
     where: {
@@ -56,20 +58,20 @@ export default async function MessagesPage() {
         href="/for-you"
         className="inline-flex items-center gap-1 text-xs font-medium text-[#636E72] hover:text-agri-900 mb-4"
       >
-        <ArrowLeft className="w-3.5 h-3.5" /> Back to dashboard
+        <ArrowLeft className="w-3.5 h-3.5 rtl:-scale-x-100" /> {t('messages.back')}
       </Link>
 
       <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-sm overflow-hidden">
         <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between">
           <h1 className="text-lg font-bold text-charcoal flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-agri-900" /> Messages
+            <MessageSquare className="w-5 h-5 text-agri-900" /> {t('messages.title')}
           </h1>
-          <span className="text-[11px] text-[#636E72]">{conversations.length} conversations</span>
+          <span className="text-[11px] text-[#636E72]">{t('messages.count', { count: conversations.length })}</span>
         </div>
 
         {enriched.length === 0 && (
           <div className="p-8 text-center text-sm text-[#636E72]">
-            No messages yet. Start a conversation from an order or lot page.
+            {t('messages.empty')}
           </div>
         )}
 
@@ -93,16 +95,16 @@ export default async function MessagesPage() {
                   <span className="font-semibold text-charcoal text-sm truncate">{c.other.name}</span>
                   {c.lastMessage && (
                     <span className="text-[10px] text-[#636E72]">
-                      {new Date(c.lastMessage.createdAt).toLocaleDateString('en-PK')}
+                      {date(c.lastMessage.createdAt)}
                     </span>
                   )}
                 </div>
                 <div className="flex items-center justify-between mt-0.5">
                   <span className="text-xs text-[#636E72] truncate">
-                    {c.lastMessage ? c.lastMessage.text : 'No messages yet'}
+                    {c.lastMessage ? c.lastMessage.text : t('messages.noMessages')}
                   </span>
                   {c.unreadCount > 0 && (
-                    <span className="ml-2 bg-agri-900 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    <span className="ms-2 bg-agri-900 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                       {c.unreadCount}
                     </span>
                   )}

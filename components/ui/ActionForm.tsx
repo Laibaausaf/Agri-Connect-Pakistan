@@ -3,6 +3,7 @@
 import { useActionState } from 'react';
 import type { ReactNode } from 'react';
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { useI18n } from '@/components/i18n/LanguageProvider';
 
 export type ActionResult = { error?: string; success?: boolean } | null | undefined | void;
 
@@ -47,7 +48,11 @@ export default function ActionForm({
     null
   );
 
+  const { isUrdu, error: errorText } = useI18n();
   const isInline = variant === 'inline';
+
+  // One language at a time: the Urdu label (if given) only in Urdu mode.
+  const label = isUrdu && submitLabelUrdu ? submitLabelUrdu : submitLabel;
 
   return (
     <form action={formAction} className={className}>
@@ -60,7 +65,7 @@ export default function ActionForm({
       {state?.error && (
         <div className="mt-3 p-2.5 rounded-lg bg-red-50 text-red-700 text-xs flex items-start gap-2">
           <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-          {state.error}
+          {errorText(state.error)}
         </div>
       )}
       {state?.success && successMessage && (
@@ -79,8 +84,7 @@ export default function ActionForm({
         } font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         {pending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-        {submitLabel}
-        {submitLabelUrdu && <span className="font-normal opacity-80">({submitLabelUrdu})</span>}
+        {label}
       </button>
     </form>
   );
@@ -97,11 +101,11 @@ export function Field({
   children: ReactNode;
   hint?: string;
 }) {
+  const { isUrdu } = useI18n();
   return (
     <label className="block">
       <span className="block text-[11px] font-semibold text-charcoal mb-1">
-        {label}
-        {labelUrdu && <span className="font-normal text-[#636E72] ml-1">{labelUrdu}</span>}
+        {isUrdu && labelUrdu ? labelUrdu : label}
       </span>
       {children}
       {hint && <span className="block text-[10px] text-[#636E72] mt-1">{hint}</span>}

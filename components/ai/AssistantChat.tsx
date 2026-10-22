@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {askAi, confirmAgentAction, cancelAgentAction,} from '@/lib/actions/natural-ai';
 import { UserRole } from '@prisma/client';
+import { useI18n } from '@/components/i18n/LanguageProvider';
 import {
   Mic,
   MicOff,
@@ -140,28 +141,39 @@ export default function AssistantChat({
   initialHistory,
   pendingActions,
   quickPrompts,
+  cropNamesUrdu,
 }: {
   user: UserSummary;
   initialSessionId?: string;
   initialHistory: ChatMessage[];
   pendingActions: PendingAction[];
   quickPrompts: string[];
+  cropNamesUrdu: Record<string, string>;
 }) {
   const router = useRouter();
+  const i18n = useI18n();
+  const { t } = i18n;
 
   const [sessionId, setSessionId] = useState(initialSessionId);
 
-  const [messages, setMessages] = useState<ChatMessage[]>(
-    initialHistory.length
-      ? initialHistory
-      : [
-          {
-            role: 'ai',
-            text: `As-salamu alaykum ${user.name}! I am AgriConnect AI, set up for your ${user.role.toLowerCase()} work. You can type or speak in English, Urdu, or Roman Urdu.`,
-            tool: 'help',
-          },
-        ]
-  );
+  const [messages, setMessages] = useState<ChatMessage[]>(initialHistory);
+
+  // The greeting is UI text (not an AI reply), so it follows the language
+  // toggle; it is shown first while the chat has no history.
+  const greeting: ChatMessage = {
+    role: 'ai',
+    text: t('chat.welcome', {
+      name: user.name,
+      role: i18n.isUrdu ? i18n.role(user.role) : user.role.toLowerCase(),
+    }),
+    tool: 'help',
+  };
+  const shownMessages = initialHistory.length ? messages : [greeting, ...messages];
+
+  const actionLabel = (actionType: string) =>
+    i18n.isUrdu && (actionType === 'CREATE_CROP_BATCH' || actionType === 'OPEN_CROP_BATCH_FORM')
+      ? t(`chat.action.${actionType}`)
+      : actionType.replace(/_/g, ' ');
 
   const [input, setInput] = useState('');
   const [pending, setPending] = useState<PendingAction[]>(pendingActions);
@@ -258,7 +270,7 @@ export default function AssistantChat({
        * member, so checking it first narrows the type for the error branch.
        */
       if (!result.success) {
-        setError(result.error);
+        setError(i18n.error(result.error));
         return;
       }
 
@@ -313,7 +325,7 @@ export default function AssistantChat({
                     id: result.pendingActionId!,
                     actionType: result.pendingActionType ?? result.tool,
                     humanSummary:
-                      result.pendingActionSummary ?? 'Review requested action',
+                      result.pendingActionSummary ?? t('chat.reviewAction'),
                   },
                 ]
           );
@@ -323,7 +335,7 @@ export default function AssistantChat({
       console.error('AgriConnect AI request failed:', requestError);
 
       setError(
-        'AgriConnect AI could not process your request. Please try again.'
+        t('chat.errRequest')
       );
     } finally {
       setLoading(false);
@@ -364,7 +376,7 @@ export default function AssistantChat({
       setSpeechSupported(false);
 
       setError(
-        'Voice input is not supported in this browser. Please use Chrome or Microsoft Edge, or type your message.'
+        t('chat.errVoiceUnsupported')
       );
 
       return;
@@ -436,7 +448,7 @@ export default function AssistantChat({
           event.error === 'service-not-allowed'
         ) {
           setError(
-            'Microphone access is blocked. Allow microphone permission for this website and try again.'
+            t('chat.errMicBlocked')
           );
 
           return;
@@ -445,8 +457,8 @@ export default function AssistantChat({
         if (event.error === 'no-speech') {
           setError(
             voiceLanguage === 'ur-PK'
-              ? 'Awaaz samajh nahi aayi. Dobara microphone press karke bolain.'
-              : 'I could not hear anything. Press the microphone and try again.'
+              ? t('chat.errNoSpeechUrdu')
+              : t('chat.errNoSpeechEnglish')
           );
 
           return;
@@ -454,7 +466,7 @@ export default function AssistantChat({
 
         if (event.error === 'audio-capture') {
           setError(
-            'No microphone was detected. Check your microphone and browser permissions.'
+            t('chat.errNoMic')
           );
 
           return;
@@ -462,16 +474,14 @@ export default function AssistantChat({
 
         if (event.error === 'network') {
           setError(
-            'Speech recognition could not connect. Check your internet connection and try again.'
+            t('chat.errNetwork')
           );
 
           return;
         }
 
         setError(
-          `Voice recognition failed${
-            event.error ? ` (${event.error})` : ''
-          }. You can still type your message.`
+          t('chat.errVoiceFailed', { detail: event.error ? ` (${event.error})` : '' })
         );
       };
 
@@ -497,7 +507,7 @@ export default function AssistantChat({
       setIsListening(false);
 
       setError(
-        'The microphone could not be started. Check browser microphone permission and try again.'
+        t('chat.errMicStart')
       );
     }
   }
@@ -513,7 +523,7 @@ export default function AssistantChat({
       const result = await confirmAgentAction(formData);
 
       if (result.error) {
-        setError(result.error);
+        setError(i18n.error(result.error));
         return;
       }
 
@@ -536,7 +546,7 @@ export default function AssistantChat({
     const result = await cancelAgentAction(formData);
 
     if (result.error) {
-      setError(result.error);
+      setError(i18n.error(result.error));
       return;
     }
 
@@ -653,17 +663,17 @@ export default function AssistantChat({
 
           <div>
             <h1 className="text-sm font-bold text-agri-900">
-              AgriConnect AI
+              {t('chat.title')}
             </h1>
 
             <p className="text-xs text-agri-900/80">
-              English · Urdu · Roman Urdu
+              {t('chat.languages')}
             </p>
           </div>
         </div>
 
         <span className="text-xs bg-white text-agri-900 border border-[#B7D4C8] px-2 py-0.5 rounded-full font-semibold">
-          {user.role}
+          {i18n.role(user.role)}
         </span>
       </div>
 
@@ -671,7 +681,7 @@ export default function AssistantChat({
       {pending.length > 0 && (
         <div className="bg-amber-50 border-b border-amber-200 p-3 space-y-2">
           <div className="text-xs font-bold uppercase tracking-wider text-amber-800">
-            Pending Actions
+            {t('chat.pendingActions')}
           </div>
 
           {pending.map((action) => (
@@ -681,11 +691,11 @@ export default function AssistantChat({
             >
               <div className="text-sm text-charcoal min-w-0">
                 <span className="font-semibold">
-                  {action.actionType.replace(/_/g, ' ')}
+                  {actionLabel(action.actionType)}
                 </span>
 
-                <span className="text-[#636E72] ml-1">
-                  — {action.humanSummary}
+                <span className="text-[#636E72] ms-1">
+                  — {i18n.chatAction(action.humanSummary, cropNamesUrdu)}
                 </span>
               </div>
 
@@ -697,7 +707,7 @@ export default function AssistantChat({
                   className="flex items-center gap-1 bg-agri-900 hover:bg-agri-800 disabled:opacity-50 text-white text-xs font-semibold px-2 py-1 rounded transition-colors"
                 >
                   <CheckCircle2 className="w-3 h-3" />
-                  Confirm
+                  {t('chat.confirm')}
                 </button>
 
                 <button
@@ -707,7 +717,7 @@ export default function AssistantChat({
                   className="flex items-center gap-1 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 disabled:opacity-50 text-xs font-semibold px-2 py-1 rounded transition-colors"
                 >
                   <XCircle className="w-3 h-3" />
-                  Cancel
+                  {t('chat.cancel')}
                 </button>
               </div>
             </div>
@@ -717,7 +727,7 @@ export default function AssistantChat({
 
       {/* Messages */}
       <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 bg-[#F8F9F5] overscroll-contain">
-        {messages.map((message, index) => {
+        {shownMessages.map((message, index) => {
           const isUser = message.role === 'user';
 
           const Icon = isUser
@@ -745,8 +755,8 @@ export default function AssistantChat({
                 <div
                   className={`rounded-2xl px-4 py-3 text-base leading-relaxed ${
                     isUser
-                      ? 'bg-agri-900 text-white rounded-br-none'
-                      : 'bg-white border border-[#E5E7EB] text-charcoal rounded-bl-none shadow-sm'
+                      ? 'bg-agri-900 text-white rounded-ee-none'
+                      : 'bg-white border border-[#E5E7EB] text-charcoal rounded-es-none shadow-sm'
                   }`}
                 >
                   {renderMessage(message.text, isUser)}
@@ -762,7 +772,7 @@ export default function AssistantChat({
                           href={action.href}
                           className="text-xs font-semibold text-agri-900 bg-white border border-[#B7D4C8] hover:bg-[#E8F3EE] rounded-full px-2.5 py-1 transition-colors"
                         >
-                          {action.label}
+                          {i18n.nav(action.label, user.role)}
                         </Link>
                       ))}
                     </div>
@@ -778,11 +788,11 @@ export default function AssistantChat({
               <Mic className="w-4 h-4 animate-pulse" />
             </div>
 
-            <div className="bg-white border border-rose-200 rounded-2xl rounded-bl-none px-4 py-2.5 text-sm text-charcoal">
+            <div className="bg-white border border-rose-200 rounded-2xl rounded-es-none px-4 py-2.5 text-sm text-charcoal">
               <div className="font-semibold text-rose-700">
                 {voiceLanguage === 'ur-PK'
-                  ? 'Listening... Urdu mein bolain'
-                  : 'Listening... Speak in English'}
+                  ? t('chat.listeningUrdu')
+                  : t('chat.listeningEnglish')}
               </div>
 
               {interimTranscript && (
@@ -800,9 +810,9 @@ export default function AssistantChat({
               <Bot className="w-4 h-4" />
             </div>
 
-            <div className="bg-white border border-[#E5E7EB] rounded-2xl rounded-bl-none px-4 py-2.5 text-sm text-[#636E72] flex items-center gap-2">
+            <div className="bg-white border border-[#E5E7EB] rounded-2xl rounded-es-none px-4 py-2.5 text-sm text-[#636E72] flex items-center gap-2">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              AgriConnect AI is thinking...
+              {t('chat.thinking')}
             </div>
           </div>
         )}
@@ -823,11 +833,11 @@ export default function AssistantChat({
             <button
               type="button"
               key={prompt}
-              onClick={() => setInput(prompt)}
+              onClick={() => setInput(i18n.quickPrompt(prompt))}
               className="flex items-center gap-1.5 bg-[#F8F9F5] hover:bg-[#E8F3EE] text-charcoal border border-[#E5E7EB] rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors"
             >
               <Sparkles className="w-3.5 h-3.5 text-agri-900" />
-              {prompt}
+              {i18n.quickPrompt(prompt)}
             </button>
           ))}
         </div>
@@ -841,7 +851,7 @@ export default function AssistantChat({
         {/* Voice language selector */}
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs text-[#636E72]">
-            Speak in Urdu or English · Roman Urdu can be typed
+            {t('chat.voiceHint')}
           </span>
 
           <div className="flex items-center rounded-lg border border-[#E5E7EB] overflow-hidden">
@@ -855,7 +865,7 @@ export default function AssistantChat({
                   : 'bg-white text-[#636E72] hover:bg-[#F8F9F5]'
               }`}
             >
-              Urdu
+              {t('chat.voiceUrdu')}
             </button>
 
             <button
@@ -868,7 +878,7 @@ export default function AssistantChat({
                   : 'bg-white text-[#636E72] hover:bg-[#F8F9F5]'
               }`}
             >
-              English
+              {t('chat.voiceEnglish')}
             </button>
           </div>
         </div>
@@ -880,15 +890,15 @@ export default function AssistantChat({
             disabled={!speechSupported || loading}
             title={
               !speechSupported
-                ? 'Voice input is not supported by this browser'
+                ? t('chat.micUnsupportedTitle')
                 : isListening
-                  ? 'Stop listening'
+                  ? t('chat.micStop')
                   : voiceLanguage === 'ur-PK'
-                    ? 'Urdu voice input'
-                    : 'English voice input'
+                    ? t('chat.micUrdu')
+                    : t('chat.micEnglish')
             }
             aria-label={
-              isListening ? 'Stop voice recognition' : 'Start voice recognition'
+              isListening ? t('chat.micStopAria') : t('chat.micStartAria')
             }
             className={`p-2.5 rounded-full border transition-all ${
               isListening
@@ -907,7 +917,7 @@ export default function AssistantChat({
             type="text"
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            placeholder="Ask in English, Urdu, or Roman Urdu..."
+            placeholder={t('chat.placeholder')}
             disabled={loading}
             className="flex-1 bg-[#F8F9F5] border border-[#E5E7EB] rounded-xl px-4 py-3 text-base text-charcoal placeholder:text-[#636E72] focus:outline-none focus:ring-2 focus:ring-agri-900/20 disabled:opacity-60"
           />
@@ -916,20 +926,19 @@ export default function AssistantChat({
             type="submit"
             disabled={!input.trim() || loading || isListening}
             className="p-2.5 rounded-full bg-agri-900 hover:bg-agri-800 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
-            aria-label="Send message"
+            aria-label={t('chat.send')}
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Send className="w-4 h-4" />
+              <Send className="w-4 h-4 rtl:-scale-x-100" />
             )}
           </button>
         </div>
 
         {!speechSupported && (
           <p className="text-xs text-amber-700 mt-2">
-            Voice recognition is unavailable in this browser. Use Chrome or
-            Microsoft Edge, or continue by typing.
+            {t('chat.voiceUnavailable')}
           </p>
         )}
       </form>

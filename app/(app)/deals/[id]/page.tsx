@@ -13,6 +13,7 @@ import {
   receiveProduce,
   schedulePickup,
 } from '@/lib/actions/deals';
+import { getI18n } from '@/lib/i18n/server';
 import ActionForm, { Field, inputClass } from '@/components/ui/ActionForm';
 import {
   Badge,
@@ -20,21 +21,18 @@ import {
   CropThumb,
   PageHeader,
   StatCard,
-  humanStatus,
-  money,
-  qty,
   statusTone,
 } from '@/components/ui/kit';
 
 export const dynamic = 'force-dynamic';
 
-const STAGES: Array<{ status: DealStatus; label: string; labelUrdu: string }> = [
-  { status: DealStatus.AGREED, label: 'Deal agreed', labelUrdu: 'سودا طے' },
-  { status: DealStatus.PICKUP_SCHEDULED, label: 'Transport booked', labelUrdu: 'گاڑی بک' },
-  { status: DealStatus.IN_TRANSIT, label: 'In transit', labelUrdu: 'راستے میں' },
-  { status: DealStatus.PAYMENT_PENDING, label: 'Weighed at mandi', labelUrdu: 'منڈی میں وزن' },
-  { status: DealStatus.COMPLETED, label: 'Farmer paid', labelUrdu: 'ادائیگی' },
-];
+const STAGES = [
+  { status: DealStatus.AGREED, label: 'deal.stage.agreed' },
+  { status: DealStatus.PICKUP_SCHEDULED, label: 'deal.stage.booked' },
+  { status: DealStatus.IN_TRANSIT, label: 'deal.stage.transit' },
+  { status: DealStatus.PAYMENT_PENDING, label: 'deal.stage.weighed' },
+  { status: DealStatus.COMPLETED, label: 'deal.stage.paid' },
+] as const;
 
 function stageIndex(status: DealStatus) {
   switch (status) {
@@ -62,19 +60,13 @@ function dateTimeLocal(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-function when(date: Date | null | undefined) {
-  if (!date) return null;
-  return date.toLocaleString('en-PK', {
-    day: 'numeric',
-    month: 'short',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
 export default async function DealDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireCapability('farmer.deals.view', 'arhti.deals.manage');
+  const { t, crop, place, status, grade, kg, perKg, money, dateTime, deduction, isUrdu } = await getI18n();
+
+  const when = (date: Date | null | undefined) =>
+    date ? dateTime(date, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : null;
 
   const deal = await prisma.farmerArhtiDeal.findFirst({
     where: { id, OR: [{ farmerId: user.id }, { arhtiId: user.id }] },
@@ -104,10 +96,10 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
 
   const responsibleParty =
     deal.transportResponsibility === TransportResponsibility.FARMER
-      ? 'Farmer arranges transport'
+      ? t('deal.transportFarmer')
       : deal.transportResponsibility === TransportResponsibility.ARHTI
-        ? 'Arhti arranges transport'
-        : 'Transport cost shared 50/50';
+        ? t('deal.transportArhti')
+        : t('deal.transportShared');
 
   const canSchedule =
     deal.status === DealStatus.AGREED &&
@@ -145,40 +137,46 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
   return (
     <div className="max-w-4xl mx-auto">
       <PageHeader
-        title={`${deal.crop.name} — ${qty(deal.agreedQuantityKg)}`}
-        titleUrdu={deal.dealNumber}
-        subtitle={`${deal.sourceCity}, ${deal.sourceProvince} → ${deal.destinationMandi.name}`}
+        title={`${crop(deal.crop)} — ${kg(deal.agreedQuantityKg)}`}
+        subtitle={
+          isUrdu
+            ? `${place(deal.sourceCity)}، ${place(deal.sourceProvince)} ← ${place(deal.destinationMandi.name)}`
+            : `${deal.sourceCity}, ${deal.sourceProvince} → ${deal.destinationMandi.name}`
+        }
         action={
           <Link
             href="/deals"
             className="text-[11px] font-semibold text-agri-900 hover:underline whitespace-nowrap"
           >
-            All deals
+            {t('deal.allDeals')}
           </Link>
         }
       />
+      <div className="-mt-4 mb-4 text-[11px] text-[#636E72] font-mono">{deal.dealNumber}</div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <StatCard label="Agreed rate" value={`${money(deal.agreedPricePerKg)}/kg`} tone="accent" />
+        <StatCard label={t('deal.agreedRate')} value={perKg(deal.agreedPricePerKg)} tone="accent" />
         <StatCard
-          label="Agreed quantity"
-          value={qty(deal.agreedQuantityKg)}
-          hint={deal.batch.grade}
+          label={t('deal.agreedQty')}
+          value={kg(deal.agreedQuantityKg)}
+          hint={grade(deal.batch.grade)}
         />
         <StatCard
-          label="Weighed at mandi"
-          value={deal.receivedQuantityKg ? qty(deal.receivedQuantityKg) : '—'}
+          label={t('deal.weighed')}
+          value={deal.receivedQuantityKg ? kg(deal.receivedQuantityKg) : '—'}
           hint={
             deal.weightDifferenceKg != null
-              ? `${deal.weightDifferenceKg >= 0 ? '+' : ''}${deal.weightDifferenceKg} kg vs agreed`
-              : 'Pending kanta'
+              ? t('deal.weightDiff', {
+                  diff: `${deal.weightDifferenceKg >= 0 ? '+' : '-'}${kg(Math.abs(deal.weightDifferenceKg))}`,
+                })
+              : t('deal.pendingKanta')
           }
           tone={deal.weightDifferenceKg != null && deal.weightDifferenceKg < 0 ? 'warn' : 'default'}
         />
         <StatCard
-          label={isFarmer ? 'Net payable to you' : 'Net payable to farmer'}
+          label={isFarmer ? t('deal.netToYou') : t('deal.netToFarmer')}
           value={deal.settlement ? money(deal.settlement.netPayable) : '—'}
-          hint={deal.settlement ? humanStatus(deal.settlement.status) : 'After weighing'}
+          hint={deal.settlement ? status(deal.settlement.status) : t('deal.afterWeighing')}
         />
       </div>
 
@@ -189,23 +187,24 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
               <CropThumb imageUrl={deal.crop.imageUrl} name={deal.crop.name} size="md" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-bold text-charcoal">{deal.crop.name}</span>
+                  <span className="text-sm font-bold text-charcoal">{crop(deal.crop)}</span>
+                  {/* Variety is typed by the farmer and shown as stored. */}
                   {deal.batch.variety && (
                     <span className="text-[11px] text-[#636E72]">{deal.batch.variety}</span>
                   )}
-                  <Badge tone={statusTone(deal.status)}>{humanStatus(deal.status)}</Badge>
+                  <Badge tone={statusTone(deal.status)}>{status(deal.status)}</Badge>
                 </div>
-                <div className="text-[11px] text-[#636E72] font-mono mt-0.5">
-                  Batch {deal.batch.batchNumber}
+                <div className="text-[11px] text-[#636E72] mt-0.5">
+                  {t('deal.batch', { batch: deal.batch.batchNumber })}
                 </div>
                 <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
                   <div>
                     <div className="text-[10px] text-[#636E72]">
-                      {isFarmer ? 'Buying arhti' : 'Selling farmer'}
+                      {isFarmer ? t('deal.buyingArhti') : t('deal.sellingFarmer')}
                     </div>
                     <div className="font-semibold text-charcoal">{counterparty.name}</div>
                     {!isFarmer && 'location' in counterparty && counterparty.location && (
-                      <div className="text-[10px] text-[#636E72]">{counterparty.location}</div>
+                      <div className="text-[10px] text-[#636E72]">{place(counterparty.location)}</div>
                     )}
                     {isFarmer && deal.arhti.arhtiProfile?.businessName && (
                       <div className="text-[10px] text-[#636E72]">
@@ -214,15 +213,15 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
                     )}
                   </div>
                   <div>
-                    <div className="text-[10px] text-[#636E72]">Contact</div>
-                    <div className="font-semibold text-charcoal">{counterparty.phone ?? '—'}</div>
+                    <div className="text-[10px] text-[#636E72]">{t('deal.contact')}</div>
+                    <div className="font-semibold text-charcoal" dir="ltr">{counterparty.phone ?? '—'}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-[#636E72]">Destination mandi</div>
-                    <div className="font-semibold text-charcoal">{deal.destinationMandi.name}</div>
+                    <div className="text-[10px] text-[#636E72]">{t('deal.destinationMandi')}</div>
+                    <div className="font-semibold text-charcoal">{place(deal.destinationMandi.name)}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-[#636E72]">Transport</div>
+                    <div className="text-[10px] text-[#636E72]">{t('deal.transport')}</div>
                     <div className="font-semibold text-charcoal">{responsibleParty}</div>
                   </div>
                 </div>
@@ -232,7 +231,7 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
 
           <Card>
             <h2 className="text-xs font-bold uppercase tracking-wider text-[#636E72] mb-3">
-              Deal progress
+              {t('deal.progress')}
             </h2>
             <ol className="space-y-3">
               {STAGES.map((stage, index) => {
@@ -257,11 +256,10 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
                           done || active ? 'text-charcoal' : 'text-[#636E72]'
                         }`}
                       >
-                        {stage.label}
-                        <span className="font-normal text-[#636E72] ml-1">{stage.labelUrdu}</span>
+                        {t(stage.label)}
                       </div>
                       {active && (
-                        <div className="text-[10px] text-agri-900 font-semibold">In progress now</div>
+                        <div className="text-[10px] text-agri-900 font-semibold">{t('deal.inProgressNow')}</div>
                       )}
                     </div>
                   </li>
@@ -273,33 +271,34 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
           {deal.pickup && (
             <Card>
               <h2 className="text-xs font-bold uppercase tracking-wider text-[#636E72] mb-3">
-                Transport
+                {t('deal.transport')}
               </h2>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
-                  <div className="text-[10px] text-[#636E72]">Driver</div>
+                  <div className="text-[10px] text-[#636E72]">{t('deal.driver')}</div>
                   <div className="font-semibold text-charcoal">{deal.pickup.driverName}</div>
-                  <div className="text-[10px] text-[#636E72]">{deal.pickup.driverPhone}</div>
+                  <div className="text-[10px] text-[#636E72]" dir="ltr">{deal.pickup.driverPhone}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-[#636E72]">Vehicle</div>
+                  <div className="text-[10px] text-[#636E72]">{t('deal.vehicle')}</div>
+                  {/* Plate and vehicle type are typed text, shown as stored. */}
                   <div className="font-semibold text-charcoal">
                     {deal.pickup.vehiclePlate ?? deal.pickup.vehicleType ?? '—'}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-[#636E72]">Scheduled</div>
+                  <div className="text-[10px] text-[#636E72]">{t('deal.scheduled')}</div>
                   <div className="font-semibold text-charcoal">{when(deal.pickup.scheduledAt)}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-[#636E72]">Loaded</div>
+                  <div className="text-[10px] text-[#636E72]">{t('deal.loaded')}</div>
                   <div className="font-semibold text-charcoal">
-                    {when(deal.pickup.confirmedAt) ?? 'Not yet confirmed'}
+                    {when(deal.pickup.confirmedAt) ?? t('common.notYet')}
                   </div>
                 </div>
                 {deal.pickup.estimatedCost != null && (
                   <div>
-                    <div className="text-[10px] text-[#636E72]">Freight</div>
+                    <div className="text-[10px] text-[#636E72]">{t('deal.freight')}</div>
                     <div className="font-semibold text-charcoal">
                       {money(deal.pickup.estimatedCost)}
                     </div>
@@ -307,10 +306,11 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
                 )}
                 {deal.pickup.tracking && (
                   <div>
-                    <div className="text-[10px] text-[#636E72]">Delivery status</div>
+                    <div className="text-[10px] text-[#636E72]">{t('deal.deliveryStatus')}</div>
                     <div className="font-semibold text-charcoal">
-                      {humanStatus(deal.pickup.tracking.stage)}
+                      {status(deal.pickup.tracking.stage)}
                     </div>
+                    {/* Tracking notes are typed text, shown as stored. */}
                     <div className="text-[10px] text-[#636E72]">
                       {deal.pickup.tracking.statusNotes}
                     </div>
@@ -326,13 +326,15 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
           {deal.settlement && (
             <Card>
               <h2 className="text-xs font-bold uppercase tracking-wider text-[#636E72] mb-3">
-                Settlement (parchee)
+                {t('deal.settlement')}
               </h2>
               <dl className="text-xs space-y-1.5">
                 <div className="flex justify-between">
                   <dt className="text-[#636E72]">
-                    Gross — {qty(deal.receivedQuantityKg ?? deal.agreedQuantityKg)} ×{' '}
-                    {money(deal.agreedPricePerKg)}
+                    {t('deal.gross', {
+                      qty: kg(deal.receivedQuantityKg ?? deal.agreedQuantityKg),
+                      rate: money(deal.agreedPricePerKg),
+                    })}
                   </dt>
                   <dd className="font-semibold text-charcoal">
                     {money(deal.settlement.grossAmount)}
@@ -340,18 +342,18 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
                 </div>
                 {deal.settlement.deductions.map((d) => (
                   <div key={d.id} className="flex justify-between">
-                    <dt className="text-[#636E72]">{d.description}</dt>
+                    <dt className="text-[#636E72]">{deduction(d.type, d.description)}</dt>
                     <dd className="text-red-700">− {money(d.amount)}</dd>
                   </div>
                 ))}
                 <div className="flex justify-between border-t border-[#E5E7EB] pt-2 mt-2">
-                  <dt className="font-bold text-charcoal">Net payable</dt>
+                  <dt className="font-bold text-charcoal">{t('deal.netPayable')}</dt>
                   <dd className="font-bold text-agri-900">{money(deal.settlement.netPayable)}</dd>
                 </div>
               </dl>
               {deal.weightVerifierName && (
                 <p className="text-[10px] text-[#636E72] mt-3">
-                  Weighed by {deal.weightVerifierName} on {when(deal.weightVerifiedAt)}
+                  {t('deal.weighedBy', { name: deal.weightVerifierName, date: when(deal.weightVerifiedAt) ?? '' })}
                 </p>
               )}
             </Card>
@@ -359,8 +361,10 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
 
           <Card>
             <h2 className="text-xs font-bold uppercase tracking-wider text-[#636E72] mb-3">
-              Traceability record
+              {t('deal.trace')}
             </h2>
+            {/* Event titles and descriptions are written in English when the
+                event is recorded and are shown as stored for now. */}
             <ol className="space-y-3">
               {events.map((event) => (
                 <li key={event.id} className="flex gap-3">
@@ -370,7 +374,7 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
                     <div className="text-[11px] text-[#636E72]">{event.description}</div>
                     <div className="text-[10px] text-[#636E72] mt-0.5">
                       {when(event.createdAt)}
-                      {event.quantityKg != null && ` · ${qty(event.quantityKg)}`}
+                      {event.quantityKg != null && ` · ${kg(event.quantityKg)}`}
                     </div>
                   </div>
                 </li>
@@ -382,33 +386,32 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
         <div className="space-y-4">
           {canSchedule && (
             <Card>
-              <h2 className="text-xs font-bold text-charcoal mb-1">Book the truck</h2>
+              <h2 className="text-xs font-bold text-charcoal mb-1">{t('deal.bookTruck')}</h2>
               <p className="text-[11px] text-[#636E72] mb-3">
-                {responsibleParty}. The driver does not need an AgriConnect account.
+                {t('deal.noAccountNeeded', { who: responsibleParty })}
               </p>
               <ActionForm
                 action={schedulePickup}
-                submitLabel="Save transport"
-                submitLabelUrdu="گاڑی محفوظ کریں"
-                successMessage="Transport booked. Confirm loading once the produce is on the truck."
+                submitLabel={t('deal.saveTransport')}
+                successMessage={t('deal.transportSaved')}
                 hidden={{ dealId: deal.id }}
               >
                 <div className="space-y-3">
-                  <Field label="Driver name" labelUrdu="ڈرائیور">
-                    <input name="driverName" required className={inputClass} placeholder="Ilyas Khan" />
+                  <Field label={t('deal.driverName')}>
+                    <input name="driverName" required className={inputClass} placeholder={t('deal.placeholderDriver')} />
                   </Field>
-                  <Field label="Driver phone" labelUrdu="فون">
-                    <input name="driverPhone" required className={inputClass} placeholder="03001234567" />
+                  <Field label={t('deal.driverPhone')}>
+                    <input name="driverPhone" required className={inputClass} placeholder="03001234567" dir="ltr" />
                   </Field>
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label="Vehicle type">
-                      <input name="vehicleType" className={inputClass} placeholder="Mazda 16ft" />
+                    <Field label={t('deal.vehicleType')}>
+                      <input name="vehicleType" className={inputClass} placeholder={t('deal.placeholderVehicle')} />
                     </Field>
-                    <Field label="Plate">
-                      <input name="vehiclePlate" className={inputClass} placeholder="LES-4471" />
+                    <Field label={t('deal.plate')}>
+                      <input name="vehiclePlate" className={inputClass} placeholder="LES-4471" dir="ltr" />
                     </Field>
                   </div>
-                  <Field label="Pickup time" labelUrdu="وقت">
+                  <Field label={t('deal.pickupTime')}>
                     <input
                       type="datetime-local"
                       name="scheduledAt"
@@ -417,7 +420,7 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
                       className={inputClass}
                     />
                   </Field>
-                  <Field label="Freight cost (Rs)" hint="Deducted from the farmer's settlement only if the farmer or both parties bear transport.">
+                  <Field label={t('deal.freightCost')} hint={t('deal.freightHint')}>
                     <input
                       type="number"
                       name="estimatedCost"
@@ -427,8 +430,8 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
                       placeholder="18000"
                     />
                   </Field>
-                  <Field label="Notes">
-                    <input name="notes" className={inputClass} placeholder="Load from the link road gate" />
+                  <Field label={t('deal.notes')}>
+                    <input name="notes" className={inputClass} placeholder={t('deal.placeholderNotes')} />
                   </Field>
                 </div>
               </ActionForm>
@@ -437,25 +440,27 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
 
           {deal.status === DealStatus.AGREED && !canSchedule && (
             <Card>
-              <h2 className="text-xs font-bold text-charcoal mb-1">Waiting on transport</h2>
+              <h2 className="text-xs font-bold text-charcoal mb-1">{t('deal.waitingTransport')}</h2>
               <p className="text-[11px] text-[#636E72]">
-                {responsibleParty}, so {counterparty.name} books the vehicle for this deal.
+                {t('deal.waitingTransportText', { who: responsibleParty, name: counterparty.name })}
               </p>
             </Card>
           )}
 
           {canConfirmPickup && (
             <Card>
-              <h2 className="text-xs font-bold text-charcoal mb-1">Confirm loading</h2>
+              <h2 className="text-xs font-bold text-charcoal mb-1">{t('deal.confirmLoading')}</h2>
               <p className="text-[11px] text-[#636E72] mb-3">
-                Confirm once {deal.pickup?.driverName} has loaded {qty(deal.agreedQuantityKg)} and left
-                for {deal.destinationMandi.city}.
+                {t('deal.confirmLoadingText', {
+                  driver: deal.pickup?.driverName ?? '',
+                  qty: kg(deal.agreedQuantityKg),
+                  city: place(deal.destinationMandi.city),
+                })}
               </p>
               <ActionForm
                 action={confirmPickup}
-                submitLabel="Produce is loaded"
-                submitLabelUrdu="گاڑی روانہ"
-                successMessage="Marked in transit."
+                submitLabel={t('deal.produceLoaded')}
+                successMessage={t('deal.markedTransit')}
                 hidden={{ dealId: deal.id }}
                 variant="secondary"
               />
@@ -464,25 +469,21 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
 
           {canReceive && (
             <Card>
-              <h2 className="text-xs font-bold text-charcoal mb-1">Receive at the mandi</h2>
-              <p className="text-[11px] text-[#636E72] mb-3">
-                Enter the kanta weight. This creates your inventory lot and generates the farmer&apos;s
-                settlement.
-              </p>
+              <h2 className="text-xs font-bold text-charcoal mb-1">{t('deal.receive')}</h2>
+              <p className="text-[11px] text-[#636E72] mb-3">{t('deal.receiveText')}</p>
               <ActionForm
                 action={receiveProduce}
-                submitLabel="Record weight & take ownership"
-                submitLabelUrdu="وزن درج کریں"
-                successMessage="Received. The lot is now in your mandi inventory."
+                submitLabel={t('deal.recordWeight')}
+                successMessage={t('deal.received')}
                 hidden={{ dealId: deal.id }}
               >
                 <div className="space-y-3">
                   <Field
-                    label="Weighed quantity (kg)"
-                    labelUrdu="وزن"
-                    hint={`Agreed ${qty(deal.agreedQuantityKg)}. Cannot exceed ${qty(
-                      Math.round(deal.agreedQuantityKg * 1.05)
-                    )}.`}
+                    label={t('deal.weighedQty')}
+                    hint={t('deal.weighedHint', {
+                      agreed: kg(deal.agreedQuantityKg),
+                      max: kg(Math.round(deal.agreedQuantityKg * 1.05)),
+                    })}
                   >
                     <input
                       type="number"
@@ -495,8 +496,8 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
                       placeholder={String(deal.agreedQuantityKg)}
                     />
                   </Field>
-                  <Field label="Kanta operator" labelUrdu="کانٹا آپریٹر">
-                    <input name="verifierName" required className={inputClass} placeholder="Rashid Ali" />
+                  <Field label={t('deal.kantaOperator')}>
+                    <input name="verifierName" required className={inputClass} placeholder={t('deal.placeholderOperator')} />
                   </Field>
                 </div>
               </ActionForm>
@@ -505,16 +506,18 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
 
           {canPay && deal.settlement && (
             <Card>
-              <h2 className="text-xs font-bold text-charcoal mb-1">Release payment</h2>
+              <h2 className="text-xs font-bold text-charcoal mb-1">{t('deal.releasePayment')}</h2>
               <p className="text-[11px] text-[#636E72] mb-3">
-                {money(deal.settlement.netPayable)} to {deal.farmer.name} over RAAST, after{' '}
-                {money(deal.settlement.deductionsTotal)} in deductions.
+                {t('deal.releaseText', {
+                  net: money(deal.settlement.netPayable),
+                  name: deal.farmer.name,
+                  deductions: money(deal.settlement.deductionsTotal),
+                })}
               </p>
               <ActionForm
                 action={payFarmer}
-                submitLabel={`Pay ${money(deal.settlement.netPayable)}`}
-                submitLabelUrdu="ادائیگی کریں"
-                successMessage="Paid. A parchee receipt has been issued."
+                submitLabel={t('deal.pay', { amount: money(deal.settlement.netPayable) })}
+                successMessage={t('deal.paid')}
                 hidden={{ dealId: deal.id }}
               />
             </Card>
@@ -522,27 +525,29 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
 
           {isFarmer && deal.status === DealStatus.PAYMENT_PENDING && (
             <Card>
-              <h2 className="text-xs font-bold text-charcoal mb-1">Awaiting payment</h2>
+              <h2 className="text-xs font-bold text-charcoal mb-1">{t('deal.awaitingPayment')}</h2>
               <p className="text-[11px] text-[#636E72]">
-                {deal.arhti.name} has your produce and owes{' '}
-                {deal.settlement ? money(deal.settlement.netPayable) : 'the settled amount'}.
+                {t('deal.awaitingPaymentText', {
+                  name: deal.arhti.name,
+                  amount: deal.settlement ? money(deal.settlement.netPayable) : t('deal.settledAmount'),
+                })}
               </p>
             </Card>
           )}
 
           {deal.status === DealStatus.COMPLETED && (
             <Card>
-              <h2 className="text-xs font-bold text-charcoal mb-1">Deal complete</h2>
+              <h2 className="text-xs font-bold text-charcoal mb-1">{t('deal.complete')}</h2>
               <p className="text-[11px] text-[#636E72]">
                 {isFarmer
-                  ? 'Payment received. The parchee is in your records.'
-                  : `Farmer paid. Lot ${deal.inventoryLot?.lotNumber ?? ''} is in your mandi inventory.`}
+                  ? t('deal.completeFarmer')
+                  : t('deal.completeArhti', { lot: deal.inventoryLot?.lotNumber ?? '' })}
               </p>
               <Link
                 href={isFarmer ? '/records' : '/inventory'}
                 className="inline-block mt-3 text-[11px] font-semibold text-agri-900 hover:underline"
               >
-                {isFarmer ? 'Open my records' : 'Open mandi inventory'}
+                {isFarmer ? t('deal.openRecords') : t('deal.openInventory')}
               </Link>
             </Card>
           )}

@@ -34,3 +34,33 @@
     text-wrap: balance;
   }
 }
+
+/*
+ * Urdu mode (language toggle in the header). Nastaliq script needs a taller
+ * line height and slightly larger small text to stay readable. Kept outside
+ * the Tailwind layers so it overrides the leading-* and text-[..px] utilities.
+ */
+.urdu-mode {
+  font-family: var(--font-urdu), 'Noto Nastaliq Urdu', serif;
+}
+
+.urdu-mode,
+.urdu-mode * {
+  line-height: 2;
+}
+
+.urdu-mode .text-\[9px\],
+.urdu-mode .text-\[10px\],
+.urdu-mode .text-\[11px\] {
+  font-size: 12px;
+}
+
+.urdu-mode .text-xs {
+  font-size: 13px;
+}
+
+/* Batch and deal numbers stay in a Latin monospace font. */
+.urdu-mode .font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  line-height: 1.6;
+}

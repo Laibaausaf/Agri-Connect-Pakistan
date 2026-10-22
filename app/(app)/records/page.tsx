@@ -2,14 +2,13 @@ import Link from 'next/link';
 import { PaymentStatus, TransactionType } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
+import { getI18n } from '@/lib/i18n/server';
 import {
   Badge,
   Card,
   EmptyState,
   PageHeader,
   StatCard,
-  money,
-  qty,
 } from '@/components/ui/kit';
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +33,7 @@ function parchee(data: unknown): ParcheeData {
 
 export default async function RecordsPage() {
   const user = await requireCapability('farmer.records.view');
+  const { t, crop, place, kg, perKg, money, date, deduction, paymentMethod } = await getI18n();
 
   const [settlements, payments] = await Promise.all([
     prisma.settlement.findMany({
@@ -49,7 +49,7 @@ export default async function RecordsPage() {
             receivedQuantityKg: true,
             agreedQuantityKg: true,
             receivedAt: true,
-            crop: { select: { name: true, imageUrl: true } },
+            crop: { select: { name: true, nameUrdu: true, imageUrl: true } },
             arhti: { select: { name: true } },
             destinationMandi: { select: { name: true, city: true } },
           },
@@ -84,28 +84,22 @@ export default async function RecordsPage() {
 
   const earned = paid.reduce((sum, s) => sum + s.netPayable, 0);
   const awaited = pending.reduce((sum, s) => sum + s.netPayable, 0);
-  const deducted = settlements.reduce((sum, s) => sum + s.deductionsTotal, 0);
 
   return (
     <div className="max-w-4xl mx-auto">
-      <PageHeader
-        title="Payments & Records"
-        titleUrdu="ادائیگی اور پرچی"
-        subtitle="See how much you received and what is still due. رقم ملا یا باقی ہے، یہاں دیکھیں۔"
-      />
+      <PageHeader title={t('records.title')} subtitle={t('records.subtitle')} />
 
       <div className="grid grid-cols-2 gap-3 mb-4">
-        <StatCard label="Received" value={money(earned)} tone="accent" />
-        <StatCard label="Awaiting payment" value={money(awaited)} tone={awaited > 0 ? 'warn' : 'default'} />
-        
+        <StatCard label={t('records.received')} value={money(earned)} tone="accent" />
+        <StatCard label={t('records.awaiting')} value={money(awaited)} tone={awaited > 0 ? 'warn' : 'default'} />
       </div>
 
       {settlements.length === 0 ? (
         <EmptyState
-          title="No settlements yet"
-          message="After an arhti weighs your produce at the mandi, the settlement and parchee appear here."
+          title={t('records.emptyTitle')}
+          message={t('records.emptyMessage')}
           actionHref="/deals"
-          actionLabel="See my deals"
+          actionLabel={t('records.emptyAction')}
         />
       ) : (
         <div className="space-y-3">
@@ -122,52 +116,53 @@ export default async function RecordsPage() {
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{deal.crop.name}</span>
+                      <span className="text-sm font-bold text-charcoal">{crop(deal.crop)}</span>
                       <Badge tone={isPaid ? 'green' : 'amber'}>
-                        {isPaid ? 'Paid' : 'Awaiting payment'}
+                        {isPaid ? t('records.paid') : t('records.awaitingBadge')}
                       </Badge>
                     </div>
                     <div className="text-[11px] text-[#636E72] mt-0.5">
-                      {qty(quantity)} at {money(deal.agreedPricePerKg)}/kg to {deal.arhti.name} ·{' '}
-                      {deal.destinationMandi.city}
+                      {t('records.line', {
+                        qty: kg(quantity),
+                        rate: perKg(deal.agreedPricePerKg),
+                        name: deal.arhti.name,
+                        city: place(deal.destinationMandi.city),
+                      })}
                     </div>
                     <div className="text-[10px] text-[#636E72] font-mono mt-0.5">
                       {deal.dealNumber}
                       {receipt && ` · ${receipt.receiptNumber}`}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-[10px] text-[#636E72]">Net payable</div>
+                  <div className="text-end">
+                    <div className="text-[10px] text-[#636E72]">{t('records.netPayable')}</div>
                     <div className="text-base font-bold text-agri-900">
                       {money(settlement.netPayable)}
                     </div>
                     {isPaid && payment?.paidAt && (
                       <div className="text-[10px] text-[#636E72]">
-                        {payment.method} ·{' '}
-                        {payment.paidAt.toLocaleDateString('en-PK', {
-                          day: 'numeric',
-                          month: 'short',
-                        })}
+                        {paymentMethod(payment.method)} ·{' '}
+                        {date(payment.paidAt, { day: 'numeric', month: 'short' })}
                       </div>
                     )}
                   </div>
                 </div>
 
                 <details className="mt-3 border-t border-[#E5E7EB] pt-3">
-                  <summary className="cursor-pointer text-sm font-semibold text-agri-900">View payment breakdown <span className="font-normal text-[#636E72]">(تفصیل دیکھیں)</span></summary>
+                  <summary className="cursor-pointer text-sm font-semibold text-agri-900">{t('records.breakdown')}</summary>
                 <dl className="mt-3 text-sm space-y-2">
                   <div className="flex justify-between">
-                    <dt className="text-[#636E72]">Gross</dt>
+                    <dt className="text-[#636E72]">{t('records.gross')}</dt>
                     <dd className="font-semibold text-charcoal">{money(settlement.grossAmount)}</dd>
                   </div>
-                  {settlement.deductions.map((deduction) => (
-                    <div key={deduction.id} className="flex justify-between">
-                      <dt className="text-[#636E72]">{deduction.description}</dt>
-                      <dd className="text-red-700">− {money(deduction.amount)}</dd>
+                  {settlement.deductions.map((item) => (
+                    <div key={item.id} className="flex justify-between">
+                      <dt className="text-[#636E72]">{deduction(item.type, item.description)}</dt>
+                      <dd className="text-red-700">− {money(item.amount)}</dd>
                     </div>
                   ))}
                   <div className="flex justify-between border-t border-[#E5E7EB] pt-1.5">
-                    <dt className="font-bold text-charcoal">Net</dt>
+                    <dt className="font-bold text-charcoal">{t('records.net')}</dt>
                     <dd className="font-bold text-agri-900">{money(settlement.netPayable)}</dd>
                   </div>
                 </dl>
@@ -178,7 +173,7 @@ export default async function RecordsPage() {
                     href={`/deals/${deal.id}`}
                     className="text-[11px] font-semibold text-agri-900 hover:underline"
                   >
-                    Open deal
+                    {t('records.openDeal')}
                   </Link>
                   {payment?.reference && isPaid && (
                     <span className="text-[10px] text-[#636E72] font-mono">
@@ -187,11 +182,7 @@ export default async function RecordsPage() {
                   )}
                   {slip.issuedAt && (
                     <span className="text-[10px] text-[#636E72]">
-                      Parchee issued{' '}
-                      {new Date(slip.issuedAt).toLocaleDateString('en-PK', {
-                        day: 'numeric',
-                        month: 'short',
-                      })}
+                      {t('records.parcheeIssued', { date: date(slip.issuedAt, { day: 'numeric', month: 'short' }) })}
                     </span>
                   )}
                 </div>

@@ -14,7 +14,6 @@ export type NavBadges = Partial<Record<NavBadgeKey, number>>;
 export type NavEntry = {
   href: string;
   label: string;
-  labelUrdu: string;
   icon: string;
   badge?: NavBadgeKey;
   badgeStyle?: 'live' | 'count' | 'accent';
@@ -35,12 +34,11 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'My Farm',
       items: [
-        { href: '/for-you', label: 'For You', labelUrdu: 'آپ کے لیے', icon: 'Compass' },
-        { href: '/crops', label: 'My Crops', labelUrdu: 'میری فصلیں', icon: 'Sprout', primary: true },
+        { href: '/for-you', label: 'For You', icon: 'Compass' },
+        { href: '/crops', label: 'My Crops', icon: 'Sprout', primary: true },
         {
           href: '/arhti-requests',
           label: 'Arhti Requests',
-          labelUrdu: 'آڑھتی کی طلب',
           icon: 'Handshake',
           badge: 'pendingOffers',
           badgeStyle: 'count',
@@ -48,7 +46,6 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
         {
           href: '/deals',
           label: 'My Deals',
-          labelUrdu: 'میرے سودے',
           icon: 'FileCheck',
           badge: 'activeDeals',
           badgeStyle: 'count',
@@ -58,17 +55,16 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'Records',
       items: [
-        { href: '/records', label: 'Payments & Records', labelUrdu: 'حساب کتاب', icon: 'Receipt' },
+        { href: '/records', label: 'Payments & Records', icon: 'Receipt' },
         {
           href: '/messages',
           label: 'Messages',
-          labelUrdu: 'پیغامات',
           icon: 'MessageSquare',
           badge: 'unreadMessages',
           badgeStyle: 'count',
         },
-        { href: '/ai-assistant', label: 'AgriConnect AI', labelUrdu: 'اے آئی مددگار', icon: 'Sparkles' },
-        { href: '/profile', label: 'Profile', labelUrdu: 'پروفائل', icon: 'User' },
+        { href: '/ai-assistant', label: 'AgriConnect AI', icon: 'Sparkles' },
+        { href: '/profile', label: 'Profile', icon: 'User' },
       ],
     },
   ],
@@ -77,13 +73,12 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'Buying (from farmers)',
       items: [
-        { href: '/for-you', label: 'For You', labelUrdu: 'آپ کے لیے', icon: 'Compass' },
-        { href: '/sourcing', label: 'Farmer Market', labelUrdu: 'کسان منڈی', icon: 'Sprout', primary: true },
-        { href: '/demand', label: 'My Buy Requests', labelUrdu: 'خریداری کی طلب', icon: 'ClipboardList' },
+        { href: '/for-you', label: 'For You', icon: 'Compass' },
+        { href: '/sourcing', label: 'Farmer Market', icon: 'Sprout', primary: true },
+        { href: '/demand', label: 'My Buy Requests', icon: 'ClipboardList' },
         {
           href: '/deals',
           label: 'Farmer Deals',
-          labelUrdu: 'کسان سودے',
           icon: 'Handshake',
           badge: 'activeDeals',
           badgeStyle: 'count',
@@ -91,7 +86,6 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
         {
           href: '/receiving',
           label: 'Receive & Verify',
-          labelUrdu: 'وزن کانٹا',
           icon: 'Scale',
           badge: 'awaitingReceipt',
           badgeStyle: 'accent',
@@ -101,16 +95,15 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'Selling (in the mandi)',
       items: [
-        { href: '/inventory', label: 'Mandi Inventory', labelUrdu: 'گودام', icon: 'Boxes' },
+        { href: '/inventory', label: 'Mandi Inventory', icon: 'Boxes' },
         {
           href: '/auction-house',
           label: 'Auction House',
-          labelUrdu: 'نیلام گھر',
           icon: 'Gavel',
           badge: 'liveAuctions',
           badgeStyle: 'live',
         },
-        { href: '/sales', label: 'Sales & Commission', labelUrdu: 'فروخت', icon: 'Receipt' },
+        { href: '/sales', label: 'Sales & Commission', icon: 'Receipt' },
       ],
     },
     {
@@ -119,14 +112,13 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
         {
           href: '/messages',
           label: 'Messages',
-          labelUrdu: 'پیغامات',
           icon: 'MessageSquare',
           badge: 'unreadMessages',
           badgeStyle: 'count',
         },
-        { href: '/insights', label: 'Trade Insights', labelUrdu: 'رپورٹ', icon: 'BarChart3' },
-        { href: '/ai-assistant', label: 'AgriConnect AI', labelUrdu: 'اے آئی مددگار', icon: 'Sparkles' },
-        { href: '/profile', label: 'Profile', labelUrdu: 'پروفائل', icon: 'User' },
+        { href: '/insights', label: 'Trade Insights', icon: 'BarChart3' },
+        { href: '/ai-assistant', label: 'AgriConnect AI', icon: 'Sparkles' },
+        { href: '/profile', label: 'Profile', icon: 'User' },
       ],
     },
   ],
@@ -135,27 +127,25 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'Procurement',
       items: [
-        { href: '/for-you', label: 'For You', labelUrdu: 'آپ کے لیے', icon: 'Compass' },
+        { href: '/for-you', label: 'For You', icon: 'Compass' },
         {
           href: '/auctions',
           label: 'Mandi Auctions',
-          labelUrdu: 'منڈی نیلام',
           icon: 'Gavel',
           badge: 'liveAuctions',
           badgeStyle: 'live',
           primary: true,
         },
-        { href: '/stock', label: 'My Warehouse', labelUrdu: 'گودام', icon: 'Boxes' },
+        { href: '/stock', label: 'My Warehouse', icon: 'Boxes' },
       ],
     },
     {
       title: 'Wholesale Shop',
       items: [
-        { href: '/wholesale-shop', label: 'My Wholesale Shop', labelUrdu: 'تھوک دکان', icon: 'Store' },
+        { href: '/wholesale-shop', label: 'My Wholesale Shop', icon: 'Store' },
         {
           href: '/sales',
           label: 'Shopkeeper Orders',
-          labelUrdu: 'دکاندار آرڈرز',
           icon: 'ClipboardList',
           badge: 'openOrders',
           badgeStyle: 'count',
@@ -168,14 +158,13 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
         {
           href: '/messages',
           label: 'Messages',
-          labelUrdu: 'پیغامات',
           icon: 'MessageSquare',
           badge: 'unreadMessages',
           badgeStyle: 'count',
         },
-        { href: '/insights', label: 'Trade Insights', labelUrdu: 'رپورٹ', icon: 'BarChart3' },
-        { href: '/ai-assistant', label: 'AgriConnect AI', labelUrdu: 'اے آئی مددگار', icon: 'Sparkles' },
-        { href: '/profile', label: 'Profile', labelUrdu: 'پروفائل', icon: 'User' },
+        { href: '/insights', label: 'Trade Insights', icon: 'BarChart3' },
+        { href: '/ai-assistant', label: 'AgriConnect AI', icon: 'Sparkles' },
+        { href: '/profile', label: 'Profile', icon: 'User' },
       ],
     },
   ],
@@ -184,19 +173,17 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'Buy Stock',
       items: [
-        { href: '/for-you', label: 'For You', labelUrdu: 'آپ کے لیے', icon: 'Compass' },
+        { href: '/for-you', label: 'For You', icon: 'Compass' },
         {
           href: '/wholesale',
           label: 'Wholesale Market',
-          labelUrdu: 'تھوک مارکیٹ',
           icon: 'Store',
           primary: true,
         },
-        { href: '/purchases', label: 'My Purchases', labelUrdu: 'خریداری', icon: 'ClipboardList' },
+        { href: '/purchases', label: 'My Purchases', icon: 'ClipboardList' },
         {
           href: '/shop-stock',
           label: 'Shop Stock',
-          labelUrdu: 'دکان کا اسٹاک',
           icon: 'Boxes',
           badge: 'lowStock',
           badgeStyle: 'accent',
@@ -206,11 +193,10 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'Sell Retail',
       items: [
-        { href: '/storefront', label: 'My Storefront', labelUrdu: 'میری دکان', icon: 'ShoppingBag' },
+        { href: '/storefront', label: 'My Storefront', icon: 'ShoppingBag' },
         {
           href: '/retail-orders',
           label: 'Customer Orders',
-          labelUrdu: 'گاہک آرڈرز',
           icon: 'PackageCheck',
           badge: 'openOrders',
           badgeStyle: 'count',
@@ -223,14 +209,13 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
         {
           href: '/messages',
           label: 'Messages',
-          labelUrdu: 'پیغامات',
           icon: 'MessageSquare',
           badge: 'unreadMessages',
           badgeStyle: 'count',
         },
-        { href: '/insights', label: 'Shop Insights', labelUrdu: 'رپورٹ', icon: 'BarChart3' },
-        { href: '/ai-assistant', label: 'AgriConnect AI', labelUrdu: 'اے آئی مددگار', icon: 'Sparkles' },
-        { href: '/profile', label: 'Profile', labelUrdu: 'پروفائل', icon: 'User' },
+        { href: '/insights', label: 'Shop Insights', icon: 'BarChart3' },
+        { href: '/ai-assistant', label: 'AgriConnect AI', icon: 'Sparkles' },
+        { href: '/profile', label: 'Profile', icon: 'User' },
       ],
     },
   ],
@@ -239,17 +224,16 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'Shop',
       items: [
-        { href: '/shop', label: 'Home', labelUrdu: 'ہوم', icon: 'Home', primary: true },
-        { href: '/nearby', label: 'Nearby Shops', labelUrdu: 'قریبی دکانیں', icon: 'MapPin' },
+        { href: '/shop', label: 'Home', icon: 'Home', primary: true },
+        { href: '/nearby', label: 'Nearby Shops', icon: 'MapPin' },
         {
           href: '/orders',
           label: 'My Orders',
-          labelUrdu: 'میرے آرڈرز',
           icon: 'PackageCheck',
           badge: 'openOrders',
           badgeStyle: 'count',
         },
-        { href: '/profile', label: 'Profile', labelUrdu: 'پروفائل', icon: 'User' },
+        { href: '/profile', label: 'Profile', icon: 'User' },
       ],
     },
   ],
@@ -258,18 +242,17 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'Mandi Administration',
       items: [
-        { href: '/admin', label: 'Admin Console', labelUrdu: 'ایڈمن پینل', icon: 'ShieldAlert', primary: true },
-        { href: '/admin/trace', label: 'Supply Chain Trace', labelUrdu: 'سپلائی چین', icon: 'GitBranch' },
-        { href: '/insights', label: 'Market Insights', labelUrdu: 'رپورٹ', icon: 'BarChart3' },
+        { href: '/admin', label: 'Admin Console', icon: 'ShieldAlert', primary: true },
+        { href: '/admin/trace', label: 'Supply Chain Trace', icon: 'GitBranch' },
+        { href: '/insights', label: 'Market Insights', icon: 'BarChart3' },
         {
           href: '/messages',
           label: 'Messages',
-          labelUrdu: 'پیغامات',
           icon: 'MessageSquare',
           badge: 'unreadMessages',
           badgeStyle: 'count',
         },
-        { href: '/profile', label: 'Profile', labelUrdu: 'پروفائل', icon: 'User' },
+        { href: '/profile', label: 'Profile', icon: 'User' },
       ],
     },
   ],
@@ -278,50 +261,50 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
 /** Bottom bar on mobile: up to five destinations per role. */
 export const ROLE_MOBILE_NAV: Record<UserRole, NavEntry[]> = {
   FARMER: [
-    { href: '/for-you', label: 'Home', labelUrdu: 'ہوم', icon: 'Compass' },
-    { href: '/crops', label: 'Crops', labelUrdu: 'فصلیں', icon: 'Sprout' },
-    { href: '/arhti-requests', label: 'Offers', labelUrdu: 'آفرز', icon: 'Handshake', badge: 'pendingOffers' },
-    { href: '/deals', label: 'Deals', labelUrdu: 'سودے', icon: 'FileCheck' },
-    { href: '/ai-assistant', label: 'AI', labelUrdu: 'اے آئی', icon: 'Mic' },
+    { href: '/for-you', label: 'Home', icon: 'Compass' },
+    { href: '/crops', label: 'Crops', icon: 'Sprout' },
+    { href: '/arhti-requests', label: 'Offers', icon: 'Handshake', badge: 'pendingOffers' },
+    { href: '/deals', label: 'Deals', icon: 'FileCheck' },
+    { href: '/ai-assistant', label: 'AI', icon: 'Mic' },
   ],
   ARHTI: [
-    { href: '/for-you', label: 'Home', labelUrdu: 'ہوم', icon: 'Compass' },
-    { href: '/sourcing', label: 'Sourcing', labelUrdu: 'خریداری', icon: 'Sprout' },
-    { href: '/inventory', label: 'Stock', labelUrdu: 'گودام', icon: 'Boxes' },
-    { href: '/auction-house', label: 'Auctions', labelUrdu: 'نیلام', icon: 'Gavel', badge: 'liveAuctions' },
-    { href: '/ai-assistant', label: 'AI', labelUrdu: 'اے آئی', icon: 'Mic' },
+    { href: '/for-you', label: 'Home', icon: 'Compass' },
+    { href: '/sourcing', label: 'Sourcing', icon: 'Sprout' },
+    { href: '/inventory', label: 'Stock', icon: 'Boxes' },
+    { href: '/auction-house', label: 'Auctions', icon: 'Gavel', badge: 'liveAuctions' },
+    { href: '/ai-assistant', label: 'AI', icon: 'Mic' },
   ],
   VENDOR: [
-    { href: '/for-you', label: 'Home', labelUrdu: 'ہوم', icon: 'Compass' },
-    { href: '/auctions', label: 'Auctions', labelUrdu: 'نیلام', icon: 'Gavel', badge: 'liveAuctions' },
-    { href: '/stock', label: 'Stock', labelUrdu: 'گودام', icon: 'Boxes' },
-    { href: '/wholesale-shop', label: 'Shop', labelUrdu: 'دکان', icon: 'Store' },
-    { href: '/ai-assistant', label: 'AI', labelUrdu: 'اے آئی', icon: 'Mic' },
+    { href: '/for-you', label: 'Home', icon: 'Compass' },
+    { href: '/auctions', label: 'Auctions', icon: 'Gavel', badge: 'liveAuctions' },
+    { href: '/stock', label: 'Stock', icon: 'Boxes' },
+    { href: '/wholesale-shop', label: 'Shop', icon: 'Store' },
+    { href: '/ai-assistant', label: 'AI', icon: 'Mic' },
   ],
   SHOPKEEPER: [
-    { href: '/for-you', label: 'Home', labelUrdu: 'ہوم', icon: 'Compass' },
-    { href: '/wholesale', label: 'Buy', labelUrdu: 'خریدیں', icon: 'Store' },
-    { href: '/shop-stock', label: 'Stock', labelUrdu: 'اسٹاک', icon: 'Boxes' },
-    { href: '/storefront', label: 'Store', labelUrdu: 'دکان', icon: 'ShoppingBag' },
-    { href: '/retail-orders', label: 'Orders', labelUrdu: 'آرڈرز', icon: 'PackageCheck', badge: 'openOrders' },
+    { href: '/for-you', label: 'Home', icon: 'Compass' },
+    { href: '/wholesale', label: 'Buy', icon: 'Store' },
+    { href: '/shop-stock', label: 'Stock', icon: 'Boxes' },
+    { href: '/storefront', label: 'Store', icon: 'ShoppingBag' },
+    { href: '/retail-orders', label: 'Orders', icon: 'PackageCheck', badge: 'openOrders' },
   ],
   CONSUMER: [
-    { href: '/shop', label: 'Home', labelUrdu: 'ہوم', icon: 'Home' },
-    { href: '/nearby', label: 'Nearby', labelUrdu: 'قریب', icon: 'MapPin' },
-    { href: '/orders', label: 'Orders', labelUrdu: 'آرڈرز', icon: 'PackageCheck', badge: 'openOrders' },
-    { href: '/profile', label: 'Profile', labelUrdu: 'پروفائل', icon: 'User' },
+    { href: '/shop', label: 'Home', icon: 'Home' },
+    { href: '/nearby', label: 'Nearby', icon: 'MapPin' },
+    { href: '/orders', label: 'Orders', icon: 'PackageCheck', badge: 'openOrders' },
+    { href: '/profile', label: 'Profile', icon: 'User' },
   ],
   ADMIN: [
-    { href: '/admin', label: 'Console', labelUrdu: 'پینل', icon: 'ShieldAlert' },
-    { href: '/admin/trace', label: 'Trace', labelUrdu: 'ٹریس', icon: 'GitBranch' },
-    { href: '/insights', label: 'Insights', labelUrdu: 'رپورٹ', icon: 'BarChart3' },
-    { href: '/profile', label: 'Profile', labelUrdu: 'پروفائل', icon: 'User' },
+    { href: '/admin', label: 'Console', icon: 'ShieldAlert' },
+    { href: '/admin/trace', label: 'Trace', icon: 'GitBranch' },
+    { href: '/insights', label: 'Insights', icon: 'BarChart3' },
+    { href: '/profile', label: 'Profile', icon: 'User' },
   ],
 };
 
-export const ROLE_PRIMARY_ACTION: Partial<Record<UserRole, { href: string; label: string; labelUrdu: string }>> = {
-  FARMER: { href: '/crops/new', label: 'Add Crop Batch', labelUrdu: 'فصل شامل کریں' },
-  ARHTI: { href: '/demand/new', label: 'Post Buy Request', labelUrdu: 'طلب لگائیں' },
-  VENDOR: { href: '/wholesale-shop/new', label: 'List Wholesale Offer', labelUrdu: 'آفر لگائیں' },
-  SHOPKEEPER: { href: '/storefront/new', label: 'Add Retail Listing', labelUrdu: 'ریٹیل لسٹنگ' },
+export const ROLE_PRIMARY_ACTION: Partial<Record<UserRole, { href: string; label: string }>> = {
+  FARMER: { href: '/crops/new', label: 'Add Crop Batch' },
+  ARHTI: { href: '/demand/new', label: 'Post Buy Request' },
+  VENDOR: { href: '/wholesale-shop/new', label: 'List Wholesale Offer' },
+  SHOPKEEPER: { href: '/storefront/new', label: 'Add Retail Listing' },
 };

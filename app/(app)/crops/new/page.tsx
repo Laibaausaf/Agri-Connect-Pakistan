@@ -3,11 +3,13 @@ import { requireCapability } from '@/lib/authz';
 import { createCropBatch } from '@/lib/actions/crops';
 import { Card, PageHeader } from '@/components/ui/kit';
 import FarmerCropWizard from '@/components/crops/FarmerCropWizard';
+import { getI18n } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
 export default async function NewCropBatchPage() {
   const user = await requireCapability('farmer.batch.manage');
+  const { t } = await getI18n();
   const [crops, profile, account, prices] = await Promise.all([
     prisma.crop.findMany({ where: { isActive: true }, orderBy: { name: 'asc' }, select: { id: true, name: true, nameUrdu: true, imageUrl: true } }),
     prisma.farmerProfile.findUnique({ where: { userId: user.id } }),
@@ -18,7 +20,7 @@ export default async function NewCropBatchPage() {
   for (const price of prices) if (priceByCrop[price.cropId] === undefined) priceByCrop[price.cropId] = price.ratePerKg;
   return (
     <div className="max-w-2xl mx-auto">
-      <PageHeader title="Add your crop" titleUrdu="اپنی فصل شامل کریں" subtitle="We’ll ask one simple question at a time. You can go back and change anything." />
+      <PageHeader title={t('cropNew.title')} subtitle={t('cropNew.subtitle')} />
       <Card>
         <FarmerCropWizard
           action={createCropBatch}

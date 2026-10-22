@@ -1,9 +1,12 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+/**
+ * Page title. `title` is already in the chosen language; `titleUrdu` is no
+ * longer shown next to it (the language toggle decides which one appears).
+ */
 export function PageHeader({
   title,
-  titleUrdu,
   subtitle,
   action,
 }: {
@@ -17,7 +20,6 @@ export function PageHeader({
       <div>
         <h1 className="text-xl font-bold text-charcoal flex items-center gap-2">
           {title}
-          {titleUrdu && <span className="text-sm font-normal text-[#636E72]">{titleUrdu}</span>}
         </h1>
         {subtitle && <p className="text-xs text-[#636E72] mt-1 max-w-2xl">{subtitle}</p>}
       </div>

@@ -1,21 +1,14 @@
 import { UserRole } from '@prisma/client';
 import { getMyProfile, getMyTrust, updateProfile } from '@/lib/actions/profile';
 import ActionForm, { Field, inputClass } from '@/components/ui/ActionForm';
-import { Badge, Card, PageHeader, StatCard, humanStatus, statusTone } from '@/components/ui/kit';
+import { Badge, Card, PageHeader, StatCard, statusTone } from '@/components/ui/kit';
+import { getI18n } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
-const ROLE_BLURB: Record<UserRole, string> = {
-  FARMER: 'You produce and sell to arhtis. Your village and farm details help arhtis judge your consignments.',
-  ARHTI: 'You buy from farmers and auction in the mandi. Your firm name and licence appear on every offer you make.',
-  VENDOR: 'You win mandi lots and supply shopkeepers. Your warehouse city decides which shopkeepers can buy from you.',
-  SHOPKEEPER: 'You buy wholesale and sell retail. Your shop name, hours and delivery radius are what customers see.',
-  CONSUMER: 'You buy from nearby shops. Your address and city decide which shops can deliver to you.',
-  ADMIN: 'You oversee the whole network. Admin accounts have no trading profile.',
-};
-
 export default async function ProfilePage() {
   const [user, trust] = await Promise.all([getMyProfile(), getMyTrust()]);
+  const { t, role, accountStatus, place, date } = await getI18n();
 
   const farmer = user.farmerProfile;
   const arhti = user.arhtiProfile;
@@ -26,9 +19,8 @@ export default async function ProfilePage() {
   return (
     <div className="max-w-2xl mx-auto">
       <PageHeader
-        title="Profile"
-        titleUrdu="پروفائل"
-        subtitle={ROLE_BLURB[user.role]}
+        title={t('profile.title')}
+        subtitle={t(`profile.blurb.${user.role}` as 'profile.blurb.FARMER')}
       />
 
       <Card className="mb-4">
@@ -36,16 +28,16 @@ export default async function ProfilePage() {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-bold text-charcoal">{user.name}</span>
-              <Badge tone="green">{user.role}</Badge>
-              <Badge tone={statusTone(user.status)}>{humanStatus(user.status)}</Badge>
+              <Badge tone="green">{role(user.role)}</Badge>
+              <Badge tone={statusTone(user.status)}>{accountStatus(user.status)}</Badge>
             </div>
-            <div className="text-[11px] text-[#636E72] mt-1">
+            <div className="text-[11px] text-[#636E72] mt-1" dir="ltr">
               {user.email}
               {user.phone ? ` · ${user.phone}` : ''}
             </div>
             <div className="text-[10px] text-[#636E72]">
-              Member since {new Date(user.createdAt).toLocaleDateString('en-PK', { month: 'long', year: 'numeric' })}
-              {arhti?.mandi ? ` · trades at ${arhti.mandi.name}` : ''}
+              {t('profile.memberSince', { date: date(user.createdAt, { month: 'long', year: 'numeric' }) })}
+              {arhti?.mandi ? ` · ${t('profile.tradesAt', { mandi: place(arhti.mandi.name) })}` : ''}
             </div>
           </div>
         </div>
@@ -53,46 +45,45 @@ export default async function ProfilePage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
         <StatCard
-          label="Rating"
+          label={t('profile.rating')}
           value={trust.average ? `${trust.average.toFixed(1)}★` : '—'}
-          hint={trust.count ? `${trust.count} reviews` : 'No reviews yet'}
+          hint={trust.count ? t('profile.reviews', { count: trust.count }) : t('profile.noReviews')}
           tone="accent"
         />
-        <StatCard label="Account role" value={user.role} hint="One role per account" />
-        <StatCard label="Status" value={humanStatus(user.status)} hint="Set by the mandi admin" />
+        <StatCard label={t('profile.accountRole')} value={role(user.role)} hint={t('profile.oneRole')} />
+        <StatCard label={t('profile.status')} value={accountStatus(user.status)} hint={t('profile.statusHint')} />
       </div>
 
       <Card className="mb-4">
-        <h2 className="text-xs font-bold text-charcoal mb-3">Edit your details</h2>
+        <h2 className="text-xs font-bold text-charcoal mb-3">{t('profile.edit')}</h2>
         <ActionForm
           action={updateProfile}
-          submitLabel="Save changes"
-          submitLabelUrdu="محفوظ کریں"
-          successMessage="Profile updated."
+          submitLabel={t('common.save')}
+          successMessage={t('profile.updated')}
         >
           <div className="space-y-3">
-            <Field label="Full name" labelUrdu="نام">
+            <Field label={t('profile.fullName')}>
               <input name="name" required defaultValue={user.name} className={inputClass} />
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Phone" labelUrdu="فون">
-                <input name="phone" defaultValue={user.phone ?? ''} className={inputClass} />
+              <Field label={t('profile.phone')}>
+                <input name="phone" defaultValue={user.phone ?? ''} className={inputClass} dir="ltr" />
               </Field>
-              <Field label="Location" labelUrdu="مقام">
+              <Field label={t('profile.location')}>
                 <input name="location" defaultValue={user.location ?? ''} className={inputClass} />
               </Field>
             </div>
 
             {user.role === UserRole.FARMER && (
               <>
-                <Field label="Farm or business name">
+                <Field label={t('profile.farmName')}>
                   <input name="businessName" defaultValue={farmer?.businessName ?? ''} className={inputClass} />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Village" labelUrdu="گاؤں">
+                  <Field label={t('profile.village')}>
                     <input name="village" defaultValue={farmer?.village ?? ''} className={inputClass} />
                   </Field>
-                  <Field label="Farm area (acres)">
+                  <Field label={t('profile.farmArea')}>
                     <input
                       name="farmAreaAcres"
                       type="number"
@@ -108,12 +99,12 @@ export default async function ProfilePage() {
 
             {user.role === UserRole.ARHTI && (
               <>
-                <Field label="Firm name" labelUrdu="فرم">
+                <Field label={t('profile.firmName')}>
                   <input name="businessName" defaultValue={arhti?.businessName ?? ''} className={inputClass} />
                 </Field>
                 <Field
-                  label="Mandi licence number"
-                  hint={`Commission rate ${((arhti?.commissionRate ?? 0.02) * 100).toFixed(1)}% — set by the admin`}
+                  label={t('profile.licence')}
+                  hint={t('profile.commission', { rate: ((arhti?.commissionRate ?? 0.02) * 100).toFixed(1) })}
                 >
                   <input name="licenseNumber" defaultValue={arhti?.licenseNumber ?? ''} className={inputClass} />
                 </Field>
@@ -122,14 +113,14 @@ export default async function ProfilePage() {
 
             {user.role === UserRole.VENDOR && (
               <>
-                <Field label="Business name">
+                <Field label={t('profile.businessName')}>
                   <input name="businessName" defaultValue={vendor?.businessName ?? ''} className={inputClass} />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Warehouse city">
+                  <Field label={t('profile.warehouseCity')}>
                     <input name="warehouseCity" defaultValue={vendor?.warehouseCity ?? ''} className={inputClass} />
                   </Field>
-                  <Field label="Minimum order (kg)">
+                  <Field label={t('profile.minOrder')}>
                     <input
                       name="minOrderKg"
                       type="number"
@@ -139,7 +130,7 @@ export default async function ProfilePage() {
                     />
                   </Field>
                 </div>
-                <Field label="Warehouse address">
+                <Field label={t('profile.warehouseAddress')}>
                   <input
                     name="warehouseAddress"
                     defaultValue={vendor?.warehouseAddress ?? ''}
@@ -151,24 +142,24 @@ export default async function ProfilePage() {
 
             {user.role === UserRole.SHOPKEEPER && (
               <>
-                <Field label="Shop name" labelUrdu="دکان کا نام">
+                <Field label={t('profile.shopName')}>
                   <input name="shopName" required defaultValue={shop?.shopName ?? ''} className={inputClass} />
                 </Field>
-                <Field label="Shop address">
+                <Field label={t('profile.shopAddress')}>
                   <input name="shopAddress" defaultValue={shop?.shopAddress ?? ''} className={inputClass} />
                 </Field>
                 <div className="grid grid-cols-3 gap-3">
-                  <Field label="City">
+                  <Field label={t('profile.city')}>
                     <input name="city" defaultValue={shop?.city ?? ''} className={inputClass} />
                   </Field>
-                  <Field label="Opens">
+                  <Field label={t('profile.opens')}>
                     <input name="opensAt" placeholder="07:00" defaultValue={shop?.opensAt ?? ''} className={inputClass} />
                   </Field>
-                  <Field label="Closes">
+                  <Field label={t('profile.closes')}>
                     <input name="closesAt" placeholder="21:00" defaultValue={shop?.closesAt ?? ''} className={inputClass} />
                   </Field>
                 </div>
-                <Field label="Delivery radius (km)" hint="Customers outside this radius will not see your shop as deliverable">
+                <Field label={t('profile.radius')} hint={t('profile.radiusHint')}>
                   <input
                     name="deliveryRadiusKm"
                     type="number"
@@ -184,7 +175,7 @@ export default async function ProfilePage() {
 
             {user.role === UserRole.CONSUMER && (
               <>
-                <Field label="Delivery address" labelUrdu="پتہ">
+                <Field label={t('profile.deliveryAddress')}>
                   <input
                     name="deliveryAddress"
                     defaultValue={consumer?.deliveryAddress ?? ''}
@@ -192,10 +183,10 @@ export default async function ProfilePage() {
                   />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="City">
+                  <Field label={t('profile.city')}>
                     <input name="preferredCity" defaultValue={consumer?.preferredCity ?? ''} className={inputClass} />
                   </Field>
-                  <Field label="Household size">
+                  <Field label={t('profile.householdSize')}>
                     <input
                       name="householdSize"
                       type="number"
@@ -214,7 +205,7 @@ export default async function ProfilePage() {
 
       {trust.recent.length > 0 && (
         <Card>
-          <h2 className="text-xs font-bold text-charcoal mb-3">What others say about you</h2>
+          <h2 className="text-xs font-bold text-charcoal mb-3">{t('profile.othersSay')}</h2>
           <div className="space-y-2">
             {trust.recent.map((rating) => (
               <div key={rating.id} className="rounded-xl border border-[#E5E7EB] p-3">
@@ -223,9 +214,9 @@ export default async function ProfilePage() {
                     {'★'.repeat(rating.overallRating)}
                     <span className="text-[#E5E7EB]">{'★'.repeat(5 - rating.overallRating)}</span>
                   </span>
-                  <Badge tone="neutral">{rating.rater.role}</Badge>
+                  <Badge tone="neutral">{role(rating.rater.role)}</Badge>
                   <span className="text-[10px] text-[#636E72]">
-                    {new Date(rating.createdAt).toLocaleDateString('en-PK')}
+                    {date(rating.createdAt)}
                   </span>
                 </div>
                 {rating.comment && <p className="text-[11px] text-[#636E72] mt-1">{rating.comment}</p>}
