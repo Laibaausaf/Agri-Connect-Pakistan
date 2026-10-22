@@ -7,7 +7,6 @@ import ActionForm from '@/components/ui/ActionForm';
 import {
   Badge,
   Card,
-  CropThumb,
   EmptyState,
   PageHeader,
   StatCard,
@@ -42,7 +41,7 @@ export default async function MyCropsPage() {
   const soldKg = totalKg - availableKg;
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       <PageHeader
         title="My Crops"
         titleUrdu="میری فصلیں"
@@ -50,7 +49,7 @@ export default async function MyCropsPage() {
         action={
           <Link
             href="/crops/new"
-            className="bg-agri-900 hover:bg-agri-800 text-white text-xs font-semibold px-4 py-2 rounded-xl"
+            className="bg-agri-900 hover:bg-agri-800 text-white text-base font-semibold px-5 py-3 rounded-xl"
           >
             + Add Crop Batch
           </Link>
@@ -72,76 +71,84 @@ export default async function MyCropsPage() {
           actionLabel="Add your first batch"
         />
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {batches.map((batch) => {
             const committed = batch.quantityKg - batch.availableKg;
+            const photo = firstPhoto(batch.photos) ?? batch.crop.imageUrl;
             return (
-              <Card key={batch.id}>
-                <div className="flex items-start gap-3">
-                  <CropThumb imageUrl={firstPhoto(batch.photos) ?? batch.crop.imageUrl} name={batch.crop.name} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">
-                        {batch.crop.name}
-                        {batch.variety ? ` • ${batch.variety}` : ''}
-                      </span>
-                      <Badge tone={statusTone(batch.status)}>{humanStatus(batch.status)}</Badge>
-                      <Badge>{batch.grade}</Badge>
-                    </div>
-                    <div className="text-[11px] text-[#636E72] font-mono mt-0.5">{batch.batchNumber}</div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 text-xs">
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">Harvested</div>
-                        <div className="font-semibold text-charcoal">{qty(batch.quantityKg)}</div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">Uncommitted</div>
-                        <div className="font-semibold text-agri-900">{qty(batch.availableKg)}</div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">Origin</div>
-                        <div className="font-semibold text-charcoal truncate">
-                          {batch.originVillage ? `${batch.originVillage}, ` : ''}
-                          {batch.originCity}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">Asking</div>
-                        <div className="font-semibold text-charcoal">
-                          {batch.askingPricePerKg ? `${money(batch.askingPricePerKg)}/kg` : 'Open to offers'}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 mt-3 flex-wrap text-[11px]">
-                      {batch.offers.length > 0 && (
-                        <Link href="/arhti-requests" className="text-agri-900 font-semibold hover:underline">
-                          {batch.offers.length} pending offer{batch.offers.length === 1 ? '' : 's'} →
-                        </Link>
-                      )}
-                      {batch.deals.map((deal) => (
-                        <Link
-                          key={deal.id}
-                          href={`/deals/${deal.id}`}
-                          className="text-[#636E72] hover:text-charcoal"
-                        >
-                          {deal.dealNumber} • {money(deal.agreedPricePerKg)}/kg • {humanStatus(deal.status)}
-                        </Link>
-                      ))}
-                      {committed === 0 && (
-                        <ActionForm
-                          action={archiveCropBatch}
-                          hidden={{ batchId: batch.id }}
-                          submitLabel="Archive"
-                          variant="secondary"
-                          className="inline-block"
-                        />
-                      )}
-                    </div>
+              <div
+                key={batch.id}
+                className="flex flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm"
+              >
+                <div className="relative h-56 w-full bg-[#E8F3EE]">
+                  {photo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photo} alt={batch.crop.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-5xl">🌾</div>
+                  )}
+                  <div className="absolute left-3 top-3 flex gap-2">
+                    <Badge tone={statusTone(batch.status)}>{humanStatus(batch.status)}</Badge>
+                    <Badge>{batch.grade}</Badge>
                   </div>
                 </div>
-              </Card>
+
+                <div className="flex flex-1 flex-col p-5">
+                  <h3 className="text-xl font-bold text-charcoal">
+                    {batch.crop.name}
+                    {batch.variety ? ` • ${batch.variety}` : ''}
+                  </h3>
+                  <div className="mt-0.5 font-mono text-xs text-[#636E72]">{batch.batchNumber}</div>
+
+                  <div className="mt-4 text-3xl font-extrabold text-agri-900">
+                    {batch.askingPricePerKg ? `${money(batch.askingPricePerKg)}/kg` : 'Open to offers'}
+                    <span className="ml-2 text-sm font-medium text-[#636E72]">asking</span>
+                  </div>
+
+                  <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-base">
+                    <div>
+                      <dt className="text-sm text-[#636E72]">Harvested</dt>
+                      <dd className="font-semibold text-charcoal">{qty(batch.quantityKg)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm text-[#636E72]">Uncommitted</dt>
+                      <dd className="font-semibold text-agri-900">{qty(batch.availableKg)}</dd>
+                    </div>
+                    <div className="col-span-2">
+                      <dt className="text-sm text-[#636E72]">Origin</dt>
+                      <dd className="font-semibold text-charcoal">
+                        {batch.originVillage ? `${batch.originVillage}, ` : ''}
+                        {batch.originCity}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+                    {batch.offers.length > 0 && (
+                      <Link href="/arhti-requests" className="font-semibold text-agri-900 hover:underline">
+                        {batch.offers.length} pending offer{batch.offers.length === 1 ? '' : 's'} →
+                      </Link>
+                    )}
+                    {batch.deals.map((deal) => (
+                      <Link key={deal.id} href={`/deals/${deal.id}`} className="text-[#636E72] hover:text-charcoal">
+                        {deal.dealNumber} • {money(deal.agreedPricePerKg)}/kg • {humanStatus(deal.status)}
+                      </Link>
+                    ))}
+                  </div>
+
+                  {committed === 0 && (
+                    <div className="mt-4">
+                      <ActionForm
+                        action={archiveCropBatch}
+                        hidden={{ batchId: batch.id }}
+                        submitLabel="Archive"
+                        variant="secondary"
+                        className="inline-block"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
             );
           })}
         </div>

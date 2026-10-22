@@ -42,24 +42,24 @@ export default function Sidebar({ role, badges, userName, userCity, aiHint }: Si
     .toUpperCase();
 
   return (
-    <aside className="hidden lg:flex flex-col w-64 bg-white text-charcoal border-r border-[#E5E7EB] shrink-0 select-none">
+    <aside className="hidden lg:flex flex-col w-72 bg-white text-charcoal border-r border-[#E5E7EB] shrink-0 select-none">
       {primaryAction && (
         <div className="p-4 border-b border-[#E5E7EB]">
           <Link
             href={primaryAction.href}
-            className="w-full flex items-center justify-center gap-2 bg-agri-900 hover:bg-agri-800 text-white py-2.5 px-3 rounded-lg text-xs font-semibold shadow-xs transition-all active:scale-95"
+            className="w-full flex items-center justify-center gap-2 bg-agri-900 hover:bg-agri-800 text-white py-3 px-3 rounded-lg text-base font-semibold shadow-xs transition-all active:scale-95"
           >
-            <PlusCircle className="w-4 h-4 text-emerald-200" />
+            <PlusCircle className="w-5 h-5 text-emerald-200" />
             <span>{primaryAction.label}</span>
           </Link>
-          <p className="text-[10px] text-[#636E72] text-center mt-1.5">{primaryAction.labelUrdu}</p>
+          <p className="text-xs text-[#636E72] text-center mt-1.5">{primaryAction.labelUrdu}</p>
         </div>
       )}
 
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
         {sections.map((section) => (
           <div key={section.title} className="space-y-1">
-            <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-[#636E72]">
+            <div className="px-3 pb-1 text-xs font-bold uppercase tracking-wider text-[#636E72]">
               {section.title}
             </div>
             {section.items.map((item) => {
@@ -70,7 +70,7 @@ export default function Sidebar({ role, badges, userName, userCity, aiHint }: Si
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left ${
+                  className={`w-full flex items-center justify-between px-3 py-3 rounded-lg text-base font-medium transition-all text-left ${
                     isActive
                       ? 'bg-[#E8F3EE] text-agri-900 font-semibold shadow-sm'
                       : 'text-[#636E72] hover:bg-[#F8F9F5] hover:text-charcoal'
@@ -78,13 +78,13 @@ export default function Sidebar({ role, badges, userName, userCity, aiHint }: Si
                 >
                   <div className="flex items-center gap-2.5 truncate">
                     <Icon
-                      className={`w-4 h-4 shrink-0 ${isActive ? 'text-agri-900' : 'text-[#636E72]'}`}
+                      className={`w-6 h-6 shrink-0 ${isActive ? 'text-agri-900' : 'text-[#636E72]'}`}
                     />
-                    <span className="min-w-0 truncate"><span className="block truncate">{item.label}</span>{role === UserRole.FARMER && <span className="block truncate text-[10px] font-normal opacity-75">{item.labelUrdu}</span>}</span>
+                    <span className="min-w-0 truncate"><span className="block truncate">{item.label}</span>{role === UserRole.FARMER && <span className="block truncate text-sm font-normal opacity-80">{item.labelUrdu}</span>}</span>
                   </div>
                   {badge && (
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold uppercase ${badge.className}`}
+                      className={`text-xs px-1.5 py-0.5 rounded-md font-semibold uppercase ${badge.className}`}
                     >
                       {badge.text}
                     </span>
@@ -96,28 +96,28 @@ export default function Sidebar({ role, badges, userName, userCity, aiHint }: Si
         ))}
       </div>
 
-      <div className="p-4 border-t border-[#E5E7EB] bg-white text-xs">
+      <div className="p-4 border-t border-[#E5E7EB] bg-white text-base">
         {aiHint && (
           <div className="bg-[#F8F9F5] p-3 rounded-xl border border-[#E5E7EB] mb-3">
-            <div className="text-[10px] uppercase tracking-wider text-[#636E72] font-bold mb-1">
+            <div className="text-xs uppercase tracking-wider text-[#636E72] font-bold mb-1">
               AgriConnect AI
             </div>
-            <p className="text-xs leading-relaxed text-charcoal">{aiHint}</p>
+            <p className="text-base leading-relaxed text-charcoal">{aiHint}</p>
           </div>
         )}
 
         <div className="flex items-center gap-3 px-1">
-          <div className="w-9 h-9 rounded-full bg-agri-900 flex items-center justify-center text-white font-bold text-xs shrink-0">
+          <div className="w-9 h-9 rounded-full bg-agri-900 flex items-center justify-center text-white font-bold text-base shrink-0">
             {initials || '?'}
           </div>
           <div className="overflow-hidden flex-1">
-            <div className="text-xs font-bold text-charcoal truncate">{userName}</div>
-            <div className="text-[10px] text-[#636E72] truncate">
+            <div className="text-base font-bold text-charcoal truncate">{userName}</div>
+            <div className="text-xs text-[#636E72] truncate">
               {ROLE_LABEL[role]}
               {userCity ? ` • ${userCity}` : ''}
             </div>
           </div>
-          <span className="text-[10px] bg-[#E8F3EE] text-agri-900 font-medium px-1.5 py-0.5 rounded border border-[#B7D4C8]">
+          <span className="text-xs bg-[#E8F3EE] text-agri-900 font-medium px-1.5 py-0.5 rounded border border-[#B7D4C8]">
             {ROLE_LABEL_URDU[role]}
           </span>
         </div>
