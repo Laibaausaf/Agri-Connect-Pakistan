@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { AuctionStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
+import { getI18n } from '@/lib/i18n/server';
 import {
   Badge,
   Card,
@@ -9,8 +10,6 @@ import {
   EmptyState,
   PageHeader,
   StatCard,
-  money,
-  qty,
 } from '@/components/ui/kit';
 
 export const dynamic = 'force-dynamic';
@@ -26,6 +25,7 @@ function minutesLeft(endTime: Date) {
 
 export default async function AuctionsPage() {
   const user = await requireCapability('vendor.auction.browse');
+  const { t, plural, crop, place, grade, kg, perKg } = await getI18n();
 
   const [live, won] = await Promise.all([
     prisma.auction.findMany({
@@ -36,7 +36,7 @@ export default async function AuctionsPage() {
             lotNumber: true,
             sourceCity: true,
             sourceFarmerName: true,
-            crop: { select: { name: true, imageUrl: true } },
+            crop: { select: { name: true, nameUrdu: true, imageUrl: true } },
           },
         },
         mandi: { select: { name: true, city: true } },
@@ -52,7 +52,7 @@ export default async function AuctionsPage() {
     prisma.auction.findMany({
       where: { status: AuctionStatus.SOLD, winnerId: user.id },
       include: {
-        inventoryLot: { select: { crop: { select: { name: true, imageUrl: true } } } },
+        inventoryLot: { select: { crop: { select: { name: true, nameUrdu: true, imageUrl: true } } } },
         mandi: { select: { city: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -66,20 +66,19 @@ export default async function AuctionsPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <PageHeader
-        title="Mandi Auctions"
-        titleUrdu="منڈی نیلامی"
-        subtitle="Live lots offered by arhtis. Winning a lot moves that produce into your warehouse stock under your ownership."
+        title={t('auctions.title')}
+        subtitle={t('auctions.subtitle')}
       />
 
       <div className="grid grid-cols-3 gap-3 mb-4">
         <StatCard
-          label="Live lots"
+          label={t('auctions.statLive')}
           value={String(live.length)}
           tone={live.length ? 'accent' : 'default'}
         />
-        <StatCard label="Volume on the floor" value={qty(volume)} />
+        <StatCard label={t('auctions.statVolume')} value={kg(volume)} />
         <StatCard
-          label="You are leading"
+          label={t('auctions.statLeading')}
           value={String(leading)}
           tone={leading ? 'accent' : 'default'}
         />
@@ -87,10 +86,10 @@ export default async function AuctionsPage() {
 
       {live.length === 0 ? (
         <EmptyState
-          title="No live auctions right now"
-          message="Arhtis open auctions as farmer consignments arrive at the mandi. Check back shortly."
+          title={t('auctions.emptyTitle')}
+          message={t('auctions.emptyMessage')}
           actionHref="/stock"
-          actionLabel="See my warehouse stock"
+          actionLabel={t('auctions.emptyAction')}
         />
       ) : (
         <div className="grid md:grid-cols-2 gap-3">
@@ -110,44 +109,43 @@ export default async function AuctionsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-bold text-charcoal">
-                          {auction.inventoryLot.crop.name}
+                          {crop(auction.inventoryLot.crop)}
                         </span>
-                        <Badge tone="live">Live</Badge>
-                        {isLeading && <Badge tone="green">Leading</Badge>}
+                        <Badge tone="live">{t('common.live')}</Badge>
+                        {isLeading && <Badge tone="green">{t('auctions.leading')}</Badge>}
                       </div>
                       <div className="text-[11px] text-[#636E72] mt-0.5">
-                        {auction.arhti.name} · {auction.mandi.name}
+                        {auction.arhti.name} · {place(auction.mandi.name)}
                       </div>
                       <div className="text-[10px] text-[#636E72]">
-                        Grown by {auction.inventoryLot.sourceFarmerName},{' '}
-                        {auction.inventoryLot.sourceCity}
+                        {t('auctions.grownBy', { name: auction.inventoryLot.sourceFarmerName, city: place(auction.inventoryLot.sourceCity) })}
                       </div>
                       <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
                         <div>
-                          <div className="text-[10px] text-[#636E72]">Quantity</div>
+                          <div className="text-[10px] text-[#636E72]">{t('auctions.quantity')}</div>
                           <div className="font-semibold text-charcoal">
-                            {qty(auction.quantityKg)}
+                            {kg(auction.quantityKg)}
                           </div>
                         </div>
                         <div>
-                          <div className="text-[10px] text-[#636E72]">Grade</div>
-                          <div className="font-semibold text-charcoal">{auction.grade}</div>
+                          <div className="text-[10px] text-[#636E72]">{t('auctions.grade')}</div>
+                          <div className="font-semibold text-charcoal">{grade(auction.grade)}</div>
                         </div>
                         <div>
                           <div className="text-[10px] text-[#636E72]">
-                            {top ? 'Top bid' : 'Reserve'}
+                            {top ? t('auctions.topBid') : t('auctions.reserve')}
                           </div>
                           <div className="font-semibold text-agri-900">
-                            {money(top?.amountPerKg ?? auction.reservePrice)}/kg
+                            {perKg(top?.amountPerKg ?? auction.reservePrice)}
                           </div>
                         </div>
                         <div>
-                          <div className="text-[10px] text-[#636E72]">Closes in</div>
+                          <div className="text-[10px] text-[#636E72]">{t('auctions.closesIn')}</div>
                           <div className="font-semibold text-charcoal">
-                            {left > 0 ? `${left} min` : 'Closing'}
+                            {left > 0 ? t('auctions.minutes', { count: left }) : t('auctions.closing')}
                           </div>
                           <div className="text-[10px] text-[#636E72]">
-                            {auction.bidCount} bid{auction.bidCount === 1 ? '' : 's'}
+                            {plural('auctionHouse.bid', auction.bidCount)}
                           </div>
                         </div>
                       </div>
@@ -163,7 +161,7 @@ export default async function AuctionsPage() {
       {won.length > 0 && (
         <section className="mt-6">
           <h2 className="text-xs font-bold uppercase tracking-wider text-[#636E72] mb-2">
-            Lots you won
+            {t('auctions.won')}
           </h2>
           <div className="space-y-2">
             {won.map((auction) => (
@@ -176,17 +174,17 @@ export default async function AuctionsPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-charcoal">
-                      {qty(auction.quantityKg)} {auction.inventoryLot.crop.name}
+                      {kg(auction.quantityKg)} {crop(auction.inventoryLot.crop)}
                     </div>
                     <div className="text-[10px] text-[#636E72]">
-                      {money(auction.currentHighestBid ?? 0)}/kg · {auction.mandi.city}
+                      {perKg(auction.currentHighestBid ?? 0)} · {place(auction.mandi.city)}
                     </div>
                   </div>
                   <Link
                     href="/stock"
                     className="text-[10px] font-semibold text-agri-900 hover:underline whitespace-nowrap"
                   >
-                    In warehouse
+                    {t('auctions.inWarehouse')}
                   </Link>
                 </div>
               </Card>

@@ -1,46 +1,35 @@
 import Link from 'next/link';
 import { SupplyChainStage, UserRole } from '@prisma/client';
 import { requireCapability } from '@/lib/authz';
+import { prisma } from '@/lib/prisma';
+import { getI18n } from '@/lib/i18n/server';
 import { getTraceBatches, getBatchTrace } from '@/lib/actions/admin';
-import { Badge, Card, CropThumb, EmptyState, PageHeader, money, qty } from '@/components/ui/kit';
+import { Badge, Card, CropThumb, EmptyState, PageHeader } from '@/components/ui/kit';
 
 export const dynamic = 'force-dynamic';
 
-const STAGE_LABEL: Record<SupplyChainStage, string> = {
-  FARMER_HARVEST: 'Harvest logged',
-  FARMER_ARHTI_OFFER: 'Arhti offer',
-  FARMER_ARHTI_DEAL: 'Deal agreed',
-  PICKUP: 'Pickup / transport',
-  ARHTI_RECEIPT: 'Received at mandi',
-  MANDI_AUCTION: 'Mandi auction',
-  ARHTI_VENDOR_SALE: 'Sold to vendor',
-  VENDOR_WHOLESALE_OFFER: 'Wholesale listing',
-  VENDOR_SHOPKEEPER_SALE: 'Sold to shopkeeper',
-  RETAIL_LISTING: 'Retail listing',
-  CONSUMER_ORDER: 'Consumer order',
-};
+const STAGE_LABEL = {
+  FARMER_HARVEST: 'trace.stage.FARMER_HARVEST',
+  FARMER_ARHTI_OFFER: 'trace.stage.FARMER_ARHTI_OFFER',
+  FARMER_ARHTI_DEAL: 'trace.stage.FARMER_ARHTI_DEAL',
+  PICKUP: 'trace.stage.PICKUP',
+  ARHTI_RECEIPT: 'trace.stage.ARHTI_RECEIPT',
+  MANDI_AUCTION: 'trace.stage.MANDI_AUCTION',
+  ARHTI_VENDOR_SALE: 'trace.stage.ARHTI_VENDOR_SALE',
+  VENDOR_WHOLESALE_OFFER: 'trace.stage.VENDOR_WHOLESALE_OFFER',
+  VENDOR_SHOPKEEPER_SALE: 'trace.stage.VENDOR_SHOPKEEPER_SALE',
+  RETAIL_LISTING: 'trace.stage.RETAIL_LISTING',
+  CONSUMER_ORDER: 'trace.stage.CONSUMER_ORDER',
+} as const satisfies Record<SupplyChainStage, string>;
 
-const ROLE_LABEL: Record<UserRole, string> = {
-  FARMER: 'Farmer',
-  ARHTI: 'Arhti',
-  VENDOR: 'Vendor',
-  SHOPKEEPER: 'Shopkeeper',
-  CONSUMER: 'Consumer',
-  ADMIN: 'Admin',
-};
-
-function when(date: Date) {
-  return new Date(date).toLocaleString('en-PK', {
-    day: 'numeric',
-    month: 'short',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
-function day(date: Date) {
-  return new Date(date).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' });
-}
+const ROLE_LABEL = {
+  FARMER: 'trace.role.FARMER',
+  ARHTI: 'trace.role.ARHTI',
+  VENDOR: 'trace.role.VENDOR',
+  SHOPKEEPER: 'trace.role.SHOPKEEPER',
+  CONSUMER: 'trace.role.CONSUMER',
+  ADMIN: 'trace.role.ADMIN',
+} as const satisfies Record<UserRole, string>;
 
 export default async function AdminTracePage({
   searchParams,
@@ -49,10 +38,20 @@ export default async function AdminTracePage({
 }) {
   await requireCapability('admin.trace');
   const { q, batch: batchId } = await searchParams;
+  const { t, isUrdu, crop, place, grade, kg, perKg, dateTime, date, storedText } = await getI18n();
+  const when = (value: Date) => dateTime(value, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  const day = (value: Date) => date(value, { day: 'numeric', month: 'short', year: 'numeric' });
 
   const batches = await getTraceBatches(q);
   const selectedId = batchId ?? batches[0]?.id;
   const trace = selectedId ? await getBatchTrace(selectedId) : null;
+  const cropNames = isUrdu
+    ? Object.fromEntries(
+        (await prisma.crop.findMany({ select: { name: true, nameUrdu: true } }))
+          .filter((c) => c.nameUrdu)
+          .map((c) => [c.name, c.nameUrdu as string])
+      )
+    : {};
 
   const keep = q ? `&q=${encodeURIComponent(q)}` : '';
 
@@ -65,46 +64,45 @@ export default async function AdminTracePage({
 
   const farmGate = priceAt(SupplyChainStage.FARMER_ARHTI_DEAL) ?? priceAt(SupplyChainStage.ARHTI_RECEIPT);
   const journey = [
-    { label: 'Farm gate', role: 'Farmer → Arhti', price: farmGate },
-    { label: 'Mandi auction', role: 'Arhti → Vendor', price: priceAt(SupplyChainStage.ARHTI_VENDOR_SALE) },
-    { label: 'Wholesale', role: 'Vendor → Shopkeeper', price: priceAt(SupplyChainStage.VENDOR_SHOPKEEPER_SALE) },
-    { label: 'Retail shelf', role: 'Shopkeeper → Consumer', price: priceAt(SupplyChainStage.RETAIL_LISTING) },
+    { label: t('trace.farmGate'), role: t('trace.farmerArhti'), price: farmGate },
+    { label: t('trace.mandiAuction'), role: t('trace.arhtiVendor'), price: priceAt(SupplyChainStage.ARHTI_VENDOR_SALE) },
+    { label: t('trace.wholesale'), role: t('trace.vendorShop'), price: priceAt(SupplyChainStage.VENDOR_SHOPKEEPER_SALE) },
+    { label: t('trace.retailShelf'), role: t('trace.shopConsumer'), price: priceAt(SupplyChainStage.RETAIL_LISTING) },
   ];
   const retail = journey[3].price;
 
   return (
     <div className="max-w-5xl mx-auto">
       <PageHeader
-        title="Supply Chain Trace"
-        titleUrdu="سپلائی چین ٹریس"
-        subtitle="Follow one crop batch through every ownership transfer — farmer, arhti, vendor, shopkeeper, consumer — with the quantity, rate and transaction reference recorded at each handover."
+        title={t('trace.title')}
+        subtitle={t('trace.subtitle')}
         action={
           <Link
             href="/admin"
             className="text-[11px] font-semibold text-agri-900 hover:underline whitespace-nowrap"
           >
-            Back to console
+            {t('trace.back')}
           </Link>
         }
       />
 
       <Card className="mb-4">
         <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-          <h2 className="text-xs font-bold text-charcoal">Pick a batch</h2>
+          <h2 className="text-xs font-bold text-charcoal">{t('trace.pick')}</h2>
           <form action="/admin/trace" className="flex items-center gap-2">
             <input
               type="text"
               name="q"
               defaultValue={q ?? ''}
-              placeholder="Batch no, crop, farmer, city"
+              placeholder={t('trace.searchPlaceholder')}
               className="rounded-xl border border-[#E5E7EB] px-3 py-1.5 text-[11px] focus:outline-none focus:ring-2 focus:ring-agri-700"
             />
             <button type="submit" className="text-[11px] font-semibold text-agri-900 hover:underline">
-              Search
+              {t('admin.search')}
             </button>
             {q && (
               <Link href="/admin/trace" className="text-[11px] text-[#636E72] hover:underline">
-                Clear
+                {t('admin.clear')}
               </Link>
             )}
           </form>
@@ -112,7 +110,7 @@ export default async function AdminTracePage({
 
         {batches.length === 0 ? (
           <div className="py-6 text-center text-[11px] text-[#636E72]">
-            No crop batches match that search.
+            {t('trace.noMatch')}
           </div>
         ) : (
           <div className="flex gap-2 overflow-x-auto pb-1">
@@ -131,15 +129,15 @@ export default async function AdminTracePage({
                   <div className="flex items-center gap-2">
                     <CropThumb imageUrl={b.crop.imageUrl} name={b.crop.name} size="sm" />
                     <div className="min-w-0">
-                      <div className="text-xs font-semibold text-charcoal truncate">{b.crop.name}</div>
+                      <div className="text-xs font-semibold text-charcoal truncate">{crop(b.crop)}</div>
                       <div className="text-[10px] text-[#636E72] truncate">{b.batchNumber}</div>
                     </div>
                   </div>
                   <div className="text-[10px] text-[#636E72] mt-2">
-                    {b.farmer.name} · {b.originCity}
+                    {b.farmer.name} · {place(b.originCity)}
                   </div>
                   <div className="text-[10px] text-[#636E72]">
-                    {qty(b.quantityKg)} harvested · {b._count.chainEvents} events
+                    {t('trace.batchLine', { qty: kg(b.quantityKg), count: b._count.chainEvents })}
                   </div>
                 </Link>
               );
@@ -150,8 +148,8 @@ export default async function AdminTracePage({
 
       {!trace ? (
         <EmptyState
-          title="Nothing to trace yet"
-          message="Traces are built from real ownership transfers. Once a farmer logs a harvest and an arhti buys it, the chain appears here."
+          title={t('trace.emptyTitle')}
+          message={t('trace.emptyMessage')}
         />
       ) : (
         <>
@@ -161,34 +159,35 @@ export default async function AdminTracePage({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="text-sm font-bold text-charcoal">
-                    {trace.crop.name}
+                    {crop(trace.crop)}
                     {trace.variety ? ` · ${trace.variety}` : ''}
                   </h2>
-                  <Badge tone="neutral">Grade {trace.grade}</Badge>
+                  <Badge tone="neutral">{isUrdu ? grade(trace.grade) : t('trace.grade', { grade: trace.grade })}</Badge>
                   <Badge tone="green">{trace.batchNumber}</Badge>
                 </div>
                 <div className="text-[11px] text-[#636E72] mt-1">
-                  Grown by {trace.farmer.name}
+                  {t('trace.grownBy', { name: trace.farmer.name })}
                   {trace.farmer.farmerProfile?.businessName
                     ? ` · ${trace.farmer.farmerProfile.businessName}`
                     : ''}
                 </div>
                 <div className="text-[11px] text-[#636E72]">
-                  {trace.originVillage ? `${trace.originVillage}, ` : ''}
-                  {trace.originCity}, {trace.originProvince} · harvested {day(trace.harvestDate)}
+                  {trace.originVillage ? `${place(trace.originVillage)}${t('common.listSep')}` : ''}
+                  {place(trace.originCity)}{t('common.listSep')}{place(trace.originProvince)} ·{' '}
+                  {t('trace.harvestedOn', { date: day(trace.harvestDate) })}
                 </div>
                 <div className="flex gap-4 mt-2 text-[10px] text-[#636E72]">
                   <span>
-                    Harvested <span className="font-semibold text-charcoal">{qty(trace.quantityKg)}</span>
+                    {t('trace.harvested')} <span className="font-semibold text-charcoal">{kg(trace.quantityKg)}</span>
                   </span>
                   <span>
-                    Unsold <span className="font-semibold text-charcoal">{qty(trace.availableKg)}</span>
+                    {t('trace.unsold')} <span className="font-semibold text-charcoal">{kg(trace.availableKg)}</span>
                   </span>
                   {trace.askingPricePerKg !== null && (
                     <span>
-                      Asked{' '}
+                      {t('trace.asked')}{' '}
                       <span className="font-semibold text-charcoal">
-                        {money(trace.askingPricePerKg)}/kg
+                        {perKg(trace.askingPricePerKg)}
                       </span>
                     </span>
                   )}
@@ -198,7 +197,7 @@ export default async function AdminTracePage({
           </Card>
 
           <Card className="mb-4">
-            <h2 className="text-xs font-bold text-charcoal mb-3">Price journey</h2>
+            <h2 className="text-xs font-bold text-charcoal mb-3">{t('trace.priceJourney')}</h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {journey.map((step) => {
                 const markup =
@@ -212,12 +211,12 @@ export default async function AdminTracePage({
                       {step.label}
                     </div>
                     <div className="text-base font-bold text-charcoal mt-0.5">
-                      {step.price !== null ? `${money(step.price)}/kg` : '—'}
+                      {step.price !== null ? perKg(step.price) : '—'}
                     </div>
                     <div className="text-[10px] text-[#636E72]">{step.role}</div>
                     {markup !== null && markup > 0 && (
                       <div className="text-[10px] text-amber-700 font-semibold mt-0.5">
-                        +{markup}% over farm gate
+                        {t('trace.markup', { pct: markup })}
                       </div>
                     )}
                   </div>
@@ -226,43 +225,46 @@ export default async function AdminTracePage({
             </div>
             {farmGate !== null && retail !== null && (
               <p className="text-[11px] text-[#636E72] mt-3">
-                The farmer received {money(farmGate)}/kg; the consumer pays {money(retail)}/kg — the
-                grower keeps {Math.round((farmGate / retail) * 100)}% of the shelf price.
+                {t('trace.summary', {
+                  farm: perKg(farmGate),
+                  retail: perKg(retail),
+                  pct: Math.round((farmGate / retail) * 100),
+                })}
               </p>
             )}
           </Card>
 
           <Card>
             <h2 className="text-xs font-bold text-charcoal mb-3">
-              Ownership history · {trace.chainEvents.length} recorded events
+              {t('trace.history', { count: trace.chainEvents.length })}
             </h2>
             {trace.chainEvents.length === 0 ? (
               <div className="py-6 text-center text-[11px] text-[#636E72]">
-                This batch has not moved yet.
+                {t('trace.notMoved')}
               </div>
             ) : (
-              <ol className="relative border-l border-[#E5E7EB] ml-2">
+              <ol className="relative border-s border-[#E5E7EB] ms-2">
                 {trace.chainEvents.map((event) => (
-                  <li key={event.id} className="pl-4 pb-4 last:pb-0 relative">
-                    <span className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-agri-900 border-2 border-white" />
+                  <li key={event.id} className="ps-4 pb-4 last:pb-0 relative">
+                    <span className="absolute -start-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-agri-900 border-2 border-white" />
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-semibold text-charcoal">{event.title}</span>
-                      <Badge tone="neutral">{STAGE_LABEL[event.stage]}</Badge>
-                      {event.isConfidential && <Badge tone="amber">Confidential</Badge>}
+                      <span className="text-xs font-semibold text-charcoal">{storedText(event.title, cropNames)}</span>
+                      <Badge tone="neutral">{t(STAGE_LABEL[event.stage])}</Badge>
+                      {event.isConfidential && <Badge tone="amber">{t('trace.confidential')}</Badge>}
                     </div>
-                    <p className="text-[11px] text-[#636E72] mt-0.5">{event.description}</p>
+                    <p className="text-[11px] text-[#636E72] mt-0.5">{storedText(event.description, cropNames)}</p>
                     <div className="flex flex-wrap gap-3 text-[10px] text-[#636E72] mt-1">
                       {event.actor && (
                         <span>
-                          {event.actorRole ? `${ROLE_LABEL[event.actorRole]}: ` : ''}
+                          {event.actorRole ? `${t(ROLE_LABEL[event.actorRole])}: ` : ''}
                           <span className="font-semibold text-charcoal">{event.actor.name}</span>
                         </span>
                       )}
                       {event.quantityKg !== null && (
-                        <span className="font-semibold text-charcoal">{qty(event.quantityKg)}</span>
+                        <span className="font-semibold text-charcoal">{kg(event.quantityKg)}</span>
                       )}
                       {event.pricePerKg !== null && (
-                        <span className="font-semibold text-charcoal">{money(event.pricePerKg)}/kg</span>
+                        <span className="font-semibold text-charcoal">{perKg(event.pricePerKg)}</span>
                       )}
                       <span>{when(event.createdAt)}</span>
                       {event.refType && event.refId && (

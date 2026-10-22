@@ -7,7 +7,8 @@ import {
   InventoryLotStatus,
 } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { Badge, Card, CropThumb, StatCard, humanStatus, money, qty, statusTone } from '@/components/ui/kit';
+import { getI18n } from '@/lib/i18n/server';
+import { Badge, Card, CropThumb, StatCard, statusTone } from '@/components/ui/kit';
 
 const INCOMING: DealStatus[] = [
   DealStatus.PICKUP_SCHEDULED,
@@ -16,6 +17,8 @@ const INCOMING: DealStatus[] = [
 ];
 
 export default async function ArhtiHome({ userId, name }: { userId: string; name: string }) {
+  const { t, crop, place, status, grade, kg, perKg, money, isUrdu } = await getI18n();
+
   const [profile, incoming, lots, liveAuctions, freshBatches, openDemand, sales] = await Promise.all([
     prisma.arhtiProfile.findUnique({
       where: { userId },
@@ -30,7 +33,7 @@ export default async function ArhtiHome({ userId, name }: { userId: string; name
         agreedPricePerKg: true,
         status: true,
         sourceCity: true,
-        crop: { select: { name: true, imageUrl: true } },
+        crop: { select: { name: true, nameUrdu: true, imageUrl: true } },
         farmer: { select: { name: true } },
         pickup: { select: { driverName: true, vehiclePlate: true, expectedArrivalAt: true } },
       },
@@ -52,7 +55,7 @@ export default async function ArhtiHome({ userId, name }: { userId: string; name
         grade: true,
         sourceCity: true,
         sourceFarmerName: true,
-        crop: { select: { name: true, imageUrl: true } },
+        crop: { select: { name: true, nameUrdu: true, imageUrl: true } },
       },
       orderBy: { createdAt: 'asc' },
       take: 4,
@@ -67,7 +70,7 @@ export default async function ArhtiHome({ userId, name }: { userId: string; name
         currentHighestBid: true,
         bidCount: true,
         endTime: true,
-        inventoryLot: { select: { crop: { select: { name: true, imageUrl: true } }, purchasePricePerKg: true } },
+        inventoryLot: { select: { crop: { select: { name: true, nameUrdu: true, imageUrl: true } }, purchasePricePerKg: true } },
       },
       orderBy: { endTime: 'asc' },
       take: 4,
@@ -81,7 +84,7 @@ export default async function ArhtiHome({ userId, name }: { userId: string; name
         originCity: true,
         askingPricePerKg: true,
         harvestDate: true,
-        crop: { select: { name: true, imageUrl: true } },
+        crop: { select: { name: true, nameUrdu: true, imageUrl: true } },
         farmer: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -98,55 +101,55 @@ export default async function ArhtiHome({ userId, name }: { userId: string; name
 
   const stockKg = lots.reduce((sum, l) => sum + l.availableQuantityKg, 0);
   const stockCost = lots.reduce((sum, l) => sum + l.availableQuantityKg * l.purchasePricePerKg, 0);
+  // English keeps the stored grade after "grade"; Urdu shows the translated grade.
+  const gradeText = (value: string) => (isUrdu ? grade(value) : t('common.grade', { grade: value }));
 
   return (
     <>
       <Card className="mb-4 bg-agri-900 border-agri-900">
         <div className="text-white">
-          <div className="text-[11px] text-white/70">Commission agent</div>
+          <div className="text-[11px] text-white/70">{t('ahome.role')}</div>
           <h1 className="text-lg font-bold">{profile?.businessName ?? name}</h1>
           <p className="text-[11px] text-white/80 mt-1 max-w-lg">
             {profile?.mandi
-              ? `Trading at ${profile.mandi.name}, ${profile.mandi.city}.`
-              : 'No mandi set on your profile yet.'}{' '}
-            Buy from farmers on the left, auction to vendors on the right.
+              ? t('ahome.tradingAt', { mandi: place(profile.mandi.name), city: place(profile.mandi.city) })
+              : t('ahome.noMandi')}{' '}
+            {t('ahome.tagline')}
           </p>
         </div>
       </Card>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <StatCard
-          label="Trucks incoming"
+          label={t('ahome.trucks')}
           value={String(incoming.length)}
           tone={incoming.length ? 'warn' : 'default'}
-          hint="Awaiting weighing"
+          hint={t('ahome.awaitingWeighing')}
         />
-        <StatCard label="Mandi stock" value={qty(stockKg)} hint={`${money(stockCost)} tied up`} />
+        <StatCard label={t('ahome.stock')} value={kg(stockKg)} hint={t('ahome.tiedUp', { amount: money(stockCost) })} />
         <StatCard
-          label="Live auctions"
+          label={t('ahome.liveAuctions')}
           value={String(liveAuctions.length)}
           tone="accent"
-          hint={`${openDemand} open buy requests`}
+          hint={t('ahome.openRequests', { count: openDemand })}
         />
         <StatCard
-          label="Commission earned"
+          label={t('ahome.commission')}
           value={money(sales._sum.commission ?? 0)}
-          hint={`on ${qty(sales._sum.quantityKg ?? 0)} sold`}
+          hint={t('ahome.onSold', { qty: kg(sales._sum.quantityKg ?? 0) })}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         <Card>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-bold text-charcoal">Arriving at your mandi</h2>
+            <h2 className="text-xs font-bold text-charcoal">{t('ahome.arriving')}</h2>
             <Link href="/receiving" className="text-[11px] font-semibold text-agri-900 hover:underline">
-              Receive &amp; verify
+              {t('ahome.receive')}
             </Link>
           </div>
           {incoming.length === 0 ? (
-            <p className="text-[11px] text-[#636E72] py-4 text-center">
-              No consignment on the road. Buy from the farmer market to fill your stock.
-            </p>
+            <p className="text-[11px] text-[#636E72] py-4 text-center">{t('ahome.noIncoming')}</p>
           ) : (
             <div className="space-y-2">
               {incoming.map((deal) => (
@@ -158,16 +161,16 @@ export default async function ArhtiHome({ userId, name }: { userId: string; name
                   <CropThumb imageUrl={deal.crop.imageUrl} name={deal.crop.name} size="sm" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-semibold text-charcoal">{deal.crop.name}</span>
-                      <Badge tone={statusTone(deal.status)}>{humanStatus(deal.status)}</Badge>
+                      <span className="text-xs font-semibold text-charcoal">{crop(deal.crop)}</span>
+                      <Badge tone={statusTone(deal.status)}>{status(deal.status)}</Badge>
                     </div>
                     <div className="text-[11px] text-[#636E72]">
-                      {qty(deal.agreedQuantityKg)} from {deal.farmer.name} · {deal.sourceCity}
+                      {t('ahome.fromFarmer', { qty: kg(deal.agreedQuantityKg), name: deal.farmer.name, city: place(deal.sourceCity) })}
                     </div>
                     <div className="text-[10px] text-[#636E72]">
                       {deal.pickup
                         ? `${deal.pickup.driverName}${deal.pickup.vehiclePlate ? ` · ${deal.pickup.vehiclePlate}` : ''}`
-                        : 'Pickup not arranged yet'}
+                        : t('ahome.noPickup')}
                     </div>
                   </div>
                 </Link>
@@ -178,15 +181,13 @@ export default async function ArhtiHome({ userId, name }: { userId: string; name
 
         <Card>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-bold text-charcoal">Live in the auction house</h2>
+            <h2 className="text-xs font-bold text-charcoal">{t('ahome.liveHouse')}</h2>
             <Link href="/auction-house" className="text-[11px] font-semibold text-agri-900 hover:underline">
-              Auction house
+              {t('ahome.auctionHouse')}
             </Link>
           </div>
           {liveAuctions.length === 0 ? (
-            <p className="text-[11px] text-[#636E72] py-4 text-center">
-              Nothing under the hammer. Put a stock lot up for auction.
-            </p>
+            <p className="text-[11px] text-[#636E72] py-4 text-center">{t('ahome.nothingHammer')}</p>
           ) : (
             <div className="space-y-2">
               {liveAuctions.map((auction) => {
@@ -207,18 +208,17 @@ export default async function ArhtiHome({ userId, name }: { userId: string; name
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-semibold text-charcoal">
-                          {auction.inventoryLot.crop.name}
+                          {crop(auction.inventoryLot.crop)}
                         </span>
-                        <Badge tone="live">Live</Badge>
+                        <Badge tone="live">{t('common.live')}</Badge>
                       </div>
                       <div className="text-[11px] text-[#636E72]">
-                        {qty(auction.quantityKg)} · top bid{' '}
-                        <span className="font-semibold text-charcoal">{money(top)}/kg</span> ·{' '}
-                        {auction.bidCount} bids
+                        {kg(auction.quantityKg)} · {t('common.topBid')}{' '}
+                        <span className="font-semibold text-charcoal">{perKg(top)}</span> ·{' '}
+                        {t('common.bids', { count: auction.bidCount })}
                       </div>
                       <div className="text-[10px] text-[#636E72]">
-                        Bought at {money(cost)}/kg · {spread >= 0 ? '+' : ''}
-                        {spread}% on cost
+                        {t('ahome.boughtAt', { rate: perKg(cost), spread: `${spread >= 0 ? '+' : ''}${spread}` })}
                       </div>
                     </div>
                   </Link>
@@ -232,26 +232,26 @@ export default async function ArhtiHome({ userId, name }: { userId: string; name
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-bold text-charcoal">Stock waiting to be auctioned</h2>
+            <h2 className="text-xs font-bold text-charcoal">{t('ahome.waitingStock')}</h2>
             <Link href="/inventory" className="text-[11px] font-semibold text-agri-900 hover:underline">
-              Inventory
+              {t('ahome.inventory')}
             </Link>
           </div>
           {lots.length === 0 ? (
-            <p className="text-[11px] text-[#636E72] py-4 text-center">Godown is empty.</p>
+            <p className="text-[11px] text-[#636E72] py-4 text-center">{t('ahome.godownEmpty')}</p>
           ) : (
             <div className="space-y-2">
               {lots.map((lot) => (
                 <div key={lot.id} className="flex items-start gap-3 rounded-xl border border-[#E5E7EB] p-3">
                   <CropThumb imageUrl={lot.crop.imageUrl} name={lot.crop.name} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold text-charcoal">{lot.crop.name}</div>
+                    <div className="text-xs font-semibold text-charcoal">{crop(lot.crop)}</div>
                     <div className="text-[11px] text-[#636E72]">
-                      {qty(lot.availableQuantityKg)} unsold of {qty(lot.receivedQuantityKg)} · grade{' '}
-                      {lot.grade}
+                      {t('ahome.unsoldOf', { available: kg(lot.availableQuantityKg), received: kg(lot.receivedQuantityKg) })} ·{' '}
+                      {gradeText(lot.grade)}
                     </div>
                     <div className="text-[10px] text-[#636E72]">
-                      {lot.sourceFarmerName}, {lot.sourceCity} · cost {money(lot.purchasePricePerKg)}/kg
+                      {lot.sourceFarmerName}, {place(lot.sourceCity)} · {t('ahome.cost', { rate: perKg(lot.purchasePricePerKg) })}
                     </div>
                   </div>
                 </div>
@@ -262,13 +262,13 @@ export default async function ArhtiHome({ userId, name }: { userId: string; name
 
         <Card>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-bold text-charcoal">Fresh from the farms</h2>
+            <h2 className="text-xs font-bold text-charcoal">{t('ahome.fresh')}</h2>
             <Link href="/sourcing" className="text-[11px] font-semibold text-agri-900 hover:underline">
-              Farmer market
+              {t('ahome.farmerMarket')}
             </Link>
           </div>
           {freshBatches.length === 0 ? (
-            <p className="text-[11px] text-[#636E72] py-4 text-center">No batch on the market today.</p>
+            <p className="text-[11px] text-[#636E72] py-4 text-center">{t('ahome.noBatch')}</p>
           ) : (
             <div className="space-y-2">
               {freshBatches.map((batch) => (
@@ -279,13 +279,13 @@ export default async function ArhtiHome({ userId, name }: { userId: string; name
                 >
                   <CropThumb imageUrl={batch.crop.imageUrl} name={batch.crop.name} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold text-charcoal">{batch.crop.name}</div>
+                    <div className="text-xs font-semibold text-charcoal">{crop(batch.crop)}</div>
                     <div className="text-[11px] text-[#636E72]">
-                      {qty(batch.availableKg)} · grade {batch.grade} · {batch.originCity}
+                      {kg(batch.availableKg)} · {gradeText(batch.grade)} · {place(batch.originCity)}
                     </div>
                     <div className="text-[10px] text-[#636E72]">
                       {batch.farmer.name}
-                      {batch.askingPricePerKg ? ` · asking ${money(batch.askingPricePerKg)}/kg` : ''}
+                      {batch.askingPricePerKg ? ` · ${t('ahome.asking', { rate: perKg(batch.askingPricePerKg) })}` : ''}
                     </div>
                   </div>
                 </Link>

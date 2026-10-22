@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
 import { cancelAuction, closeAuction } from '@/lib/actions/auctions';
 import ActionForm from '@/components/ui/ActionForm';
+import { getI18n } from '@/lib/i18n/server';
 import {
   Badge,
   Card,
@@ -11,9 +12,6 @@ import {
   EmptyState,
   PageHeader,
   StatCard,
-  humanStatus,
-  money,
-  qty,
 } from '@/components/ui/kit';
 
 export const dynamic = 'force-dynamic';
@@ -29,6 +27,7 @@ function minutesLeft(endTime: Date) {
 
 export default async function AuctionHousePage() {
   const user = await requireCapability('arhti.auction.manage');
+  const { t, plural, crop, place, status, grade, kg, perKg, money, isUrdu } = await getI18n();
 
   const auctions = await prisma.auction.findMany({
     where: { arhtiId: user.id },
@@ -39,7 +38,7 @@ export default async function AuctionHousePage() {
           sourceCity: true,
           sourceFarmerName: true,
           purchasePricePerKg: true,
-          crop: { select: { name: true, imageUrl: true } },
+          crop: { select: { name: true, nameUrdu: true, imageUrl: true } },
         },
       },
       mandi: { select: { name: true, city: true } },
@@ -67,43 +66,42 @@ export default async function AuctionHousePage() {
   return (
     <div className="max-w-4xl mx-auto">
       <PageHeader
-        title="Auction House"
-        titleUrdu="نیلام گھر"
-        subtitle="Your mandi auctions. Vendors bid here; closing an auction transfers the produce to the winning vendor and records the sale."
+        title={t('auctionHouse.title')}
+        subtitle={t('auctionHouse.subtitle')}
         action={
           <Link
             href="/inventory"
             className="text-[11px] font-semibold text-agri-900 hover:underline whitespace-nowrap"
           >
-            Add from inventory
+            {t('auctionHouse.addFromInventory')}
           </Link>
         }
       />
 
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <StatCard label="Live auctions" value={String(live.length)} tone={live.length ? 'accent' : 'default'} />
-        <StatCard label="Volume on the floor" value={qty(live.reduce((s, a) => s + a.quantityKg, 0))} />
-        <StatCard label="Sold value" value={money(Math.round(soldValue))} />
+        <StatCard label={t('auctionHouse.statLive')} value={String(live.length)} tone={live.length ? 'accent' : 'default'} />
+        <StatCard label={t('auctionHouse.statFloor')} value={kg(live.reduce((s, a) => s + a.quantityKg, 0))} />
+        <StatCard label={t('auctionHouse.statSold')} value={money(Math.round(soldValue))} />
       </div>
 
       {auctions.length === 0 ? (
         <EmptyState
-          title="No auctions yet"
-          message="Pick a lot from your mandi inventory and open an auction — only arhtis can sell on the mandi floor."
+          title={t('auctionHouse.emptyTitle')}
+          message={t('auctionHouse.emptyMessage')}
           actionHref="/inventory"
-          actionLabel="Open inventory"
+          actionLabel={t('auctionHouse.emptyAction')}
         />
       ) : (
         <div className="space-y-6">
           <section>
             <h2 className="text-xs font-bold uppercase tracking-wider text-[#636E72] mb-2">
-              On the floor ({live.length})
+              {t('auctionHouse.onFloor', { count: live.length })}
             </h2>
             <div className="space-y-3">
               {live.length === 0 && (
                 <Card>
                   <p className="text-xs text-[#636E72]">
-                    Nothing live right now. Open an auction from your inventory.
+                    {t('auctionHouse.nothingLive')}
                   </p>
                 </Card>
               )}
@@ -128,50 +126,49 @@ export default async function AuctionHousePage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-bold text-charcoal">
-                            {auction.inventoryLot.crop.name}
+                            {crop(auction.inventoryLot.crop)}
                           </span>
-                          <Badge tone="live">Live</Badge>
-                          <Badge tone="neutral">{auction.grade}</Badge>
+                          <Badge tone="live">{t('common.live')}</Badge>
+                          <Badge tone="neutral">{grade(auction.grade)}</Badge>
                         </div>
                         <div className="text-[11px] text-[#636E72] font-mono mt-0.5">
                           {auction.auctionNumber} · {auction.inventoryLot.lotNumber}
                         </div>
                         <div className="text-[11px] text-[#636E72]">
-                          {auction.inventoryLot.sourceFarmerName}, {auction.inventoryLot.sourceCity}{' '}
-                          → {auction.mandi.name}
+                          {auction.inventoryLot.sourceFarmerName}, {place(auction.inventoryLot.sourceCity)}{' '}
+                          {isUrdu ? '←' : '→'} {place(auction.mandi.name)}
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
                           <div>
-                            <div className="text-[10px] text-[#636E72]">Quantity</div>
+                            <div className="text-[10px] text-[#636E72]">{t('auctionHouse.quantity')}</div>
                             <div className="font-semibold text-charcoal">
-                              {qty(auction.quantityKg)}
+                              {kg(auction.quantityKg)}
                             </div>
                           </div>
                           <div>
-                            <div className="text-[10px] text-[#636E72]">Reserve</div>
+                            <div className="text-[10px] text-[#636E72]">{t('auctionHouse.reserve')}</div>
                             <div className="font-semibold text-charcoal">
-                              {money(auction.reservePrice)}/kg
+                              {perKg(auction.reservePrice)}
                             </div>
                           </div>
                           <div>
-                            <div className="text-[10px] text-[#636E72]">Top bid</div>
+                            <div className="text-[10px] text-[#636E72]">{t('auctionHouse.topBid')}</div>
                             <div className="font-semibold text-agri-900">
-                              {top ? `${money(top.amountPerKg)}/kg` : 'No bids'}
+                              {top ? perKg(top.amountPerKg) : t('auctionHouse.noBids')}
                             </div>
                             {margin != null && (
                               <div className="text-[10px] text-[#636E72]">
-                                {margin >= 0 ? '+' : ''}
-                                {margin}% on cost
+                                {t('auctionHouse.onCost', { margin: `${margin >= 0 ? '+' : ''}${margin}` })}
                               </div>
                             )}
                           </div>
                           <div>
-                            <div className="text-[10px] text-[#636E72]">Closes in</div>
+                            <div className="text-[10px] text-[#636E72]">{t('auctionHouse.closesIn')}</div>
                             <div className="font-semibold text-charcoal">
-                              {left > 0 ? `${left} min` : 'Time up'}
+                              {left > 0 ? t('auctionHouse.minutes', { count: left }) : t('auctionHouse.timeUp')}
                             </div>
                             <div className="text-[10px] text-[#636E72]">
-                              {auction.bidCount} bid{auction.bidCount === 1 ? '' : 's'}
+                              {plural('auctionHouse.bid', auction.bidCount)}
                             </div>
                           </div>
                         </div>
@@ -186,7 +183,7 @@ export default async function AuctionHousePage() {
                               {bid.bidder.name}
                             </span>
                             <span className={index === 0 ? 'font-bold text-agri-900' : 'text-[#636E72]'}>
-                              {money(bid.amountPerKg)}/kg
+                              {perKg(bid.amountPerKg)}
                             </span>
                           </li>
                         ))}
@@ -196,12 +193,11 @@ export default async function AuctionHousePage() {
                     <div className="mt-3 flex flex-wrap gap-2 items-start">
                       <ActionForm
                         action={closeAuction}
-                        submitLabel={top ? `Close and sell at ${money(top.amountPerKg)}/kg` : 'Close without sale'}
-                        submitLabelUrdu="نیلامی بند"
+                        submitLabel={top ? t('auctionHouse.closeSell', { rate: perKg(top.amountPerKg) }) : t('auctionHouse.closeNoSale')}
                         successMessage={
                           top
-                            ? 'Sold. The produce is now owned by the winning vendor.'
-                            : 'Closed with no bids. The quantity is back in your inventory.'
+                            ? t('auctionHouse.sold')
+                            : t('auctionHouse.closedNoBids')
                         }
                         variant="inline"
                         hidden={{ auctionId: auction.id }}
@@ -210,7 +206,7 @@ export default async function AuctionHousePage() {
                       {auction.bidCount === 0 && (
                         <ActionForm
                           action={cancelAuction}
-                          submitLabel="Cancel"
+                          submitLabel={t('auctionHouse.cancel')}
                           variant="inline"
                           hidden={{ auctionId: auction.id }}
                           className="inline-block"
@@ -226,7 +222,7 @@ export default async function AuctionHousePage() {
           {settled.length > 0 && (
             <section>
               <h2 className="text-xs font-bold uppercase tracking-wider text-[#636E72] mb-2">
-                Settled ({settled.length})
+                {t('auctionHouse.settled', { count: settled.length })}
               </h2>
               <div className="space-y-2">
                 {settled.map((auction) => {
@@ -242,10 +238,10 @@ export default async function AuctionHousePage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-charcoal">
-                              {qty(auction.quantityKg)} {auction.inventoryLot.crop.name}
+                              {kg(auction.quantityKg)} {crop(auction.inventoryLot.crop)}
                             </span>
                             <Badge tone={auction.status === AuctionStatus.SOLD ? 'green' : 'neutral'}>
-                              {humanStatus(auction.status)}
+                              {status(auction.status)}
                             </Badge>
                           </div>
                           <div className="text-[10px] text-[#636E72] font-mono">
@@ -253,18 +249,18 @@ export default async function AuctionHousePage() {
                             {auction.sale && ` · ${auction.sale.saleNumber}`}
                           </div>
                         </div>
-                        <div className="text-right whitespace-nowrap">
+                        <div className="text-end whitespace-nowrap">
                           {auction.status === AuctionStatus.SOLD && top ? (
                             <>
                               <div className="font-bold text-agri-900">
-                                {money(top.amountPerKg)}/kg
+                                {perKg(top.amountPerKg)}
                               </div>
                               <div className="text-[10px] text-[#636E72]">
-                                {money(auction.sale?.grossAmount ?? 0)} gross
+                                {t('auctionHouse.gross', { amount: money(auction.sale?.grossAmount ?? 0) })}
                               </div>
                             </>
                           ) : (
-                            <div className="text-[10px] text-[#636E72]">Returned to stock</div>
+                            <div className="text-[10px] text-[#636E72]">{t('auctionHouse.returned')}</div>
                           )}
                         </div>
                       </div>

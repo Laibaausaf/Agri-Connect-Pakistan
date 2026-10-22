@@ -4,12 +4,14 @@ import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
 import { createRetailListing } from '@/lib/actions/retail';
 import ActionForm, { Field, inputClass } from '@/components/ui/ActionForm';
-import { Card, EmptyState, PageHeader, money, qty } from '@/components/ui/kit';
+import { Card, EmptyState, PageHeader } from '@/components/ui/kit';
+import { getI18n } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
 export default async function NewRetailListingPage() {
   const user = await requireCapability('shopkeeper.retail.manage');
+  const { t, crop, grade, kg, perKg } = await getI18n();
 
   const stocks = await prisma.shopkeeperInventory.findMany({
     where: {
@@ -23,7 +25,7 @@ export default async function NewRetailListingPage() {
       availableKg: true,
       costPerKg: true,
       grade: true,
-      crop: { select: { name: true } },
+      crop: { select: { name: true, nameUrdu: true } },
       sale: {
         select: { offer: { select: { stock: { select: { sourceFarmCity: true } } } } },
       },
@@ -34,65 +36,66 @@ export default async function NewRetailListingPage() {
   return (
     <div className="max-w-xl mx-auto">
       <PageHeader
-        title="Add a Retail Listing"
-        titleUrdu="ریٹیل لسٹنگ"
-        subtitle="Price shop stock for customers. The kilograms you list move out of your back-room stock, so the counter can never sell more than you hold."
+        title={t('storefrontNew.title')}
+        subtitle={t('storefrontNew.subtitle')}
         action={
           <Link
             href="/storefront"
             className="text-[11px] font-semibold text-agri-900 hover:underline"
           >
-            Cancel
+            {t('storefrontNew.cancel')}
           </Link>
         }
       />
 
       {stocks.length === 0 ? (
         <EmptyState
-          title="No unpriced stock"
-          message="Everything you hold is already on the counter. Buy more from a vendor to restock the shop."
+          title={t('storefrontNew.emptyTitle')}
+          message={t('storefrontNew.emptyMessage')}
           actionHref="/wholesale"
-          actionLabel="Browse Wholesale Market"
+          actionLabel={t('purchases.emptyAction')}
         />
       ) : (
         <Card>
           <ActionForm
             action={createRetailListing}
-            submitLabel="Publish listing"
-            submitLabelUrdu="لسٹنگ لگائیں"
+            submitLabel={t('retailForm.publish')}
           >
             <div className="space-y-3">
               <Field
-                label="Shop stock"
-                labelUrdu="اسٹاک"
-                hint="Only lots with unpriced kilograms appear here."
+                label={t('storefrontNew.stock')}
+                hint={t('storefrontNew.stockHint')}
               >
                 <select name="stockId" required className={inputClass}>
-                  <option value="">Select stock</option>
+                  <option value="">{t('storefrontNew.selectStock')}</option>
                   {stocks.map((stock) => (
                     <option key={stock.id} value={stock.id}>
-                      {stock.crop.name} {stock.grade} · {qty(stock.availableKg)} · cost{' '}
-                      {money(stock.costPerKg)}/kg ({stock.stockNumber})
+                      {t('storefrontNew.stockOption', {
+                        crop: crop(stock.crop),
+                        grade: grade(stock.grade),
+                        qty: kg(stock.availableKg),
+                        rate: perKg(stock.costPerKg),
+                        stock: stock.stockNumber,
+                      })}
                     </option>
                   ))}
                 </select>
               </Field>
 
               <Field
-                label="What customers see"
-                labelUrdu="نام"
-                hint="Mention the origin — customers pay more for produce they can place."
+                label={t('retailForm.title')}
+                hint={t('storefrontNew.titleHint')}
               >
                 <input
                   name="title"
                   required
-                  placeholder="Fresh Swabi Tomatoes"
+                  placeholder={t('storefrontNew.titlePlaceholder')}
                   className={inputClass}
                 />
               </Field>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Quantity (kg)" labelUrdu="مقدار">
+                <Field label={t('common.qtyKg')}>
                   <input
                     type="number"
                     name="listedQuantityKg"
@@ -104,9 +107,8 @@ export default async function NewRetailListingPage() {
                   />
                 </Field>
                 <Field
-                  label="Retail price (Rs/kg)"
-                  labelUrdu="ریٹیل ریٹ"
-                  hint="Must be above the lot's cost."
+                  label={t('retailForm.price')}
+                  hint={t('storefrontNew.priceHint')}
                 >
                   <input
                     type="number"
@@ -120,12 +122,12 @@ export default async function NewRetailListingPage() {
                 </Field>
               </div>
 
-              <Field label="Pack size" hint="How customers buy it at the counter.">
+              <Field label={t('storefrontNew.pack')} hint={t('storefrontNew.packHint')}>
                 <select name="packSizeKg" defaultValue={1} className={inputClass}>
-                  <option value={0.5}>500 g</option>
-                  <option value={1}>1 kg</option>
-                  <option value={2}>2 kg</option>
-                  <option value={5}>5 kg</option>
+                  <option value={0.5}>{t('retailForm.g500')}</option>
+                  <option value={1}>{t('retailForm.kg1')}</option>
+                  <option value={2}>{t('retailForm.kg2')}</option>
+                  <option value={5}>{t('retailForm.kg5')}</option>
                 </select>
               </Field>
             </div>

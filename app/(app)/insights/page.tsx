@@ -1,11 +1,16 @@
 import { UserRole, ConsumerOrderStatus, AuctionStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
-import { Badge, Card, PageHeader, StatCard, money, qty } from '@/components/ui/kit';
+import { getI18n } from '@/lib/i18n/server';
+import type { I18n } from '@/lib/i18n';
+import { Badge, Card, PageHeader, StatCard } from '@/components/ui/kit';
 
 export const dynamic = 'force-dynamic';
 
 type CropRow = { crop: string; kg: number; value: number; cost?: number };
+
+/** Crop name in the chosen language, looked up by the stored English name. */
+type CropLabel = (name: string) => string;
 
 function rate(value: number, kg: number) {
   return kg > 0 ? value / kg : 0;
@@ -16,12 +21,17 @@ function CropTable({
   rows,
   valueLabel,
   showMargin = false,
+  i18n,
+  cropLabel,
 }: {
   title: string;
   rows: CropRow[];
   valueLabel: string;
   showMargin?: boolean;
+  i18n: I18n;
+  cropLabel: CropLabel;
 }) {
+  const { t, kg, money, perKg } = i18n;
   const sorted = [...rows].sort((a, b) => b.value - a.value).slice(0, 6);
   const max = sorted[0]?.value ?? 0;
 
@@ -29,15 +39,15 @@ function CropTable({
     <Card>
       <h2 className="text-xs font-bold text-charcoal mb-3">{title}</h2>
       {sorted.length === 0 ? (
-        <p className="text-[11px] text-[#636E72] py-4 text-center">Nothing traded yet.</p>
+        <p className="text-[11px] text-[#636E72] py-4 text-center">{t('insights.nothingTraded')}</p>
       ) : (
         <div className="space-y-2.5">
           {sorted.map((row) => (
             <div key={row.crop}>
               <div className="flex items-center justify-between text-[11px]">
-                <span className="font-semibold text-charcoal">{row.crop}</span>
+                <span className="font-semibold text-charcoal">{cropLabel(row.crop)}</span>
                 <span className="text-[#636E72]">
-                  {qty(row.kg)} · <span className="font-semibold text-charcoal">{money(row.value)}</span>
+                  {kg(row.kg)} · <span className="font-semibold text-charcoal">{money(row.value)}</span>
                 </span>
               </div>
               <div className="h-1.5 rounded-full bg-[#F2F4F7] mt-1">
@@ -47,9 +57,9 @@ function CropTable({
                 />
               </div>
               <div className="text-[10px] text-[#636E72] mt-0.5">
-                {money(rate(row.value, row.kg))}/kg {valueLabel}
+                {t('insights.rowRate', { rate: perKg(rate(row.value, row.kg)), label: valueLabel })}
                 {showMargin && row.cost !== undefined && row.kg > 0
-                  ? ` · ${money(rate(row.value - row.cost, row.kg))}/kg margin`
+                  ? ` · ${t('insights.rowMargin', { rate: perKg(rate(row.value - row.cost, row.kg)) })}`
                   : ''}
               </div>
             </div>
@@ -60,7 +70,8 @@ function CropTable({
   );
 }
 
-async function ArhtiInsights({ userId }: { userId: string }) {
+async function ArhtiInsights({ userId, i18n, cropLabel }: { userId: string; i18n: I18n; cropLabel: CropLabel }) {
+  const { t, kg, money, perKg } = i18n;
   const [deals, sales, auctions] = await Promise.all([
     prisma.farmerArhtiDeal.findMany({
       where: { arhtiId: userId, receivedQuantityKg: { not: null } },
@@ -107,39 +118,46 @@ async function ArhtiInsights({ userId }: { userId: string }) {
   return (
     <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <StatCard label="Bought from farmers" value={money(boughtValue)} hint={qty(boughtKg)} />
-        <StatCard label="Sold to vendors" value={money(soldValue)} hint={qty(soldKg)} tone="accent" />
+        <StatCard label={t('insights.boughtFarmers')} value={money(boughtValue)} hint={kg(boughtKg)} />
+        <StatCard label={t('insights.soldVendors')} value={money(soldValue)} hint={kg(soldKg)} tone="accent" />
         <StatCard
-          label="Avg spread"
-          value={`${money(rate(soldValue, soldKg) - rate(boughtValue, boughtKg))}/kg`}
-          hint={`Buy ${money(rate(boughtValue, boughtKg))} → sell ${money(rate(soldValue, soldKg))}`}
+          label={t('insights.avgSpread')}
+          value={perKg(rate(soldValue, soldKg) - rate(boughtValue, boughtKg))}
+          hint={t('insights.buySell', { buy: money(rate(boughtValue, boughtKg)), sell: money(rate(soldValue, soldKg)) })}
         />
-        <StatCard label="Commission earned" value={money(commission)} hint={`${sales.length} auction sales`} />
+        <StatCard label={t('insights.commission')} value={money(commission)} hint={t('insights.auctionSales', { count: sales.length })} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <CropTable title="Auction sales by crop" rows={[...byCrop.values()]} valueLabel="realized" showMargin />
+        <CropTable
+          title={t('insights.byCropAuction')}
+          rows={[...byCrop.values()]}
+          valueLabel={t('insights.realized')}
+          showMargin
+          i18n={i18n}
+          cropLabel={cropLabel}
+        />
         <Card>
-          <h2 className="text-xs font-bold text-charcoal mb-3">Auction performance</h2>
+          <h2 className="text-xs font-bold text-charcoal mb-3">{t('insights.auctionPerf')}</h2>
           <div className="space-y-2 text-[11px]">
             <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">Lots sold</span>
+              <span className="text-[#636E72]">{t('insights.lotsSold')}</span>
               <span className="font-semibold text-charcoal">{sold}</span>
             </div>
             <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">Expired unsold</span>
+              <span className="text-[#636E72]">{t('insights.expired')}</span>
               <span className="font-semibold text-charcoal">{expired}</span>
             </div>
             <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">Closed above reserve</span>
+              <span className="text-[#636E72]">{t('insights.aboveReserve')}</span>
               <span className="font-semibold text-agri-900">
-                {aboveReserve} of {sales.length}
+                {t('insights.ofTotal', { count: aboveReserve, total: sales.length })}
               </span>
             </div>
             <div className="flex justify-between py-1.5">
-              <span className="text-[#636E72]">Weight shrinkage absorbed</span>
+              <span className="text-[#636E72]">{t('insights.shrinkage')}</span>
               <span className="font-semibold text-charcoal">
-                {qty(Math.max(0, boughtKg - soldKg))}
+                {kg(Math.max(0, boughtKg - soldKg))}
               </span>
             </div>
           </div>
@@ -149,7 +167,8 @@ async function ArhtiInsights({ userId }: { userId: string }) {
   );
 }
 
-async function VendorInsights({ userId }: { userId: string }) {
+async function VendorInsights({ userId, i18n, cropLabel }: { userId: string; i18n: I18n; cropLabel: CropLabel }) {
+  const { t, kg, money, perKg } = i18n;
   const [purchases, sales, stock] = await Promise.all([
     prisma.arhtiVendorSale.aggregate({
       where: { vendorId: userId },
@@ -193,48 +212,55 @@ async function VendorInsights({ userId }: { userId: string }) {
     <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <StatCard
-          label="Bought at mandi"
+          label={t('insights.boughtMandi')}
           value={money(purchases._sum.grossAmount ?? 0)}
-          hint={`${qty(boughtKg)} in ${purchases._count} lots`}
+          hint={t('insights.inLots', { qty: kg(boughtKg), count: purchases._count })}
         />
-        <StatCard label="Wholesale revenue" value={money(soldValue)} hint={qty(soldKg)} tone="accent" />
+        <StatCard label={t('insights.wholesaleRevenue')} value={money(soldValue)} hint={kg(soldKg)} tone="accent" />
         <StatCard
-          label="Gross margin"
+          label={t('insights.grossMargin')}
           value={money(soldValue - cogs)}
-          hint={soldKg > 0 ? `${money(rate(soldValue - cogs, soldKg))}/kg` : 'No sales yet'}
+          hint={soldKg > 0 ? perKg(rate(soldValue - cogs, soldKg)) : t('insights.noSales')}
         />
         <StatCard
-          label="Stock turned"
+          label={t('insights.stockTurned')}
           value={`${turnover}%`}
           tone={heldKg > 0 ? 'warn' : 'default'}
-          hint={`${qty(heldKg)} still in warehouse`}
+          hint={t('insights.inWarehouse', { qty: kg(heldKg) })}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <CropTable title="Wholesale sales by crop" rows={[...byCrop.values()]} valueLabel="sold" showMargin />
+        <CropTable
+          title={t('insights.byCropWholesale')}
+          rows={[...byCrop.values()]}
+          valueLabel={t('insights.sold')}
+          showMargin
+          i18n={i18n}
+          cropLabel={cropLabel}
+        />
         <Card>
-          <h2 className="text-xs font-bold text-charcoal mb-3">Where the money went</h2>
+          <h2 className="text-xs font-bold text-charcoal mb-3">{t('insights.moneyWent')}</h2>
           <div className="space-y-2 text-[11px]">
             <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">Avg mandi cost</span>
+              <span className="text-[#636E72]">{t('insights.avgMandiCost')}</span>
               <span className="font-semibold text-charcoal">
-                {money(rate(purchases._sum.grossAmount ?? 0, boughtKg))}/kg
+                {perKg(rate(purchases._sum.grossAmount ?? 0, boughtKg))}
               </span>
             </div>
             <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">Avg wholesale price</span>
-              <span className="font-semibold text-charcoal">{money(rate(soldValue, soldKg))}/kg</span>
+              <span className="text-[#636E72]">{t('insights.avgWholesale')}</span>
+              <span className="font-semibold text-charcoal">{perKg(rate(soldValue, soldKg))}</span>
             </div>
             <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">Markup</span>
+              <span className="text-[#636E72]">{t('insights.markup')}</span>
               <span className="font-semibold text-agri-900">
                 {cogs > 0 ? `${Math.round(((soldValue - cogs) / cogs) * 100)}%` : '—'}
               </span>
             </div>
             <div className="flex justify-between py-1.5">
-              <span className="text-[#636E72]">Capital still on the floor</span>
-              <span className="font-semibold text-charcoal">{qty(heldKg)}</span>
+              <span className="text-[#636E72]">{t('insights.capitalFloor')}</span>
+              <span className="font-semibold text-charcoal">{kg(heldKg)}</span>
             </div>
           </div>
         </Card>
@@ -243,7 +269,8 @@ async function VendorInsights({ userId }: { userId: string }) {
   );
 }
 
-async function ShopkeeperInsights({ userId }: { userId: string }) {
+async function ShopkeeperInsights({ userId, i18n, cropLabel }: { userId: string; i18n: I18n; cropLabel: CropLabel }) {
+  const { t, kg, money, perKg } = i18n;
   const [purchases, items, orders, listings] = await Promise.all([
     prisma.vendorShopkeeperSale.aggregate({
       where: { shopkeeperId: userId },
@@ -290,47 +317,54 @@ async function ShopkeeperInsights({ userId }: { userId: string }) {
     <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <StatCard
-          label="Wholesale spend"
+          label={t('insights.wholesaleSpend')}
           value={money(purchases._sum.grossAmount ?? 0)}
-          hint={`${qty(purchases._sum.quantityKg ?? 0)} in ${purchases._count} purchases`}
+          hint={t('insights.inPurchases', { qty: kg(purchases._sum.quantityKg ?? 0), count: purchases._count })}
         />
-        <StatCard label="Counter revenue" value={money(revenue)} hint={qty(soldKg)} tone="accent" />
+        <StatCard label={t('insights.counterRevenue')} value={money(revenue)} hint={kg(soldKg)} tone="accent" />
         <StatCard
-          label="Gross profit"
+          label={t('insights.grossProfit')}
           value={money(revenue - cogs)}
-          hint={soldKg > 0 ? `${money(rate(revenue - cogs, soldKg))}/kg` : 'No sales yet'}
+          hint={soldKg > 0 ? perKg(rate(revenue - cogs, soldKg)) : t('insights.noSales')}
         />
         <StatCard
-          label="Orders delivered"
+          label={t('insights.ordersDelivered')}
           value={String(delivered)}
-          hint={totalOrders ? `${cancelled} cancelled of ${totalOrders}` : 'No orders yet'}
+          hint={totalOrders ? t('insights.cancelledOf', { cancelled, total: totalOrders }) : t('insights.noOrders')}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <CropTable title="Best sellers" rows={[...byCrop.values()]} valueLabel="retail" showMargin />
+        <CropTable
+          title={t('insights.bestSellers')}
+          rows={[...byCrop.values()]}
+          valueLabel={t('insights.retail')}
+          showMargin
+          i18n={i18n}
+          cropLabel={cropLabel}
+        />
         <Card>
-          <h2 className="text-xs font-bold text-charcoal mb-3">Shop health</h2>
+          <h2 className="text-xs font-bold text-charcoal mb-3">{t('insights.shopHealth')}</h2>
           <div className="space-y-2 text-[11px]">
             <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">Avg wholesale cost</span>
+              <span className="text-[#636E72]">{t('insights.avgWholesaleCost')}</span>
               <span className="font-semibold text-charcoal">
-                {money(rate(purchases._sum.grossAmount ?? 0, purchases._sum.quantityKg ?? 0))}/kg
+                {perKg(rate(purchases._sum.grossAmount ?? 0, purchases._sum.quantityKg ?? 0))}
               </span>
             </div>
             <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">Avg shelf price</span>
-              <span className="font-semibold text-charcoal">{money(rate(revenue, soldKg))}/kg</span>
+              <span className="text-[#636E72]">{t('insights.avgShelf')}</span>
+              <span className="font-semibold text-charcoal">{perKg(rate(revenue, soldKg))}</span>
             </div>
             <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">Markup</span>
+              <span className="text-[#636E72]">{t('insights.markup')}</span>
               <span className="font-semibold text-agri-900">
                 {cogs > 0 ? `${Math.round(((revenue - cogs) / cogs) * 100)}%` : '—'}
               </span>
             </div>
             <div className="flex justify-between py-1.5">
-              <span className="text-[#636E72]">Unsold stock</span>
-              <span className="font-semibold text-charcoal">{qty(listings._sum.availableKg ?? 0)}</span>
+              <span className="text-[#636E72]">{t('insights.unsold')}</span>
+              <span className="font-semibold text-charcoal">{kg(listings._sum.availableKg ?? 0)}</span>
             </div>
           </div>
         </Card>
@@ -339,7 +373,8 @@ async function ShopkeeperInsights({ userId }: { userId: string }) {
   );
 }
 
-async function AdminInsights() {
+async function AdminInsights({ i18n, cropLabel }: { i18n: I18n; cropLabel: CropLabel }) {
+  const { t, kg, money, perKg } = i18n;
   const [farmGate, mandi, wholesale, retailItems, batches] = await Promise.all([
     prisma.farmerArhtiDeal.aggregate({
       where: { receivedQuantityKg: { not: null } },
@@ -371,38 +406,36 @@ async function AdminInsights() {
   }
 
   const stages = [
-    { label: 'Farm gate', rate: farmRate, who: 'Farmer receives' },
-    { label: 'Mandi auction', rate: mandiRate, who: 'Arhti realizes' },
-    { label: 'Wholesale', rate: wholesaleRate, who: 'Vendor charges' },
-    { label: 'Retail', rate: retailRate, who: 'Consumer pays' },
+    { label: t('insights.stage.farm'), rate: farmRate, who: t('insights.who.farm') },
+    { label: t('insights.stage.mandi'), rate: mandiRate, who: t('insights.who.mandi') },
+    { label: t('insights.stage.wholesale'), rate: wholesaleRate, who: t('insights.who.wholesale') },
+    { label: t('insights.stage.retail'), rate: retailRate, who: t('insights.who.retail') },
   ];
 
   return (
     <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <StatCard label="Harvest logged" value={qty(batches._sum.quantityKg ?? 0)} hint={`${batches._count} batches`} />
-        <StatCard label="Mandi turnover" value={money(mandi._sum.grossAmount ?? 0)} hint={qty(mandi._sum.quantityKg ?? 0)} />
-        <StatCard label="Retail turnover" value={money(retailValue)} hint={qty(retailKg)} tone="accent" />
+        <StatCard label={t('insights.harvest')} value={kg(batches._sum.quantityKg ?? 0)} hint={t('insights.batches', { count: batches._count })} />
+        <StatCard label={t('insights.mandiTurnover')} value={money(mandi._sum.grossAmount ?? 0)} hint={kg(mandi._sum.quantityKg ?? 0)} />
+        <StatCard label={t('insights.retailTurnover')} value={money(retailValue)} hint={kg(retailKg)} tone="accent" />
         <StatCard
-          label="Farmer share"
+          label={t('insights.farmerShare')}
           value={retailRate > 0 ? `${Math.round((farmRate / retailRate) * 100)}%` : '—'}
-          hint="Of the shelf price"
+          hint={t('insights.ofShelf')}
           tone="warn"
         />
       </div>
 
       <Card className="mb-4">
-        <h2 className="text-xs font-bold text-charcoal mb-1">Average rate at each stage</h2>
-        <p className="text-[11px] text-[#636E72] mb-3">
-          Network-wide averages. Only admins see the whole ladder in one place.
-        </p>
+        <h2 className="text-xs font-bold text-charcoal mb-1">{t('insights.avgRate')}</h2>
+        <p className="text-[11px] text-[#636E72] mb-3">{t('insights.networkAvg')}</p>
         <div className="space-y-2.5">
           {stages.map((stage) => (
             <div key={stage.label}>
               <div className="flex items-center justify-between text-[11px]">
                 <span className="font-semibold text-charcoal">{stage.label}</span>
                 <span className="text-[#636E72]">
-                  {stage.who} <span className="font-semibold text-charcoal">{money(stage.rate)}/kg</span>
+                  {stage.who} <span className="font-semibold text-charcoal">{perKg(stage.rate)}</span>
                 </span>
               </div>
               <div className="h-1.5 rounded-full bg-[#F2F4F7] mt-1">
@@ -416,65 +449,78 @@ async function AdminInsights() {
         </div>
       </Card>
 
-      <CropTable title="Retail demand by crop" rows={[...byCrop.values()]} valueLabel="consumer spend" />
+      <CropTable
+        title={t('insights.byCropRetail')}
+        rows={[...byCrop.values()]}
+        valueLabel={t('insights.consumerSpend')}
+        i18n={i18n}
+        cropLabel={cropLabel}
+      />
     </>
   );
 }
 
 export default async function InsightsPage() {
   const user = await requireCapability('shared.insights');
+  const i18n = await getI18n();
+  const { t, crop, place, perKg } = i18n;
 
-  const prices = await prisma.marketPrice.findMany({
-    select: {
-      id: true,
-      ratePerKg: true,
-      changePercent: true,
-      trend: true,
-      dailyArrivalTonnes: true,
-      crop: { select: { name: true } },
-      mandi: { select: { name: true, city: true } },
-    },
-    orderBy: { ratePerKg: 'desc' },
-    take: 6,
-  });
+  const [prices, crops] = await Promise.all([
+    prisma.marketPrice.findMany({
+      select: {
+        id: true,
+        ratePerKg: true,
+        changePercent: true,
+        trend: true,
+        dailyArrivalTonnes: true,
+        crop: { select: { name: true, nameUrdu: true } },
+        mandi: { select: { name: true, city: true } },
+      },
+      orderBy: { ratePerKg: 'desc' },
+      take: 6,
+    }),
+    prisma.crop.findMany({ select: { name: true, nameUrdu: true } }),
+  ]);
+
+  const cropByName = new Map(crops.map((item) => [item.name, item]));
+  const cropLabel: CropLabel = (name) => {
+    const found = cropByName.get(name);
+    return found ? crop(found) : name;
+  };
 
   const title =
     user.role === UserRole.SHOPKEEPER
-      ? 'Shop Insights'
+      ? t('insights.titleShop')
       : user.role === UserRole.ADMIN
-        ? 'Market Insights'
-        : 'Trade Insights';
+        ? t('insights.titleMarket')
+        : t('insights.titleTrade');
 
   return (
     <div className="max-w-5xl mx-auto">
-      <PageHeader
-        title={title}
-        titleUrdu="رپورٹ"
-        subtitle="Your own trading numbers, plus the published mandi rates. Other participants' costs and margins stay private to them."
-      />
+      <PageHeader title={title} subtitle={t('insights.subtitle')} />
 
-      {user.role === UserRole.ARHTI && <ArhtiInsights userId={user.id} />}
-      {user.role === UserRole.VENDOR && <VendorInsights userId={user.id} />}
-      {user.role === UserRole.SHOPKEEPER && <ShopkeeperInsights userId={user.id} />}
-      {user.role === UserRole.ADMIN && <AdminInsights />}
+      {user.role === UserRole.ARHTI && <ArhtiInsights userId={user.id} i18n={i18n} cropLabel={cropLabel} />}
+      {user.role === UserRole.VENDOR && <VendorInsights userId={user.id} i18n={i18n} cropLabel={cropLabel} />}
+      {user.role === UserRole.SHOPKEEPER && <ShopkeeperInsights userId={user.id} i18n={i18n} cropLabel={cropLabel} />}
+      {user.role === UserRole.ADMIN && <AdminInsights i18n={i18n} cropLabel={cropLabel} />}
 
       <Card className="mt-4">
-        <h2 className="text-xs font-bold text-charcoal mb-3">Published mandi rates</h2>
+        <h2 className="text-xs font-bold text-charcoal mb-3">{t('insights.published')}</h2>
         <div className="divide-y divide-[#E5E7EB]">
           {prices.length === 0 && (
-            <p className="text-[11px] text-[#636E72] py-4 text-center">No market price data yet.</p>
+            <p className="text-[11px] text-[#636E72] py-4 text-center">{t('insights.noPrices')}</p>
           )}
           {prices.map((price) => (
             <div key={price.id} className="py-2 flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-xs font-semibold text-charcoal">{price.crop.name}</div>
+                <div className="text-xs font-semibold text-charcoal">{crop(price.crop)}</div>
                 <div className="text-[10px] text-[#636E72]">
-                  {price.mandi.name}, {price.mandi.city}
-                  {price.dailyArrivalTonnes ? ` · ${price.dailyArrivalTonnes}t arrivals` : ''}
+                  {place(`${price.mandi.name}, ${price.mandi.city}`)}
+                  {price.dailyArrivalTonnes ? ` · ${t('insights.arrivals', { tonnes: price.dailyArrivalTonnes })}` : ''}
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-xs font-bold text-charcoal">{money(price.ratePerKg)}/kg</div>
+              <div className="text-end">
+                <div className="text-xs font-bold text-charcoal">{perKg(price.ratePerKg)}</div>
                 <Badge tone={price.changePercent >= 0 ? 'green' : 'red'}>
                   {price.changePercent >= 0 ? '▲' : '▼'} {Math.abs(price.changePercent).toFixed(1)}%
                 </Badge>

@@ -74,21 +74,33 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const city = user.consumerProfile?.preferredCity ?? user.location ?? 'Islamabad';
     return wrap(
       <div className="min-h-screen bg-surface flex flex-col">
-        <ConsumerHeader name={user.name} location={address ? `${address}` : city} />
+        <ConsumerHeader name={user.name} location={address ? `${address}` : i18n.place(city)} />
         <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-4 pb-24">{children}</main>
         <MobileNav role={role} badges={badges} />
       </div>
     );
   }
 
-  const [unreadNotifications, notifications] = await Promise.all([
+  const [unreadNotifications, storedNotifications, crops] = await Promise.all([
     prisma.notification.count({ where: { userId: user.id, isRead: false } }),
     prisma.notification.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: 'desc' },
       take: 20,
     }),
+    i18n.isUrdu ? prisma.crop.findMany({ select: { name: true, nameUrdu: true } }) : Promise.resolve([]),
   ]);
+
+  // Notifications are stored in English; in Urdu mode the known templates are
+  // translated for display only (see STORED_TEXT_TEMPLATES).
+  const cropNames = Object.fromEntries(
+    crops.filter((c) => c.nameUrdu).map((c) => [c.name, c.nameUrdu as string])
+  );
+  const notifications = storedNotifications.map((n) => ({
+    ...n,
+    title: i18n.storedText(n.title, cropNames),
+    message: i18n.storedText(n.message, cropNames),
+  }));
 
   const mandi = user.arhtiProfile?.mandi;
   const contextLabel = mandi

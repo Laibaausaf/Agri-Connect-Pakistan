@@ -4,12 +4,14 @@ import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
 import { createVendorOffer } from '@/lib/actions/wholesale';
 import ActionForm, { Field, inputClass } from '@/components/ui/ActionForm';
-import { Card, EmptyState, PageHeader, money, qty } from '@/components/ui/kit';
+import { Card, EmptyState, PageHeader } from '@/components/ui/kit';
+import { getI18n } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
 export default async function NewVendorOfferPage() {
   const user = await requireCapability('vendor.offers.manage');
+  const { t, crop, place, grade, kg, perKg } = await getI18n();
 
   const [stocks, profile] = await Promise.all([
     prisma.vendorInventory.findMany({
@@ -25,7 +27,7 @@ export default async function NewVendorOfferPage() {
         costPerKg: true,
         grade: true,
         sourceFarmCity: true,
-        crop: { select: { name: true } },
+        crop: { select: { name: true, nameUrdu: true } },
       },
       orderBy: { createdAt: 'desc' },
     }),
@@ -44,52 +46,55 @@ export default async function NewVendorOfferPage() {
   return (
     <div className="max-w-xl mx-auto">
       <PageHeader
-        title="List a Wholesale Offer"
-        titleUrdu="تھوک آفر"
-        subtitle="Offer part of your warehouse stock to shopkeepers. The kilograms you list are reserved out of the lot, so the same stock can never be sold twice."
+        title={t('wshopNew.title')}
+        subtitle={t('wshopNew.subtitle')}
         action={
           <Link
             href="/wholesale-shop"
             className="text-[11px] font-semibold text-agri-900 hover:underline"
           >
-            Cancel
+            {t('wshopNew.cancel')}
           </Link>
         }
       />
 
       {stocks.length === 0 ? (
         <EmptyState
-          title="No unlisted stock"
-          message="Every kilogram in your warehouse is already on the shelf. Win another mandi auction to bring in fresh stock."
+          title={t('wshopNew.emptyTitle')}
+          message={t('wshopNew.emptyMessage')}
           actionHref="/auctions"
-          actionLabel="Browse Live Auctions"
+          actionLabel={t('stock.browse')}
         />
       ) : (
         <Card>
           <ActionForm
             action={createVendorOffer}
-            submitLabel="Publish offer"
-            submitLabelUrdu="آفر لگائیں"
+            submitLabel={t('wform.publish')}
           >
             <div className="space-y-3">
               <Field
-                label="Warehouse lot"
-                labelUrdu="گودام کا لاٹ"
-                hint="Only lots with unlisted kilograms appear here."
+                label={t('wshopNew.lot')}
+                hint={t('wshopNew.lotHint')}
               >
                 <select name="stockId" required className={inputClass}>
-                  <option value="">Select a lot</option>
+                  <option value="">{t('wshopNew.selectLot')}</option>
                   {stocks.map((stock) => (
                     <option key={stock.id} value={stock.id}>
-                      {stock.crop.name} {stock.grade} · {qty(stock.availableKg)} · cost{' '}
-                      {money(stock.costPerKg)}/kg · {stock.sourceFarmCity} ({stock.stockNumber})
+                      {t('wshopNew.lotOption', {
+                        crop: crop(stock.crop),
+                        grade: grade(stock.grade),
+                        qty: kg(stock.availableKg),
+                        rate: perKg(stock.costPerKg),
+                        city: place(stock.sourceFarmCity),
+                        stock: stock.stockNumber,
+                      })}
                     </option>
                   ))}
                 </select>
               </Field>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Quantity to offer (kg)" labelUrdu="مقدار">
+                <Field label={t('wform.quantity')}>
                   <input
                     type="number"
                     name="offeredQuantityKg"
@@ -101,9 +106,8 @@ export default async function NewVendorOfferPage() {
                   />
                 </Field>
                 <Field
-                  label="Wholesale price (Rs/kg)"
-                  labelUrdu="تھوک ریٹ"
-                  hint={`Must be above the lot's cost (up to ${money(dearest)}/kg in your warehouse).`}
+                  label={t('wform.price')}
+                  hint={t('wshopNew.priceHint', { rate: perKg(dearest) })}
                 >
                   <input
                     type="number"
@@ -118,7 +122,7 @@ export default async function NewVendorOfferPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Minimum order (kg)" labelUrdu="کم از کم آرڈر">
+                <Field label={t('wform.minOrder')}>
                   <input
                     type="number"
                     name="minOrderKg"
@@ -128,19 +132,19 @@ export default async function NewVendorOfferPage() {
                     className={inputClass}
                   />
                 </Field>
-                <Field label="Delivery window">
+                <Field label={t('wform.windowShort')}>
                   <select name="deliveryEtaHours" defaultValue={12} className={inputClass}>
-                    <option value={6}>Same day (6 h)</option>
-                    <option value={12}>Next morning (12 h)</option>
-                    <option value={24}>Within 24 hours</option>
-                    <option value={48}>Within 2 days</option>
+                    <option value={6}>{t('wform.sameDay')}</option>
+                    <option value={12}>{t('wform.nextMorning')}</option>
+                    <option value={24}>{t('wform.within24')}</option>
+                    <option value={48}>{t('wform.within48')}</option>
                   </select>
                 </Field>
               </div>
 
               <Field
-                label="Delivery cities"
-                hint="Comma separated. Shopkeepers in these cities see the offer first."
+                label={t('wform.cities')}
+                hint={t('wform.citiesHint')}
               >
                 <input
                   type="text"
@@ -148,6 +152,7 @@ export default async function NewVendorOfferPage() {
                   defaultValue={defaultCities}
                   placeholder="Islamabad, Rawalpindi"
                   className={inputClass}
+                  dir="ltr"
                 />
               </Field>
             </div>

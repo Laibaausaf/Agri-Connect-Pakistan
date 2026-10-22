@@ -3,9 +3,10 @@ import { OfferListingStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
 import { placeConsumerOrder } from '@/lib/actions/retail';
-import { distanceKm, formatDistance } from '@/lib/geo';
+import { distanceKm } from '@/lib/geo';
+import { getI18n } from '@/lib/i18n/server';
 import ActionForm, { Field, inputClass } from '@/components/ui/ActionForm';
-import { Badge, Card, CropThumb, EmptyState, money } from '@/components/ui/kit';
+import { Badge, Card, CropThumb, EmptyState } from '@/components/ui/kit';
 import { MapPin, Clock, Star } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +18,7 @@ export default async function ConsumerShopPage({
 }) {
   const user = await requireCapability('consumer.retail.browse');
   const { crop: cropFilter } = await searchParams;
+  const { t, crop, kg, money, distance } = await getI18n();
 
   const [me, listings, crops] = await Promise.all([
     prisma.user.findUnique({
@@ -57,7 +59,7 @@ export default async function ConsumerShopPage({
     }),
     prisma.crop.findMany({
       where: { isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, nameUrdu: true },
       orderBy: { name: 'asc' },
     }),
   ]);
@@ -77,10 +79,10 @@ export default async function ConsumerShopPage({
     <div>
       <div className="mb-4">
         <h1 className="text-lg font-bold text-charcoal">
-          Fresh today <span className="text-sm font-normal text-[#636E72]">آج کی تازہ</span>
+          {t('cshop.title')}
         </h1>
         <p className="text-xs text-[#636E72] mt-0.5">
-          Straight from shops near you — every item traced back to the farm it grew on.
+          {t('cshop.subtitle')}
         </p>
       </div>
 
@@ -93,7 +95,7 @@ export default async function ConsumerShopPage({
               : 'bg-agri-900 text-white border-agri-900'
           }`}
         >
-          Everything
+          {t('cshop.everything')}
         </Link>
         {crops.map((c) => (
           <Link
@@ -105,17 +107,17 @@ export default async function ConsumerShopPage({
                 : 'bg-white text-[#636E72] border-[#E5E7EB]'
             }`}
           >
-            {c.name}
+            {crop(c)}
           </Link>
         ))}
       </div>
 
       {items.length === 0 ? (
         <EmptyState
-          title="Nothing on sale right now"
-          message="Shops nearby restock every morning from the mandi. Check back a little later."
+          title={t('cshop.emptyTitle')}
+          message={t('cshop.emptyMessage')}
           actionHref="/nearby"
-          actionLabel="See Shops Nearby"
+          actionLabel={t('cshop.emptyAction')}
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -136,20 +138,19 @@ export default async function ConsumerShopPage({
                       {listing.title}
                     </div>
                     <div className="text-[10px] text-[#636E72]">
-                      {listing.crop.name}
-                      {listing.crop.nameUrdu ? ` · ${listing.crop.nameUrdu}` : ''}
+                      {crop(listing.crop)}
                     </div>
                     <div className="mt-1.5 text-base font-bold text-agri-900">
                       {money(listing.pricePerKg)}
-                      <span className="text-[10px] font-normal text-[#636E72]"> / kg</span>
+                      <span className="text-[10px] font-normal text-[#636E72]">{t('cshop.perKg')}</span>
                     </div>
                     <div className="text-[10px] text-[#636E72] mt-1 flex items-center gap-1">
                       <MapPin className="w-3 h-3" />
-                      {shop?.shopName ?? listing.shopkeeper.name} · {formatDistance(km)}
+                      {shop?.shopName ?? listing.shopkeeper.name} · {distance(km)}
                     </div>
                     <div className="text-[10px] text-[#636E72] flex items-center gap-2 mt-0.5">
                       <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />~{shop?.avgDeliveryMinutes ?? 35} min
+                        <Clock className="w-3 h-3" />{t('cshop.minutes', { count: shop?.avgDeliveryMinutes ?? 35 })}
                       </span>
                       {shop && shop.ratingCount > 0 && (
                         <span className="flex items-center gap-1">
@@ -157,30 +158,28 @@ export default async function ConsumerShopPage({
                           {shop.rating.toFixed(1)}
                         </span>
                       )}
-                      <Badge tone="green">{pack} kg packs</Badge>
+                      <Badge tone="green">{t('cshop.packs', { qty: kg(pack) })}</Badge>
                     </div>
                   </div>
                 </div>
 
                 <details className="border-t border-[#E5E7EB] px-3 pb-3">
                   <summary className="text-[11px] font-semibold text-agri-900 cursor-pointer py-2.5">
-                    Order now
+                    {t('cshop.orderNow')}
                   </summary>
                   <ActionForm
                     action={placeConsumerOrder}
-                    submitLabel="Place order"
-                    submitLabelUrdu="آرڈر کریں"
-                    successMessage="Order placed. Track it on the Orders tab."
+                    submitLabel={t('cshop.placeOrder')}
+                    successMessage={t('cshop.placed')}
                     hidden={{ listingId: listing.id }}
                   >
                     <div className="space-y-2.5">
                       <Field
-                        label="How much?"
-                        labelUrdu="کتنا"
+                        label={t('cshop.howMuch')}
                         hint={
                           listing.remainingKg < 5
-                            ? `Only ${listing.remainingKg} kg left`
-                            : 'Free delivery over Rs 1,000'
+                            ? t('cshop.onlyLeft', { qty: kg(listing.remainingKg) })
+                            : t('cshop.freeOver')
                         }
                       >
                         <select name="quantityKg" defaultValue={pack} className={inputClass}>
@@ -188,16 +187,16 @@ export default async function ConsumerShopPage({
                             .filter((q) => q <= maxKg)
                             .map((q) => (
                               <option key={q} value={q}>
-                                {q} kg — {money(q * listing.pricePerKg)}
+                                {t('cshop.qtyOption', { qty: kg(q), amount: money(q * listing.pricePerKg) })}
                               </option>
                             ))}
                         </select>
                       </Field>
-                      <Field label="Deliver to" labelUrdu="پتہ">
+                      <Field label={t('cshop.deliverTo')}>
                         <input
                           name="deliveryAddress"
                           defaultValue={address}
-                          placeholder="House, street, sector"
+                          placeholder={t('cshop.addressPlaceholder')}
                           className={inputClass}
                         />
                       </Field>

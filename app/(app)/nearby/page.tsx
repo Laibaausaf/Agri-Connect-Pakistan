@@ -2,14 +2,16 @@ import Link from 'next/link';
 import { OfferListingStatus, UserRole } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
-import { distanceKm, formatDistance } from '@/lib/geo';
-import { Badge, Card, CropThumb, EmptyState, money } from '@/components/ui/kit';
+import { distanceKm } from '@/lib/geo';
+import { getI18n } from '@/lib/i18n/server';
+import { Badge, Card, CropThumb, EmptyState } from '@/components/ui/kit';
 import { Clock, MapPin, Star } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 export default async function NearbyShopsPage() {
   const user = await requireCapability('consumer.retail.browse');
+  const { t, crop, place, perKg, distance } = await getI18n();
 
   const [me, shops] = await Promise.all([
     prisma.user.findUnique({
@@ -48,7 +50,7 @@ export default async function NearbyShopsPage() {
             title: true,
             pricePerKg: true,
             imageUrl: true,
-            crop: { select: { name: true, imageUrl: true } },
+            crop: { select: { name: true, nameUrdu: true, imageUrl: true } },
           },
           orderBy: { pricePerKg: 'asc' },
           take: 4,
@@ -74,19 +76,19 @@ export default async function NearbyShopsPage() {
     <div>
       <div className="mb-4">
         <h1 className="text-lg font-bold text-charcoal">
-          Shops nearby <span className="text-sm font-normal text-[#636E72]">قریبی دکانیں</span>
+          {t('nearby.title')}
         </h1>
         <p className="text-xs text-[#636E72] mt-0.5">
           {me?.consumerProfile?.preferredCity
-            ? `Verified shops around ${me.consumerProfile.preferredCity}.`
-            : 'Verified shops around you.'}
+            ? t('nearby.around', { city: place(me.consumerProfile.preferredCity) })
+            : t('nearby.aroundYou')}
         </p>
       </div>
 
       {ranked.length === 0 ? (
         <EmptyState
-          title="No shops listed yet"
-          message="Shops in your city will appear here as soon as they join AgriConnect."
+          title={t('nearby.emptyTitle')}
+          message={t('nearby.emptyMessage')}
         />
       ) : (
         <div className="space-y-3">
@@ -107,17 +109,17 @@ export default async function NearbyShopsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-bold text-charcoal">{profile.shopName}</span>
-                      {withinRange && <Badge tone="green">Delivers to you</Badge>}
-                      {items.length === 0 && <Badge tone="neutral">Restocking</Badge>}
+                      {withinRange && <Badge tone="green">{t('nearby.deliversToYou')}</Badge>}
+                      {items.length === 0 && <Badge tone="neutral">{t('nearby.restocking')}</Badge>}
                     </div>
                     <div className="text-[11px] text-[#636E72] mt-0.5 flex items-center gap-1">
                       <MapPin className="w-3 h-3" />
-                      {profile.shopAddress ?? profile.city ?? 'Address not shared'} ·{' '}
-                      {formatDistance(km)}
+                      {profile.shopAddress ?? (profile.city ? place(profile.city) : t('nearby.noAddress'))} ·{' '}
+                      {distance(km)}
                     </div>
                     <div className="text-[11px] text-[#636E72] flex items-center gap-3 mt-0.5">
                       <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />~{profile.avgDeliveryMinutes} min
+                        <Clock className="w-3 h-3" />{t('cshop.minutes', { count: profile.avgDeliveryMinutes })}
                       </span>
                       {profile.opensAt && profile.closesAt && (
                         <span>
@@ -133,7 +135,7 @@ export default async function NearbyShopsPage() {
                     </div>
                     {cheapest !== null && (
                       <div className="text-[11px] text-agri-900 font-semibold mt-1">
-                        From {money(cheapest)}/kg
+                        {t('nearby.from', { rate: perKg(cheapest) })}
                       </div>
                     )}
                   </div>
@@ -150,10 +152,10 @@ export default async function NearbyShopsPage() {
                             size="lg"
                           />
                           <div className="text-[10px] font-semibold text-charcoal mt-1 truncate">
-                            {item.crop.name}
+                            {crop(item.crop)}
                           </div>
                           <div className="text-[10px] text-agri-900 font-bold">
-                            {money(item.pricePerKg)}/kg
+                            {perKg(item.pricePerKg)}
                           </div>
                         </div>
                       ))}
@@ -162,7 +164,7 @@ export default async function NearbyShopsPage() {
                       href="/shop"
                       className="inline-flex mt-3 text-[11px] font-semibold text-agri-900 hover:underline"
                     >
-                      Order from this shop
+                      {t('nearby.orderHere')}
                     </Link>
                   </div>
                 )}

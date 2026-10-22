@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
 import { createVendorOffer } from '@/lib/actions/wholesale';
 import ActionForm, { Field, inputClass } from '@/components/ui/ActionForm';
+import { getI18n } from '@/lib/i18n/server';
 import {
   Badge,
   Card,
@@ -11,9 +12,6 @@ import {
   EmptyState,
   PageHeader,
   StatCard,
-  humanStatus,
-  money,
-  qty,
   statusTone,
 } from '@/components/ui/kit';
 
@@ -26,6 +24,7 @@ function firstPhoto(photos: unknown): string | null {
 
 export default async function VendorStockPage() {
   const user = await requireCapability('vendor.stock.manage');
+  const { t, crop, place, status, grade, kg, perKg, money } = await getI18n();
 
   const [stocks, profile] = await Promise.all([
     prisma.vendorInventory.findMany({
@@ -79,36 +78,35 @@ export default async function VendorStockPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <PageHeader
-        title="My Warehouse"
-        titleUrdu="گودام"
-        subtitle="Every lot you won in a mandi auction lands here under your ownership. List any uncommitted kilograms on your wholesale shop for shopkeepers to buy."
+        title={t('stock.title')}
+        subtitle={t('stock.subtitle')}
         action={
           <Link
             href="/wholesale-shop"
             className="text-[11px] font-semibold text-agri-900 hover:underline whitespace-nowrap"
           >
-            My Wholesale Shop
+            {t('stock.myShop')}
           </Link>
         }
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <StatCard label="Lots in warehouse" value={String(stocks.length)} />
-        <StatCard label="Unlisted stock" value={qty(unlisted)} tone="accent" />
-        <StatCard label="Live on shop" value={qty(listed)} />
+        <StatCard label={t('stock.statLots')} value={String(stocks.length)} />
+        <StatCard label={t('stock.statUnlisted')} value={kg(unlisted)} tone="accent" />
+        <StatCard label={t('stock.statLive')} value={kg(listed)} />
         <StatCard
-          label="Capital at cost"
+          label={t('stock.statCapital')}
           value={money(capital)}
-          hint={profile?.warehouseCity ? `${profile.warehouseCity} warehouse` : undefined}
+          hint={profile?.warehouseCity ? t('stock.warehouseIn', { city: place(profile.warehouseCity) }) : undefined}
         />
       </div>
 
       {stocks.length === 0 ? (
         <EmptyState
-          title="Warehouse is empty"
-          message="Win a mandi auction and the arhti's lot transfers into your warehouse automatically, with the farm and mandi it came from attached."
+          title={t('stock.emptyTitle')}
+          message={t('stock.emptyMessage')}
           actionHref="/auctions"
-          actionLabel="Browse Live Auctions"
+          actionLabel={t('stock.browse')}
         />
       ) : (
         <div className="space-y-3">
@@ -128,34 +126,33 @@ export default async function VendorStockPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{stock.crop.name}</span>
-                      <Badge tone="neutral">{stock.grade}</Badge>
-                      <Badge tone={statusTone(stock.status)}>{humanStatus(stock.status)}</Badge>
+                      <span className="text-sm font-bold text-charcoal">{crop(stock.crop)}</span>
+                      <Badge tone="neutral">{grade(stock.grade)}</Badge>
+                      <Badge tone={statusTone(stock.status)}>{status(stock.status)}</Badge>
                     </div>
                     <div className="text-[11px] text-[#636E72] font-mono mt-0.5">
                       {stock.stockNumber}
                     </div>
                     <div className="text-[11px] text-[#636E72]">
-                      Grown in {stock.sourceFarmCity} · bought at {stock.sourceMandiCity} mandi from{' '}
-                      {stock.sale.auction.arhti.name}
+                      {t('stock.origin', { farm: place(stock.sourceFarmCity), mandi: place(stock.sourceMandiCity), arhti: stock.sale.auction.arhti.name })}
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Won</div>
-                        <div className="font-semibold text-charcoal">{qty(stock.quantityKg)}</div>
+                        <div className="text-[10px] text-[#636E72]">{t('stock.won')}</div>
+                        <div className="font-semibold text-charcoal">{kg(stock.quantityKg)}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Unlisted</div>
-                        <div className="font-semibold text-agri-900">{qty(stock.availableKg)}</div>
+                        <div className="text-[10px] text-[#636E72]">{t('stock.unlisted')}</div>
+                        <div className="font-semibold text-agri-900">{kg(stock.availableKg)}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Auction cost</div>
+                        <div className="text-[10px] text-[#636E72]">{t('stock.auctionCost')}</div>
                         <div className="font-semibold text-charcoal">
-                          {money(stock.costPerKg)}/kg
+                          {perKg(stock.costPerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Auction</div>
+                        <div className="text-[10px] text-[#636E72]">{t('stock.auction')}</div>
                         <div className="font-semibold text-charcoal font-mono truncate">
                           {stock.sale.auction.auctionNumber}
                         </div>
@@ -173,11 +170,10 @@ export default async function VendorStockPage() {
                       >
                         <span className="text-[#636E72]">
                           <span className="font-mono">{offer.offerNumber}</span> ·{' '}
-                          {qty(offer.remainingKg)} left of {qty(offer.offeredQuantityKg)} at{' '}
-                          {money(offer.pricePerKg)}/kg
+                          {t('stock.offerLine', { left: kg(offer.remainingKg), total: kg(offer.offeredQuantityKg), rate: perKg(offer.pricePerKg) })}
                         </span>
                         <Badge tone={offer.status === OfferListingStatus.ACTIVE ? 'green' : 'amber'}>
-                          {humanStatus(offer.status)}
+                          {status(offer.status)}
                         </Badge>
                       </div>
                     ))}
@@ -187,20 +183,18 @@ export default async function VendorStockPage() {
                 {canList && (
                   <details className="mt-3 pt-3 border-t border-[#E5E7EB]">
                     <summary className="text-[11px] font-semibold text-agri-900 cursor-pointer">
-                      List this stock on my wholesale shop
+                      {t('stock.list')}
                     </summary>
                     <ActionForm
                       action={createVendorOffer}
-                      submitLabel="Publish offer"
-                      submitLabelUrdu="آفر لگائیں"
+                      submitLabel={t('wform.publish')}
                       hidden={{ stockId: stock.id }}
                       className="mt-3"
                     >
                       <div className="grid sm:grid-cols-2 gap-3">
                         <Field
-                          label="Quantity to offer (kg)"
-                          labelUrdu="مقدار"
-                          hint={`Up to ${qty(stock.availableKg)}`}
+                          label={t('wform.quantity')}
+                          hint={t('wform.upTo', { qty: kg(stock.availableKg) })}
                         >
                           <input
                             type="number"
@@ -214,9 +208,8 @@ export default async function VendorStockPage() {
                           />
                         </Field>
                         <Field
-                          label="Wholesale price (Rs/kg)"
-                          labelUrdu="تھوک ریٹ"
-                          hint={`Must be above your ${money(stock.costPerKg)}/kg cost`}
+                          label={t('wform.price')}
+                          hint={t('wform.priceHint', { rate: perKg(stock.costPerKg) })}
                         >
                           <input
                             type="number"
@@ -228,7 +221,7 @@ export default async function VendorStockPage() {
                             className={inputClass}
                           />
                         </Field>
-                        <Field label="Minimum order (kg)">
+                        <Field label={t('wform.minOrder')}>
                           <input
                             type="number"
                             name="minOrderKg"
@@ -238,18 +231,18 @@ export default async function VendorStockPage() {
                             className={inputClass}
                           />
                         </Field>
-                        <Field label="Delivery window (hours)">
+                        <Field label={t('wform.window')}>
                           <select name="deliveryEtaHours" defaultValue={12} className={inputClass}>
-                            <option value={6}>Same day (6 h)</option>
-                            <option value={12}>Next morning (12 h)</option>
-                            <option value={24}>Within 24 hours</option>
-                            <option value={48}>Within 2 days</option>
+                            <option value={6}>{t('wform.sameDay')}</option>
+                            <option value={12}>{t('wform.nextMorning')}</option>
+                            <option value={24}>{t('wform.within24')}</option>
+                            <option value={48}>{t('wform.within48')}</option>
                           </select>
                         </Field>
                         <div className="sm:col-span-2">
                           <Field
-                            label="Delivery cities"
-                            hint="Comma separated. Shopkeepers in these cities see the offer first."
+                            label={t('wform.cities')}
+                            hint={t('wform.citiesHint')}
                           >
                             <input
                               type="text"
@@ -257,6 +250,7 @@ export default async function VendorStockPage() {
                               defaultValue={defaultCities}
                               placeholder="Islamabad, Rawalpindi"
                               className={inputClass}
+                              dir="ltr"
                             />
                           </Field>
                         </div>

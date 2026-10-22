@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { SaleStatus, UserRole } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
+import { getI18n } from '@/lib/i18n/server';
 import {
   Badge,
   Card,
@@ -9,9 +10,6 @@ import {
   EmptyState,
   PageHeader,
   StatCard,
-  humanStatus,
-  money,
-  qty,
   statusTone,
 } from '@/components/ui/kit';
 
@@ -25,6 +23,7 @@ export default async function SalesPage() {
 }
 
 async function ArhtiSales({ userId }: { userId: string }) {
+  const { t, crop, place, status, grade, kg, perKg, money } = await getI18n();
   const sales = await prisma.arhtiVendorSale.findMany({
     where: { arhtiId: userId },
     include: {
@@ -39,7 +38,7 @@ async function ArhtiSales({ userId }: { userId: string }) {
               sourceCity: true,
               sourceFarmerName: true,
               purchasePricePerKg: true,
-              crop: { select: { name: true, imageUrl: true } },
+              crop: { select: { name: true, nameUrdu: true, imageUrl: true } },
             },
           },
         },
@@ -55,24 +54,23 @@ async function ArhtiSales({ userId }: { userId: string }) {
   return (
     <div className="max-w-4xl mx-auto">
       <PageHeader
-        title="Auction Sales"
-        titleUrdu="نیلامی کی فروخت"
-        subtitle="Produce you sold to vendors on the mandi floor, with your buying cost and the margin you made on each lot."
+        title={t('sales.arhtiTitle')}
+        subtitle={t('sales.arhtiSubtitle')}
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <StatCard label="Sales" value={String(sales.length)} />
-        <StatCard label="Volume sold" value={qty(volume)} />
-        <StatCard label="Revenue" value={money(Math.round(revenue))} tone="accent" />
-        <StatCard label="Commission earned" value={money(Math.round(commission))} />
+        <StatCard label={t('sales.statSales')} value={String(sales.length)} />
+        <StatCard label={t('sales.statVolume')} value={kg(volume)} />
+        <StatCard label={t('sales.statRevenue')} value={money(Math.round(revenue))} tone="accent" />
+        <StatCard label={t('sales.statCommission')} value={money(Math.round(commission))} />
       </div>
 
       {sales.length === 0 ? (
         <EmptyState
-          title="No auction sales yet"
-          message="Close a live auction in the Auction House and the sale is recorded here."
+          title={t('sales.arhtiEmptyTitle')}
+          message={t('sales.arhtiEmptyMessage')}
           actionHref="/auction-house"
-          actionLabel="Open Auction House"
+          actionLabel={t('sales.arhtiEmptyAction')}
         />
       ) : (
         <div className="space-y-3">
@@ -85,44 +83,47 @@ async function ArhtiSales({ userId }: { userId: string }) {
                   <CropThumb imageUrl={lot.crop.imageUrl} name={lot.crop.name} size="md" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{lot.crop.name}</span>
-                      <Badge tone={statusTone(sale.status)}>{humanStatus(sale.status)}</Badge>
-                      <Badge tone="neutral">{sale.auction.grade}</Badge>
+                      <span className="text-sm font-bold text-charcoal">{crop(lot.crop)}</span>
+                      <Badge tone={statusTone(sale.status)}>{status(sale.status)}</Badge>
+                      <Badge tone="neutral">{grade(sale.auction.grade)}</Badge>
                     </div>
                     <div className="text-[11px] text-[#636E72] mt-0.5">
-                      Bought from {lot.sourceFarmerName}, {lot.sourceCity} · sold to{' '}
-                      {sale.vendor.vendorProfile?.businessName ?? sale.vendor.name}
+                      {t('sales.boughtSold', {
+                        farmer: lot.sourceFarmerName,
+                        city: place(lot.sourceCity),
+                        vendor: sale.vendor.vendorProfile?.businessName ?? sale.vendor.name,
+                      })}
                     </div>
                     <div className="text-[10px] text-[#636E72] font-mono">
                       {sale.saleNumber} · {sale.auction.auctionNumber} · {lot.lotNumber}
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Quantity</div>
-                        <div className="font-semibold text-charcoal">{qty(sale.quantityKg)}</div>
+                        <div className="text-[10px] text-[#636E72]">{t('sales.quantity')}</div>
+                        <div className="font-semibold text-charcoal">{kg(sale.quantityKg)}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Bought at</div>
+                        <div className="text-[10px] text-[#636E72]">{t('sales.boughtAt')}</div>
                         <div className="font-semibold text-charcoal">
-                          {money(lot.purchasePricePerKg)}/kg
+                          {perKg(lot.purchasePricePerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Sold at</div>
+                        <div className="text-[10px] text-[#636E72]">{t('sales.soldAt')}</div>
                         <div className="font-semibold text-agri-900">
-                          {money(sale.ratePerKg)}/kg
+                          {perKg(sale.ratePerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Margin</div>
+                        <div className="text-[10px] text-[#636E72]">{t('sales.margin')}</div>
                         <div
                           className={`font-semibold ${margin >= 0 ? 'text-agri-900' : 'text-red-700'}`}
                         >
                           {margin >= 0 ? '+' : ''}
-                          {money(margin)}/kg
+                          {perKg(margin)}
                         </div>
                         <div className="text-[10px] text-[#636E72]">
-                          {money(Math.round(margin * sale.quantityKg))} total
+                          {t('sales.total', { amount: money(Math.round(margin * sale.quantityKg)) })}
                         </div>
                       </div>
                     </div>
@@ -138,6 +139,7 @@ async function ArhtiSales({ userId }: { userId: string }) {
 }
 
 async function VendorSales({ userId }: { userId: string }) {
+  const { t, crop, place, status, grade, kg, perKg, money } = await getI18n();
   const sales = await prisma.vendorShopkeeperSale.findMany({
     where: { vendorId: userId },
     include: {
@@ -152,7 +154,7 @@ async function VendorSales({ userId }: { userId: string }) {
         select: {
           offerNumber: true,
           grade: true,
-          crop: { select: { name: true, imageUrl: true } },
+          crop: { select: { name: true, nameUrdu: true, imageUrl: true } },
           stock: { select: { costPerKg: true, sourceFarmCity: true, sourceMandiCity: true } },
         },
       },
@@ -169,32 +171,31 @@ async function VendorSales({ userId }: { userId: string }) {
   return (
     <div className="max-w-4xl mx-auto">
       <PageHeader
-        title="Shopkeeper Orders"
-        titleUrdu="دکانداروں کے آرڈر"
-        subtitle="Wholesale orders shopkeepers placed against your digital shop, with your mandi cost and per-kg margin."
+        title={t('sales.vendorTitle')}
+        subtitle={t('sales.vendorSubtitle')}
         action={
           <Link
             href="/wholesale-shop"
             className="text-[11px] font-semibold text-agri-900 hover:underline whitespace-nowrap"
           >
-            My wholesale shop
+            {t('sales.myShop')}
           </Link>
         }
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <StatCard label="Orders" value={String(sales.length)} />
-        <StatCard label="Open" value={String(openOrders)} tone={openOrders ? 'accent' : 'default'} />
-        <StatCard label="Volume sold" value={qty(volume)} />
-        <StatCard label="Revenue" value={money(Math.round(revenue))} />
+        <StatCard label={t('sales.statOrders')} value={String(sales.length)} />
+        <StatCard label={t('sales.statOpen')} value={String(openOrders)} tone={openOrders ? 'accent' : 'default'} />
+        <StatCard label={t('sales.statVolume')} value={kg(volume)} />
+        <StatCard label={t('sales.statRevenue')} value={money(Math.round(revenue))} />
       </div>
 
       {sales.length === 0 ? (
         <EmptyState
-          title="No shopkeeper orders yet"
-          message="List stock in your wholesale shop and shopkeepers in your delivery cities can order it."
+          title={t('sales.vendorEmptyTitle')}
+          message={t('sales.vendorEmptyMessage')}
           actionHref="/wholesale-shop/new"
-          actionLabel="List wholesale stock"
+          actionLabel={t('sales.vendorEmptyAction')}
         />
       ) : (
         <div className="space-y-3">
@@ -212,44 +213,43 @@ async function VendorSales({ userId }: { userId: string }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-bold text-charcoal">
-                        {sale.offer.crop.name}
+                        {crop(sale.offer.crop)}
                       </span>
-                      <Badge tone={statusTone(sale.status)}>{humanStatus(sale.status)}</Badge>
-                      <Badge tone="neutral">{sale.offer.grade}</Badge>
+                      <Badge tone={statusTone(sale.status)}>{status(sale.status)}</Badge>
+                      <Badge tone="neutral">{grade(sale.offer.grade)}</Badge>
                     </div>
                     <div className="text-[11px] text-[#636E72] mt-0.5">
                       {shop?.shopName ?? sale.shopkeeper.name}
-                      {shop?.city ? `, ${shop.city}` : ''} ·{' '}
-                      {sale.deliveryCity ?? sale.shopkeeper.location ?? '—'}
+                      {shop?.city ? `, ${place(shop.city)}` : ''} ·{' '}
+                      {place(sale.deliveryCity ?? sale.shopkeeper.location) || '—'}
                     </div>
                     <div className="text-[10px] text-[#636E72] font-mono">
                       {sale.saleNumber} · {sale.offer.offerNumber}
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Quantity</div>
-                        <div className="font-semibold text-charcoal">{qty(sale.quantityKg)}</div>
+                        <div className="text-[10px] text-[#636E72]">{t('sales.quantity')}</div>
+                        <div className="font-semibold text-charcoal">{kg(sale.quantityKg)}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Mandi cost</div>
+                        <div className="text-[10px] text-[#636E72]">{t('sales.mandiCost')}</div>
                         <div className="font-semibold text-charcoal">
-                          {money(sale.offer.stock.costPerKg)}/kg
+                          {perKg(sale.offer.stock.costPerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Sold at</div>
+                        <div className="text-[10px] text-[#636E72]">{t('sales.soldAt')}</div>
                         <div className="font-semibold text-agri-900">
-                          {money(sale.ratePerKg)}/kg
+                          {perKg(sale.ratePerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Order value</div>
+                        <div className="text-[10px] text-[#636E72]">{t('sales.orderValue')}</div>
                         <div className="font-semibold text-charcoal">
                           {money(sale.grossAmount)}
                         </div>
                         <div className="text-[10px] text-[#636E72]">
-                          {margin >= 0 ? '+' : ''}
-                          {money(margin)}/kg margin
+                          {t('sales.marginPerKg', { rate: `${margin >= 0 ? '+' : ''}${perKg(margin)}` })}
                         </div>
                       </div>
                     </div>

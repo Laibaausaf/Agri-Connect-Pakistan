@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
 import { setVendorOfferStatus } from '@/lib/actions/wholesale';
 import ActionForm from '@/components/ui/ActionForm';
+import { getI18n } from '@/lib/i18n/server';
 import {
   Badge,
   Card,
@@ -11,9 +12,6 @@ import {
   EmptyState,
   PageHeader,
   StatCard,
-  humanStatus,
-  money,
-  qty,
 } from '@/components/ui/kit';
 
 export const dynamic = 'force-dynamic';
@@ -30,6 +28,7 @@ function cities(value: unknown): string[] {
 
 export default async function WholesaleShopPage() {
   const user = await requireCapability('vendor.offers.manage');
+  const { t, crop, place, status, grade, kg, perKg, money } = await getI18n();
 
   const offers = await prisma.vendorOffer.findMany({
     where: { vendorId: user.id },
@@ -81,36 +80,35 @@ export default async function WholesaleShopPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <PageHeader
-        title="My Wholesale Shop"
-        titleUrdu="تھوک دکان"
-        subtitle="What shopkeepers see when they browse the wholesale market. Pause an offer to take it off the shelf without losing the stock."
+        title={t('wshop.title')}
+        subtitle={t('wshop.subtitle')}
         action={
           <Link
             href="/wholesale-shop/new"
             className="bg-agri-900 hover:bg-agri-800 text-white text-[11px] font-semibold px-3 py-2 rounded-xl whitespace-nowrap"
           >
-            List Wholesale Offer
+            {t('wshop.list')}
           </Link>
         }
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <StatCard label="Offers on shelf" value={String(open.length)} />
-        <StatCard label="Available to sell" value={qty(onShelf)} tone="accent" />
-        <StatCard label="Sold to shopkeepers" value={qty(soldKg)} />
+        <StatCard label={t('wshop.statShelf')} value={String(open.length)} />
+        <StatCard label={t('wshop.statAvailable')} value={kg(onShelf)} tone="accent" />
+        <StatCard label={t('wshop.statSold')} value={kg(soldKg)} />
         <StatCard
-          label="Revenue"
+          label={t('wshop.statRevenue')}
           value={money(revenue)}
-          hint={soldKg > 0 ? `${money(margin)} margin over mandi cost` : undefined}
+          hint={soldKg > 0 ? t('wshop.marginOver', { amount: money(margin) }) : undefined}
         />
       </div>
 
       {offers.length === 0 ? (
         <EmptyState
-          title="Your shop shelf is empty"
-          message="List warehouse stock as a wholesale offer and shopkeepers in your delivery cities can order it straight away."
+          title={t('wshop.emptyTitle')}
+          message={t('wshop.emptyMessage')}
           actionHref="/stock"
-          actionLabel="Open My Warehouse"
+          actionLabel={t('wshop.emptyAction')}
         />
       ) : (
         <div className="space-y-3">
@@ -128,44 +126,47 @@ export default async function WholesaleShopPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{offer.crop.name}</span>
-                      <Badge tone="neutral">{offer.grade}</Badge>
-                      <Badge tone={isActive ? 'green' : 'amber'}>{humanStatus(offer.status)}</Badge>
+                      <span className="text-sm font-bold text-charcoal">{crop(offer.crop)}</span>
+                      <Badge tone="neutral">{grade(offer.grade)}</Badge>
+                      <Badge tone={isActive ? 'green' : 'amber'}>{status(offer.status)}</Badge>
                     </div>
                     <div className="text-[11px] text-[#636E72] font-mono mt-0.5">
                       {offer.offerNumber} · {offer.stock.stockNumber}
                     </div>
                     <div className="text-[11px] text-[#636E72]">
-                      From {offer.stock.sourceFarmCity} via {offer.stock.sourceMandiCity} mandi ·
-                      delivers in {offer.deliveryEtaHours} h to{' '}
-                      {cities(offer.deliveryCities).join(', ') || 'any city'}
+                      {t('wshop.route', {
+                        farm: place(offer.stock.sourceFarmCity),
+                        mandi: place(offer.stock.sourceMandiCity),
+                        hours: offer.deliveryEtaHours,
+                        cities: place(cities(offer.deliveryCities).join(', ')) || t('wshop.anyCity'),
+                      })}
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Your price</div>
+                        <div className="text-[10px] text-[#636E72]">{t('wshop.yourPrice')}</div>
                         <div className="font-semibold text-agri-900">
-                          {money(offer.pricePerKg)}/kg
+                          {perKg(offer.pricePerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Mandi cost</div>
+                        <div className="text-[10px] text-[#636E72]">{t('wshop.mandiCost')}</div>
                         <div className="font-semibold text-charcoal">
-                          {money(offer.stock.costPerKg)}/kg
+                          {perKg(offer.stock.costPerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Margin</div>
+                        <div className="text-[10px] text-[#636E72]">{t('wshop.margin')}</div>
                         <div className="font-semibold text-charcoal">
-                          +{money(marginPerKg)}/kg
+                          +{perKg(marginPerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Remaining</div>
+                        <div className="text-[10px] text-[#636E72]">{t('wshop.remaining')}</div>
                         <div className="font-semibold text-charcoal">
-                          {qty(offer.remainingKg)}
+                          {kg(offer.remainingKg)}
                           <span className="text-[10px] font-normal text-[#636E72]">
                             {' '}
-                            of {qty(offer.offeredQuantityKg)}
+                            {t('wshop.of', { qty: kg(offer.offeredQuantityKg) })}
                           </span>
                         </div>
                       </div>
@@ -179,7 +180,7 @@ export default async function WholesaleShopPage() {
                       />
                     </div>
                     <div className="text-[10px] text-[#636E72] mt-1">
-                      {qty(sold)} sold · minimum order {qty(offer.minOrderKg)}
+                      {t('wshop.soldMin', { sold: kg(sold), min: kg(offer.minOrderKg) })}
                     </div>
                   </div>
                 </div>
@@ -194,9 +195,9 @@ export default async function WholesaleShopPage() {
                         <span className="text-[#636E72] truncate">
                           {sale.shopkeeper.shopkeeperProfile?.shopName ?? sale.shopkeeper.name}
                           {sale.shopkeeper.shopkeeperProfile?.city
-                            ? `, ${sale.shopkeeper.shopkeeperProfile.city}`
+                            ? `, ${place(sale.shopkeeper.shopkeeperProfile.city)}`
                             : ''}{' '}
-                          · {qty(sale.quantityKg)}
+                          · {kg(sale.quantityKg)}
                         </span>
                         <span className="font-semibold text-charcoal whitespace-nowrap">
                           {money(sale.grossAmount)}
@@ -209,7 +210,7 @@ export default async function WholesaleShopPage() {
                 <div className="mt-3 pt-3 border-t border-[#E5E7EB]">
                   <ActionForm
                     action={setVendorOfferStatus}
-                    submitLabel={isActive ? 'Take off shelf' : 'Put back on shelf'}
+                    submitLabel={isActive ? t('wshop.takeOff') : t('wshop.putBack')}
                     variant={isActive ? 'secondary' : 'inline'}
                     hidden={{ offerId: offer.id, status: isActive ? 'PAUSED' : 'ACTIVE' }}
                   />
@@ -221,7 +222,7 @@ export default async function WholesaleShopPage() {
           {closed.length > 0 && (
             <div className="pt-2">
               <h2 className="text-[11px] font-bold uppercase tracking-wider text-[#636E72] mb-2">
-                Cleared offers
+                {t('wshop.cleared')}
               </h2>
               <Card padded={false}>
                 <div className="divide-y divide-[#E5E7EB]">
@@ -232,15 +233,15 @@ export default async function WholesaleShopPage() {
                     >
                       <div className="min-w-0">
                         <div className="font-semibold text-charcoal">
-                          {offer.crop.name} · {qty(offer.offeredQuantityKg)}
+                          {crop(offer.crop)} · {kg(offer.offeredQuantityKg)}
                         </div>
                         <div className="text-[#636E72] font-mono">{offer.offerNumber}</div>
                       </div>
-                      <div className="text-right whitespace-nowrap">
+                      <div className="text-end whitespace-nowrap">
                         <div className="font-semibold text-charcoal">
-                          {money(offer.pricePerKg)}/kg
+                          {perKg(offer.pricePerKg)}
                         </div>
-                        <Badge tone="neutral">{humanStatus(offer.status)}</Badge>
+                        <Badge tone="neutral">{status(offer.status)}</Badge>
                       </div>
                     </div>
                   ))}

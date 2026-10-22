@@ -212,8 +212,8 @@ export default function Header({
                       {t('header.noNotifications')}
                     </div>
                   )}
-                  {/* Notification titles and messages are stored in English
-                      when they are created; they are shown as stored. */}
+                  {/* Titles and messages arrive already translated by the
+                      layout where they match a known template. */}
                   {notifications.map((n) => (
                     <form
                       key={n.id}

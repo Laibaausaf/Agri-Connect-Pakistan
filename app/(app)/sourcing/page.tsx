@@ -3,6 +3,7 @@ import { CropBatchStatus, OfferStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
 import { createOffer } from '@/lib/actions/sourcing';
+import { getI18n } from '@/lib/i18n/server';
 import ActionForm, { Field, inputClass } from '@/components/ui/ActionForm';
 import {
   Badge,
@@ -11,8 +12,6 @@ import {
   EmptyState,
   PageHeader,
   StatCard,
-  money,
-  qty,
 } from '@/components/ui/kit';
 
 export const dynamic = 'force-dynamic';
@@ -29,6 +28,7 @@ export default async function SourcingPage({
 }) {
   const user = await requireCapability('arhti.farmerMarket.browse');
   const filters = await searchParams;
+  const { t, crop, place, grade, packaging, kg, perKg, date } = await getI18n();
 
   const [batches, mandis, crops, profile] = await Promise.all([
     prisma.farmerCropBatch.findMany({
@@ -61,7 +61,7 @@ export default async function SourcingPage({
       select: { id: true, name: true, city: true },
       orderBy: { city: 'asc' },
     }),
-    prisma.crop.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+    prisma.crop.findMany({ select: { id: true, name: true, nameUrdu: true }, orderBy: { name: 'asc' } }),
     prisma.arhtiProfile.findUnique({
       where: { userId: user.id },
       select: { mandiId: true, commissionRate: true },
@@ -74,39 +74,38 @@ export default async function SourcingPage({
   return (
     <div className="max-w-5xl mx-auto">
       <PageHeader
-        title="Farmer Market"
-        titleUrdu="کسان منڈی"
-        subtitle="Standing produce offered directly by farmers. Send a rate and the farmer accepts or declines — no auction at this stage."
+        title={t('sourcing.title')}
+        subtitle={t('sourcing.subtitle')}
         action={
           <Link
             href="/demand/new"
             className="text-[11px] font-semibold text-agri-900 hover:underline whitespace-nowrap"
           >
-            Post a buy request
+            {t('sourcing.postRequest')}
           </Link>
         }
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <StatCard label="Batches available" value={String(batches.length)} />
-        <StatCard label="Uncommitted volume" value={qty(totalAvailable)} tone="accent" />
+        <StatCard label={t('sourcing.statBatches')} value={String(batches.length)} />
+        <StatCard label={t('sourcing.statVolume')} value={kg(totalAvailable)} tone="accent" />
         <StatCard
-          label="Your pending offers"
+          label={t('sourcing.statPending')}
           value={String(batches.filter((b) => b.offers.length > 0).length)}
         />
         <StatCard
-          label="Your commission"
+          label={t('sourcing.statCommission')}
           value={`${((profile?.commissionRate ?? 0.02) * 100).toFixed(1)}%`}
-          hint="Deducted at settlement"
+          hint={t('sourcing.deducted')}
         />
       </div>
 
       <form className="flex flex-wrap gap-2 mb-4">
         <select name="crop" defaultValue={filters.crop ?? ''} className={`${inputClass} w-auto`}>
-          <option value="">All crops</option>
-          {crops.map((crop) => (
-            <option key={crop.id} value={crop.id}>
-              {crop.name}
+          <option value="">{t('common.allCrops')}</option>
+          {crops.map((item) => (
+            <option key={item.id} value={item.id}>
+              {crop(item)}
             </option>
           ))}
         </select>
@@ -115,10 +114,10 @@ export default async function SourcingPage({
           defaultValue={filters.province ?? ''}
           className={`${inputClass} w-auto`}
         >
-          <option value="">All provinces</option>
+          <option value="">{t('sourcing.allProvinces')}</option>
           {provinces.map((province) => (
             <option key={province} value={province}>
-              {province}
+              {place(province)}
             </option>
           ))}
         </select>
@@ -126,16 +125,16 @@ export default async function SourcingPage({
           type="submit"
           className="px-3 py-2 text-[11px] font-semibold rounded-xl bg-[#F2F4F7] border border-[#E5E7EB] text-charcoal"
         >
-          Filter
+          {t('common.filter')}
         </button>
       </form>
 
       {batches.length === 0 ? (
         <EmptyState
-          title="No farmer produce matches this filter"
-          message="Clear the filters or post a buy request so farmers can bring produce to you."
+          title={t('sourcing.emptyTitle')}
+          message={t('sourcing.emptyMessage')}
           actionHref="/demand/new"
-          actionLabel="Post a buy request"
+          actionLabel={t('sourcing.postRequest')}
         />
       ) : (
         <div className="grid md:grid-cols-2 gap-3">
@@ -152,36 +151,33 @@ export default async function SourcingPage({
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{batch.crop.name}</span>
-                      <Badge tone="neutral">{batch.grade}</Badge>
-                      {existing && <Badge tone="amber">Offer sent</Badge>}
+                      <span className="text-sm font-bold text-charcoal">{crop(batch.crop)}</span>
+                      <Badge tone="neutral">{grade(batch.grade)}</Badge>
+                      {existing && <Badge tone="amber">{t('sourcing.offerSent')}</Badge>}
                     </div>
                     <div className="text-[11px] text-[#636E72] mt-0.5">
-                      {batch.farmer.name} · {batch.originCity}, {batch.originProvince}
+                      {batch.farmer.name} · {place([batch.originCity, batch.originProvince].join(', '))}
                     </div>
                     <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Uncommitted</div>
-                        <div className="font-semibold text-charcoal">{qty(batch.availableKg)}</div>
+                        <div className="text-[10px] text-[#636E72]">{t('sourcing.uncommitted')}</div>
+                        <div className="font-semibold text-charcoal">{kg(batch.availableKg)}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Farmer asking</div>
+                        <div className="text-[10px] text-[#636E72]">{t('sourcing.asking')}</div>
                         <div className="font-semibold text-agri-900">
-                          {batch.askingPricePerKg ? `${money(batch.askingPricePerKg)}/kg` : 'Open'}
+                          {batch.askingPricePerKg ? perKg(batch.askingPricePerKg) : t('sourcing.open')}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Harvested</div>
+                        <div className="text-[10px] text-[#636E72]">{t('sourcing.harvested')}</div>
                         <div className="font-semibold text-charcoal">
-                          {batch.harvestDate.toLocaleDateString('en-PK', {
-                            day: 'numeric',
-                            month: 'short',
-                          })}
+                          {date(batch.harvestDate, { day: 'numeric', month: 'short' })}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Packing</div>
-                        <div className="font-semibold text-charcoal">{batch.packaging ?? '—'}</div>
+                        <div className="text-[10px] text-[#636E72]">{t('sourcing.packing')}</div>
+                        <div className="font-semibold text-charcoal">{batch.packaging ? packaging(batch.packaging) : '—'}</div>
                       </div>
                     </div>
                   </div>
@@ -189,25 +185,23 @@ export default async function SourcingPage({
 
                 {existing ? (
                   <div className="mt-3 p-2.5 rounded-lg bg-[#F8F9F5] text-[11px] text-[#636E72]">
-                    You offered {money(existing.pricePerKg)}/kg for {qty(existing.quantityKg)}.
-                    Waiting on {batch.farmer.name}.
+                    {t('sourcing.youOffered', { rate: perKg(existing.pricePerKg), qty: kg(existing.quantityKg), name: batch.farmer.name })}
                   </div>
                 ) : (
                   <details className="mt-3 group">
                     <summary className="text-[11px] font-semibold text-agri-900 cursor-pointer">
-                      Send a rate to this farmer
+                      {t('sourcing.sendRate')}
                     </summary>
                     <ActionForm
                       action={createOffer}
-                      submitLabel="Send offer"
-                      submitLabelUrdu="ریٹ بھیجیں"
-                      successMessage="Offer sent. The farmer will accept or decline it."
+                      submitLabel={t('sourcing.sendOffer')}
+                      successMessage={t('sourcing.sent')}
                       hidden={{ batchId: batch.id }}
                       className="mt-3"
                     >
                       <div className="space-y-3">
                         <div className="grid grid-cols-2 gap-3">
-                          <Field label="Quantity (kg)" labelUrdu="مقدار">
+                          <Field label={t('common.qtyKg')}>
                             <input
                               type="number"
                               name="quantityKg"
@@ -219,7 +213,7 @@ export default async function SourcingPage({
                               className={inputClass}
                             />
                           </Field>
-                          <Field label="Rate (Rs/kg)" labelUrdu="ریٹ">
+                          <Field label={t('common.rateRsKg')}>
                             <input
                               type="number"
                               name="pricePerKg"
@@ -231,40 +225,40 @@ export default async function SourcingPage({
                             />
                           </Field>
                         </div>
-                        <Field label="Destination mandi" labelUrdu="منڈی">
+                        <Field label={t('common.destinationMandi')}>
                           <select
                             name="destinationMandiId"
                             required
                             defaultValue={profile?.mandiId ?? ''}
                             className={inputClass}
                           >
-                            <option value="">Select mandi</option>
+                            <option value="">{t('common.selectMandi')}</option>
                             {mandis.map((mandi) => (
                               <option key={mandi.id} value={mandi.id}>
-                                {mandi.name}
+                                {place(mandi.name)}
                               </option>
                             ))}
                           </select>
                         </Field>
                         <Field
-                          label="Who arranges transport?"
-                          hint="This decides who books the truck and who bears the freight."
+                          label={t('sourcing.whoTransport')}
+                          hint={t('sourcing.transportHint')}
                         >
                           <select
                             name="transportResponsibility"
                             defaultValue="ARHTI"
                             className={inputClass}
                           >
-                            <option value="ARHTI">I arrange and pay</option>
-                            <option value="FARMER">Farmer arranges</option>
-                            <option value="MUTUAL">Shared 50/50</option>
+                            <option value="ARHTI">{t('sourcing.tArhti')}</option>
+                            <option value="FARMER">{t('sourcing.tFarmer')}</option>
+                            <option value="MUTUAL">{t('sourcing.tShared')}</option>
                           </select>
                         </Field>
-                        <Field label="Note to farmer">
+                        <Field label={t('sourcing.note')}>
                           <input
                             name="note"
                             className={inputClass}
-                            placeholder="Rate holds till tomorrow evening"
+                            placeholder={t('sourcing.notePlaceholder')}
                           />
                         </Field>
                       </div>

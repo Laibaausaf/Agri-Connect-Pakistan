@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { MapPin, Leaf, LogOut } from 'lucide-react';
 import { logout } from '@/lib/actions/auth';
+import { useI18n } from '@/components/i18n/LanguageProvider';
+import LanguageToggle from '@/components/layout/LanguageToggle';
 
 type ConsumerHeaderProps = {
   name: string;
@@ -10,6 +12,7 @@ type ConsumerHeaderProps = {
 };
 
 export default function ConsumerHeader({ name, location }: ConsumerHeaderProps) {
+  const { t } = useI18n();
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-[#E5E7EB]">
       <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
@@ -18,7 +21,7 @@ export default function ConsumerHeader({ name, location }: ConsumerHeaderProps) 
             <Leaf className="w-4.5 h-4.5" />
           </div>
           <div className="leading-tight">
-            <div className="font-extrabold text-sm text-agri-900">AgriConnect Fresh</div>
+            <div className="font-extrabold text-sm text-agri-900">{t('consumer.brand')}</div>
             <div className="flex items-center gap-1 text-[11px] text-[#636E72]">
               <MapPin className="w-3 h-3 text-agri-900" />
               <span className="truncate max-w-[160px]">{location}</span>
@@ -27,12 +30,13 @@ export default function ConsumerHeader({ name, location }: ConsumerHeaderProps) 
         </Link>
 
         <div className="flex items-center gap-2">
-          <span className="hidden sm:inline text-xs text-[#636E72]">Hi, {name.split(' ')[0]}</span>
+          <LanguageToggle />
+          <span className="hidden sm:inline text-xs text-[#636E72]">{t('consumer.hi', { name: name.split(' ')[0] })}</span>
           <form action={logout}>
             <button
               type="submit"
               className="p-2 rounded-lg bg-[#F8F9F5] border border-[#E5E7EB] text-[#636E72] hover:text-charcoal"
-              title="Log out"
+              title={t('header.logout')}
             >
               <LogOut className="w-4 h-4" />
             </button>

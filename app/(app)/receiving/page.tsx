@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
 import { confirmPickup, receiveProduce } from '@/lib/actions/deals';
 import ActionForm, { Field, inputClass } from '@/components/ui/ActionForm';
+import { getI18n } from '@/lib/i18n/server';
 import {
   Badge,
   Card,
@@ -11,9 +12,6 @@ import {
   EmptyState,
   PageHeader,
   StatCard,
-  humanStatus,
-  money,
-  qty,
   statusTone,
 } from '@/components/ui/kit';
 
@@ -27,6 +25,7 @@ const INBOUND: DealStatus[] = [
 
 export default async function ReceivingPage() {
   const user = await requireCapability('arhti.receive.produce');
+  const { t, crop, place, status, kg, perKg, date, dateTime, isUrdu } = await getI18n();
 
   const [inbound, recent] = await Promise.all([
     prisma.farmerArhtiDeal.findMany({
@@ -57,23 +56,22 @@ export default async function ReceivingPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <PageHeader
-        title="Receiving"
-        titleUrdu="آمد اور وزن"
-        subtitle="Produce heading to your mandi. Weighing on the kanta is the moment ownership transfers to you and the farmer's settlement is generated."
+        title={t('receiving.title')}
+        subtitle={t('receiving.subtitle')}
       />
 
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <StatCard label="Inbound deals" value={String(inbound.length)} tone="accent" />
-        <StatCard label="Expected volume" value={qty(expectedKg)} />
-        <StatCard label="On the road now" value={String(onTruck)} />
+        <StatCard label={t('receiving.statInbound')} value={String(inbound.length)} tone="accent" />
+        <StatCard label={t('receiving.statExpected')} value={kg(expectedKg)} />
+        <StatCard label={t('receiving.statOnRoad')} value={String(onTruck)} />
       </div>
 
       {inbound.length === 0 ? (
         <EmptyState
-          title="Nothing inbound"
-          message="Once a farmer accepts your rate and the truck is booked, the consignment appears here for weighing."
+          title={t('receiving.emptyTitle')}
+          message={t('receiving.emptyMessage')}
           actionHref="/sourcing"
-          actionLabel="Open Farmer Market"
+          actionLabel={t('receiving.emptyAction')}
         />
       ) : (
         <div className="space-y-3">
@@ -85,30 +83,30 @@ export default async function ReceivingPage() {
                   <CropThumb imageUrl={deal.crop.imageUrl} name={deal.crop.name} size="md" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{deal.crop.name}</span>
-                      <Badge tone={statusTone(deal.status)}>{humanStatus(deal.status)}</Badge>
+                      <span className="text-sm font-bold text-charcoal">{crop(deal.crop)}</span>
+                      <Badge tone={statusTone(deal.status)}>{status(deal.status)}</Badge>
                     </div>
                     <div className="text-[11px] text-[#636E72] mt-0.5">
-                      {deal.farmer.name} · {deal.sourceCity} →{' '}
-                      {deal.destinationMandi.city}
+                      {deal.farmer.name} · {place(deal.sourceCity)} {isUrdu ? '←' : '→'}{' '}
+                      {place(deal.destinationMandi.city)}
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Expected</div>
+                        <div className="text-[10px] text-[#636E72]">{t('receiving.expected')}</div>
                         <div className="font-semibold text-charcoal">
-                          {qty(deal.agreedQuantityKg)}
+                          {kg(deal.agreedQuantityKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Rate</div>
+                        <div className="text-[10px] text-[#636E72]">{t('receiving.rate')}</div>
                         <div className="font-semibold text-agri-900">
-                          {money(deal.agreedPricePerKg)}/kg
+                          {perKg(deal.agreedPricePerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Driver</div>
+                        <div className="text-[10px] text-[#636E72]">{t('receiving.driver')}</div>
                         <div className="font-semibold text-charcoal truncate">
-                          {deal.pickup?.driverName ?? 'Not booked'}
+                          {deal.pickup?.driverName ?? t('receiving.notBooked')}
                         </div>
                         {deal.pickup?.vehiclePlate && (
                           <div className="text-[10px] text-[#636E72]">
@@ -117,12 +115,12 @@ export default async function ReceivingPage() {
                         )}
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">ETA</div>
+                        <div className="text-[10px] text-[#636E72]">{t('receiving.eta')}</div>
                         <div className="font-semibold text-charcoal">
                           {deal.pickup?.tracking
-                            ? `${deal.pickup.tracking.etaMinutes} min`
+                            ? t('receiving.minutes', { count: deal.pickup.tracking.etaMinutes ?? 0 })
                             : deal.pickup?.expectedArrivalAt
-                              ? deal.pickup.expectedArrivalAt.toLocaleString('en-PK', {
+                              ? dateTime(deal.pickup.expectedArrivalAt, {
                                   day: 'numeric',
                                   month: 'short',
                                   hour: 'numeric',
@@ -135,7 +133,7 @@ export default async function ReceivingPage() {
                       href={`/deals/${deal.id}`}
                       className="inline-block mt-2 text-[11px] font-semibold text-agri-900 hover:underline"
                     >
-                      Deal {deal.dealNumber}
+                      {t('receiving.deal', { deal: deal.dealNumber })}
                     </Link>
                   </div>
                 </div>
@@ -143,11 +141,11 @@ export default async function ReceivingPage() {
                 {awaitingLoad ? (
                   <div className="mt-3 pt-3 border-t border-[#E5E7EB]">
                     <p className="text-[11px] text-[#636E72]">
-                      Waiting for loading confirmation at {deal.sourceCity}.
+                      {t('receiving.waitingLoad', { city: place(deal.sourceCity) })}
                     </p>
                     <ActionForm
                       action={confirmPickup}
-                      submitLabel="Confirm produce is loaded"
+                      submitLabel={t('receiving.confirmLoaded')}
                       variant="inline"
                       hidden={{ dealId: deal.id }}
                       className="inline-block"
@@ -156,20 +154,18 @@ export default async function ReceivingPage() {
                 ) : (
                   <div className="mt-3 pt-3 border-t border-[#E5E7EB]">
                     <h3 className="text-[11px] font-bold text-charcoal mb-2">
-                      Kanta entry — take ownership
+                      {t('receiving.kanta')}
                     </h3>
                     <ActionForm
                       action={receiveProduce}
-                      submitLabel="Record weight & create lot"
-                      submitLabelUrdu="وزن درج کریں"
-                      successMessage="Lot created in your mandi inventory and the farmer's settlement is ready."
+                      submitLabel={t('receiving.record')}
+                      successMessage={t('receiving.recorded')}
                       hidden={{ dealId: deal.id }}
                     >
                       <div className="grid sm:grid-cols-2 gap-3">
                         <Field
-                          label="Weighed quantity (kg)"
-                          labelUrdu="وزن"
-                          hint={`Max ${qty(Math.round(deal.agreedQuantityKg * 1.05))}`}
+                          label={t('receiving.weighed')}
+                          hint={t('receiving.max', { qty: kg(Math.round(deal.agreedQuantityKg * 1.05)) })}
                         >
                           <input
                             type="number"
@@ -182,12 +178,12 @@ export default async function ReceivingPage() {
                             placeholder={String(deal.agreedQuantityKg)}
                           />
                         </Field>
-                        <Field label="Kanta operator" labelUrdu="کانٹا آپریٹر">
+                        <Field label={t('receiving.operator')}>
                           <input
                             name="verifierName"
                             required
                             className={inputClass}
-                            placeholder="Rashid Ali"
+                            placeholder={t('deal.placeholderOperator')}
                           />
                         </Field>
                       </div>
@@ -203,7 +199,7 @@ export default async function ReceivingPage() {
       {recent.length > 0 && (
         <section className="mt-6">
           <h2 className="text-xs font-bold uppercase tracking-wider text-[#636E72] mb-2">
-            Recently received
+            {t('receiving.recent')}
           </h2>
           <div className="space-y-2">
             {recent.map((deal) => (
@@ -212,13 +208,12 @@ export default async function ReceivingPage() {
                   <CropThumb imageUrl={deal.crop.imageUrl} name={deal.crop.name} size="sm" />
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-charcoal truncate">
-                      {qty(deal.receivedQuantityKg ?? 0)} {deal.crop.name}
+                      {t('receiving.qtyCrop', { qty: kg(deal.receivedQuantityKg ?? 0), crop: crop(deal.crop) })}
                     </div>
                     <div className="text-[10px] text-[#636E72]">
-                      from {deal.farmer.name} ·{' '}
-                      {deal.receivedAt?.toLocaleDateString('en-PK', {
-                        day: 'numeric',
-                        month: 'short',
+                      {t('receiving.from', {
+                        name: deal.farmer.name,
+                        date: deal.receivedAt ? date(deal.receivedAt, { day: 'numeric', month: 'short' }) : '',
                       })}
                     </div>
                   </div>

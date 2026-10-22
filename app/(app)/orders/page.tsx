@@ -4,7 +4,8 @@ import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
 import { rateShop } from '@/lib/actions/retail';
 import ActionForm, { Field, inputClass } from '@/components/ui/ActionForm';
-import { Badge, Card, CropThumb, EmptyState, money, qty } from '@/components/ui/kit';
+import { getI18n } from '@/lib/i18n/server';
+import { Badge, Card, CropThumb, EmptyState } from '@/components/ui/kit';
 import { Clock, MapPin, Sprout, Star } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -17,17 +18,18 @@ const STEPS: ConsumerOrderStatus[] = [
   ConsumerOrderStatus.DELIVERED,
 ];
 
-const STEP_LABEL: Record<ConsumerOrderStatus, string> = {
-  PLACED: 'Order placed',
-  CONFIRMED: 'Shop confirmed',
-  PREPARING: 'Being packed',
-  OUT_FOR_DELIVERY: 'On the way',
-  DELIVERED: 'Delivered',
-  CANCELLED: 'Cancelled',
-};
+const STEP_LABEL = {
+  PLACED: 'corders.stepPlaced',
+  CONFIRMED: 'corders.stepConfirmed',
+  PREPARING: 'corders.stepPreparing',
+  OUT_FOR_DELIVERY: 'corders.stepOnWay',
+  DELIVERED: 'corders.stepDelivered',
+  CANCELLED: 'corders.stepCancelled',
+} as const satisfies Record<ConsumerOrderStatus, string>;
 
 export default async function ConsumerOrdersPage() {
   const user = await requireCapability('consumer.orders.view');
+  const { t, place, kg, perKg, money, dateTime, time } = await getI18n();
 
   const orders = await prisma.consumerOrder.findMany({
     where: { consumerId: user.id },
@@ -79,19 +81,19 @@ export default async function ConsumerOrdersPage() {
     <div>
       <div className="mb-4">
         <h1 className="text-lg font-bold text-charcoal">
-          My orders <span className="text-sm font-normal text-[#636E72]">میرے آرڈرز</span>
+          {t('corders.title')}
         </h1>
         <p className="text-xs text-[#636E72] mt-0.5">
-          Track a delivery, see where your food came from, and rate the shop once it arrives.
+          {t('corders.subtitle')}
         </p>
       </div>
 
       {orders.length === 0 ? (
         <EmptyState
-          title="No orders yet"
-          message="Pick something fresh from a shop near you and it will show up here with live tracking."
+          title={t('corders.emptyTitle')}
+          message={t('corders.emptyMessage')}
           actionHref="/shop"
-          actionLabel="Browse Fresh Today"
+          actionLabel={t('corders.emptyAction')}
         />
       ) : (
         <div className="space-y-3">
@@ -118,7 +120,7 @@ export default async function ConsumerOrdersPage() {
                               : 'amber'
                         }
                       >
-                        {STEP_LABEL[order.status]}
+                        {t(STEP_LABEL[order.status])}
                       </Badge>
                     </div>
                     <div className="text-[11px] text-[#636E72] font-mono mt-0.5">
@@ -127,16 +129,16 @@ export default async function ConsumerOrdersPage() {
                     <div className="text-[11px] text-[#636E72] flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       {order.deliveredAt
-                        ? `Delivered ${order.deliveredAt.toLocaleString('en-PK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
-                        : `~${order.etaMinutes} min · placed ${order.placedAt.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}`}
+                        ? t('corders.delivered', { when: dateTime(order.deliveredAt, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) })
+                        : t('corders.eta', { count: order.etaMinutes, time: time(order.placedAt, { hour: '2-digit', minute: '2-digit' }) })}
                     </div>
                   </div>
-                  <div className="text-right whitespace-nowrap">
+                  <div className="text-end whitespace-nowrap">
                     <div className="text-sm font-bold text-agri-900">{money(order.totalAmount)}</div>
                     <div className="text-[10px] text-[#636E72]">
                       {order.deliveryFee > 0
-                        ? `incl. ${money(order.deliveryFee)} delivery`
-                        : 'free delivery'}
+                        ? t('rorders.inclDelivery', { amount: money(order.deliveryFee) })
+                        : t('rorders.freeDelivery')}
                     </div>
                   </div>
                 </div>
@@ -155,7 +157,7 @@ export default async function ConsumerOrdersPage() {
                             idx <= stepIdx ? 'text-agri-900 font-semibold' : 'text-[#636E72]'
                           }`}
                         >
-                          {STEP_LABEL[step]}
+                          {t(STEP_LABEL[step])}
                         </div>
                       </div>
                     ))}
@@ -177,11 +179,11 @@ export default async function ConsumerOrdersPage() {
                             {item.listing.title}
                           </div>
                           <div className="text-[10px] text-[#636E72]">
-                            {qty(item.quantityKg)} at {money(item.pricePerKg)}/kg
+                            {t('corders.itemLine', { qty: kg(item.quantityKg), rate: perKg(item.pricePerKg) })}
                           </div>
                           <div className="text-[10px] text-agri-900 flex items-center gap-1">
                             <Sprout className="w-3 h-3" />
-                            Grown in {farmCity}
+                            {t('corders.grownIn', { city: place(farmCity) })}
                           </div>
                         </div>
                         <div className="text-xs font-semibold text-charcoal whitespace-nowrap">
@@ -202,37 +204,36 @@ export default async function ConsumerOrdersPage() {
                 {myRating !== undefined && (
                   <div className="mt-3 pt-3 border-t border-[#E5E7EB] text-[11px] text-[#636E72] flex items-center gap-1">
                     <Star className="w-3 h-3" />
-                    You rated this shop {myRating}/5
+                    {t('corders.youRated', { rating: myRating })}
                   </div>
                 )}
 
                 {canRate && (
                   <details className="mt-3 pt-3 border-t border-[#E5E7EB]">
                     <summary className="text-[11px] font-semibold text-agri-900 cursor-pointer">
-                      Rate this shop
+                      {t('corders.rate')}
                     </summary>
                     <ActionForm
                       action={rateShop}
-                      submitLabel="Submit rating"
-                      submitLabelUrdu="ریٹنگ دیں"
-                      successMessage="Thanks — your rating helps other buyers."
+                      submitLabel={t('corders.submit')}
+                      successMessage={t('corders.thanks')}
                       hidden={{ orderId: order.id }}
                       className="mt-3"
                     >
                       <div className="space-y-2.5">
-                        <Field label="How was it?" labelUrdu="کیسا تھا">
+                        <Field label={t('corders.howWasIt')}>
                           <select name="overallRating" defaultValue={5} className={inputClass}>
-                            <option value={5}>5 — Excellent</option>
-                            <option value={4}>4 — Good</option>
-                            <option value={3}>3 — Average</option>
-                            <option value={2}>2 — Poor</option>
-                            <option value={1}>1 — Bad</option>
+                            <option value={5}>{t('corders.r5')}</option>
+                            <option value={4}>{t('corders.r4')}</option>
+                            <option value={3}>{t('corders.r3')}</option>
+                            <option value={2}>{t('corders.r2')}</option>
+                            <option value={1}>{t('corders.r1')}</option>
                           </select>
                         </Field>
-                        <Field label="Comment (optional)">
+                        <Field label={t('corders.comment')}>
                           <input
                             name="comment"
-                            placeholder="Fresh and on time"
+                            placeholder={t('corders.commentPlaceholder')}
                             className={inputClass}
                           />
                         </Field>
@@ -243,8 +244,7 @@ export default async function ConsumerOrdersPage() {
 
                 {order.status === ConsumerOrderStatus.OUT_FOR_DELIVERY && (
                   <div className="mt-3 text-[11px] text-[#636E72]">
-                    Rider on the way. Call the shop on {order.shopkeeper.phone} if you need to
-                    redirect.
+                    {t('corders.rider', { phone: order.shopkeeper.phone ?? '' })}
                   </div>
                 )}
               </Card>
@@ -255,7 +255,7 @@ export default async function ConsumerOrdersPage() {
 
       <div className="mt-6 text-center">
         <Link href="/shop" className="text-[11px] font-semibold text-agri-900 hover:underline">
-          Browse fresh produce
+          {t('corders.browse')}
         </Link>
       </div>
     </div>

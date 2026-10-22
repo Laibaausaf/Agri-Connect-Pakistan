@@ -63,7 +63,7 @@ function dateTimeLocal(date: Date) {
 export default async function DealDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireCapability('farmer.deals.view', 'arhti.deals.manage');
-  const { t, crop, place, status, grade, kg, perKg, money, dateTime, deduction, isUrdu } = await getI18n();
+  const { t, crop, place, status, grade, kg, perKg, money, dateTime, deduction, isUrdu, storedText } = await getI18n();
 
   const when = (date: Date | null | undefined) =>
     date ? dateTime(date, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : null;
@@ -114,6 +114,14 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
     (deal.status === DealStatus.IN_TRANSIT || deal.status === DealStatus.PICKED_UP);
 
   const canPay = !isFarmer && deal.status === DealStatus.PAYMENT_PENDING && Boolean(deal.settlement);
+
+  const cropNames = isUrdu
+    ? Object.fromEntries(
+        (await prisma.crop.findMany({ select: { name: true, nameUrdu: true } }))
+          .filter((c) => c.nameUrdu)
+          .map((c) => [c.name, c.nameUrdu as string])
+      )
+    : {};
 
   const events = await prisma.supplyChainEvent.findMany({
     where: {
@@ -363,15 +371,15 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
             <h2 className="text-xs font-bold uppercase tracking-wider text-[#636E72] mb-3">
               {t('deal.trace')}
             </h2>
-            {/* Event titles and descriptions are written in English when the
-                event is recorded and are shown as stored for now. */}
+            {/* Event titles and descriptions are stored in English; known
+                templates are translated for display in Urdu mode. */}
             <ol className="space-y-3">
               {events.map((event) => (
                 <li key={event.id} className="flex gap-3">
                   <span className="mt-1 w-1.5 h-1.5 rounded-full bg-[#B7D4C8] shrink-0" />
                   <div className="min-w-0">
-                    <div className="text-xs font-semibold text-charcoal">{event.title}</div>
-                    <div className="text-[11px] text-[#636E72]">{event.description}</div>
+                    <div className="text-xs font-semibold text-charcoal">{storedText(event.title, cropNames)}</div>
+                    <div className="text-[11px] text-[#636E72]">{storedText(event.description, cropNames)}</div>
                     <div className="text-[10px] text-[#636E72] mt-0.5">
                       {when(event.createdAt)}
                       {event.quantityKg != null && ` · ${kg(event.quantityKg)}`}

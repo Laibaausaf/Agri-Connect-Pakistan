@@ -3,25 +3,25 @@ import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
 import { updateConsumerOrderStatus } from '@/lib/actions/retail';
 import ActionForm from '@/components/ui/ActionForm';
+import { getI18n } from '@/lib/i18n/server';
 import {
   Badge,
   Card,
   EmptyState,
   PageHeader,
   StatCard,
-  humanStatus,
-  money,
-  qty,
 } from '@/components/ui/kit';
 
 export const dynamic = 'force-dynamic';
 
-const NEXT_STEP: Partial<Record<ConsumerOrderStatus, { status: ConsumerOrderStatus; label: string }>> =
+type StepLabel = 'rorders.accept' | 'rorders.pack' | 'rorders.send' | 'rorders.deliver';
+
+const NEXT_STEP: Partial<Record<ConsumerOrderStatus, { status: ConsumerOrderStatus; label: StepLabel }>> =
   {
-    PLACED: { status: ConsumerOrderStatus.CONFIRMED, label: 'Accept order' },
-    CONFIRMED: { status: ConsumerOrderStatus.PREPARING, label: 'Start packing' },
-    PREPARING: { status: ConsumerOrderStatus.OUT_FOR_DELIVERY, label: 'Send out for delivery' },
-    OUT_FOR_DELIVERY: { status: ConsumerOrderStatus.DELIVERED, label: 'Mark delivered' },
+    PLACED: { status: ConsumerOrderStatus.CONFIRMED, label: 'rorders.accept' },
+    CONFIRMED: { status: ConsumerOrderStatus.PREPARING, label: 'rorders.pack' },
+    PREPARING: { status: ConsumerOrderStatus.OUT_FOR_DELIVERY, label: 'rorders.send' },
+    OUT_FOR_DELIVERY: { status: ConsumerOrderStatus.DELIVERED, label: 'rorders.deliver' },
   };
 
 const OPEN: ConsumerOrderStatus[] = [
@@ -33,6 +33,7 @@ const OPEN: ConsumerOrderStatus[] = [
 
 export default async function RetailOrdersPage() {
   const user = await requireCapability('shopkeeper.orders.fulfill');
+  const { t, crop, status, kg, perKg, money } = await getI18n();
 
   const orders = await prisma.consumerOrder.findMany({
     where: { shopkeeperId: user.id },
@@ -44,7 +45,7 @@ export default async function RetailOrdersPage() {
           quantityKg: true,
           pricePerKg: true,
           lineTotal: true,
-          listing: { select: { title: true, crop: { select: { name: true } } } },
+          listing: { select: { title: true, crop: { select: { name: true, nameUrdu: true } } } },
         },
       },
     },
@@ -64,23 +65,22 @@ export default async function RetailOrdersPage() {
   return (
     <div className="max-w-3xl mx-auto">
       <PageHeader
-        title="Customer Orders"
-        titleUrdu="گاہک آرڈرز"
-        subtitle="Orders from customers nearby. Move each one along as you pack and send it out."
+        title={t('rorders.title')}
+        subtitle={t('rorders.subtitle')}
       />
 
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <StatCard label="To fulfil" value={String(live.length)} tone={live.length ? 'warn' : 'default'} />
-        <StatCard label="Delivered" value={String(delivered)} />
-        <StatCard label="Today's takings" value={money(todayRevenue)} tone="accent" />
+        <StatCard label={t('rorders.statToFulfil')} value={String(live.length)} tone={live.length ? 'warn' : 'default'} />
+        <StatCard label={t('rorders.statDelivered')} value={String(delivered)} />
+        <StatCard label={t('rorders.statToday')} value={money(todayRevenue)} tone="accent" />
       </div>
 
       {orders.length === 0 ? (
         <EmptyState
-          title="No customer orders yet"
-          message="Once your storefront has live listings, orders from customers within your delivery radius land here."
+          title={t('rorders.emptyTitle')}
+          message={t('rorders.emptyMessage')}
           actionHref="/storefront"
-          actionLabel="Open My Storefront"
+          actionLabel={t('rorders.emptyAction')}
         />
       ) : (
         <div className="space-y-3">
@@ -93,7 +93,7 @@ export default async function RetailOrdersPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-bold text-charcoal">{order.consumer.name}</span>
                       <Badge tone={order.status === ConsumerOrderStatus.PLACED ? 'amber' : 'green'}>
-                        {humanStatus(order.status)}
+                        {status(order.status)}
                       </Badge>
                     </div>
                     <div className="text-[11px] text-[#636E72] font-mono mt-0.5">
@@ -101,15 +101,15 @@ export default async function RetailOrdersPage() {
                     </div>
                     <div className="text-[11px] text-[#636E72]">
                       {order.consumer.phone} ·{' '}
-                      {order.deliveryAddress ?? 'No address given — call the customer'}
+                      {order.deliveryAddress ?? t('rorders.noAddress')}
                     </div>
                   </div>
-                  <div className="text-right whitespace-nowrap">
+                  <div className="text-end whitespace-nowrap">
                     <div className="text-sm font-bold text-agri-900">{money(order.totalAmount)}</div>
                     <div className="text-[10px] text-[#636E72]">
-                      {order.deliveryFee > 0 ? `incl. ${money(order.deliveryFee)} delivery` : 'free delivery'}
+                      {order.deliveryFee > 0 ? t('rorders.inclDelivery', { amount: money(order.deliveryFee) }) : t('rorders.freeDelivery')}
                     </div>
-                    <div className="text-[10px] text-[#636E72]">~{order.etaMinutes} min ETA</div>
+                    <div className="text-[10px] text-[#636E72]">{t('rorders.eta', { count: order.etaMinutes })}</div>
                   </div>
                 </div>
 
@@ -120,7 +120,7 @@ export default async function RetailOrdersPage() {
                       className="flex items-center justify-between gap-2 text-[11px]"
                     >
                       <span className="text-charcoal truncate">
-                        {item.listing.title} · {qty(item.quantityKg)} at {money(item.pricePerKg)}/kg
+                        {t('rorders.itemLine', { title: item.listing.title, qty: kg(item.quantityKg), rate: perKg(item.pricePerKg) })}
                       </span>
                       <span className="font-semibold text-charcoal whitespace-nowrap">
                         {money(item.lineTotal)}
@@ -133,7 +133,7 @@ export default async function RetailOrdersPage() {
                   {next && (
                     <ActionForm
                       action={updateConsumerOrderStatus}
-                      submitLabel={next.label}
+                      submitLabel={t(next.label)}
                       variant="inline"
                       hidden={{ orderId: order.id, status: next.status }}
                     />
@@ -141,7 +141,7 @@ export default async function RetailOrdersPage() {
                   {order.status === ConsumerOrderStatus.PLACED && (
                     <ActionForm
                       action={updateConsumerOrderStatus}
-                      submitLabel="Cancel"
+                      submitLabel={t('rorders.cancel')}
                       variant="secondary"
                       hidden={{ orderId: order.id, status: ConsumerOrderStatus.CANCELLED }}
                     />
@@ -154,7 +154,7 @@ export default async function RetailOrdersPage() {
           {done.length > 0 && (
             <div className="pt-2">
               <h2 className="text-[11px] font-bold uppercase tracking-wider text-[#636E72] mb-2">
-                Closed orders
+                {t('rorders.closed')}
               </h2>
               <Card padded={false}>
                 <div className="divide-y divide-[#E5E7EB]">
@@ -166,14 +166,14 @@ export default async function RetailOrdersPage() {
                       <div className="min-w-0">
                         <div className="font-semibold text-charcoal truncate">
                           {order.consumer.name} ·{' '}
-                          {order.items.map((i) => i.listing.crop.name).join(', ')}
+                          {order.items.map((i) => crop(i.listing.crop)).join(t('common.listSep'))}
                         </div>
                         <div className="text-[#636E72] font-mono">{order.orderNumber}</div>
                       </div>
-                      <div className="text-right whitespace-nowrap">
+                      <div className="text-end whitespace-nowrap">
                         <div className="font-semibold text-charcoal">{money(order.totalAmount)}</div>
                         <Badge tone={order.status === ConsumerOrderStatus.DELIVERED ? 'green' : 'red'}>
-                          {humanStatus(order.status)}
+                          {status(order.status)}
                         </Badge>
                       </div>
                     </div>

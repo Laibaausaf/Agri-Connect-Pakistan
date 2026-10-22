@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
+import { getI18n } from '@/lib/i18n/server';
 import {
   Badge,
   Card,
@@ -8,9 +9,6 @@ import {
   EmptyState,
   PageHeader,
   StatCard,
-  humanStatus,
-  money,
-  qty,
   statusTone,
 } from '@/components/ui/kit';
 
@@ -18,6 +16,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function PurchasesPage() {
   const user = await requireCapability('shopkeeper.wholesale.purchase');
+  const { t, crop, place, status, kg, perKg, money, date } = await getI18n();
 
   const purchases = await prisma.vendorShopkeeperSale.findMany({
     where: { shopkeeperId: user.id },
@@ -29,7 +28,7 @@ export default async function PurchasesPage() {
         select: {
           offerNumber: true,
           deliveryEtaHours: true,
-          crop: { select: { name: true, imageUrl: true } },
+          crop: { select: { name: true, nameUrdu: true, imageUrl: true } },
           stock: { select: { sourceFarmCity: true, sourceMandiCity: true } },
         },
       },
@@ -47,35 +46,34 @@ export default async function PurchasesPage() {
   return (
     <div className="max-w-3xl mx-auto">
       <PageHeader
-        title="My Purchases"
-        titleUrdu="خریداری"
-        subtitle="Every wholesale order you placed, with the vendor, the rate you paid and where the produce originally came from."
+        title={t('purchases.title')}
+        subtitle={t('purchases.subtitle')}
         action={
           <Link
             href="/wholesale"
             className="text-[11px] font-semibold text-agri-900 hover:underline whitespace-nowrap"
           >
-            Wholesale Market
+            {t('purchases.market')}
           </Link>
         }
       />
 
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <StatCard label="Orders placed" value={String(purchases.length)} />
-        <StatCard label="Quantity bought" value={qty(boughtKg)} tone="accent" />
+        <StatCard label={t('purchases.statOrders')} value={String(purchases.length)} />
+        <StatCard label={t('purchases.statQty')} value={kg(boughtKg)} tone="accent" />
         <StatCard
-          label="Total spend"
+          label={t('purchases.statSpend')}
           value={money(spend)}
-          hint={avgRate ? `${money(avgRate)}/kg average` : undefined}
+          hint={avgRate ? t('purchases.avg', { rate: perKg(avgRate) }) : undefined}
         />
       </div>
 
       {purchases.length === 0 ? (
         <EmptyState
-          title="No purchases yet"
-          message="Order from a vendor on the wholesale market and the stock, the payment record and the provenance trail all appear here."
+          title={t('purchases.emptyTitle')}
+          message={t('purchases.emptyMessage')}
           actionHref="/wholesale"
-          actionLabel="Browse Wholesale Market"
+          actionLabel={t('purchases.emptyAction')}
         />
       ) : (
         <div className="space-y-3">
@@ -93,44 +91,43 @@ export default async function PurchasesPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-bold text-charcoal">
-                        {purchase.offer.crop.name}
+                        {crop(purchase.offer.crop)}
                       </span>
                       <Badge tone={statusTone(purchase.status)}>
-                        {humanStatus(purchase.status)}
+                        {status(purchase.status)}
                       </Badge>
                     </div>
                     <div className="text-[11px] text-[#636E72] font-mono mt-0.5">
                       {purchase.saleNumber}
                     </div>
                     <div className="text-[11px] text-[#636E72]">
-                      From {purchase.vendor.vendorProfile?.businessName ?? purchase.vendor.name} ·
-                      grown in {purchase.offer.stock.sourceFarmCity}, traded at{' '}
-                      {purchase.offer.stock.sourceMandiCity} mandi
+                      {t('purchases.from', {
+                        vendor: purchase.vendor.vendorProfile?.businessName ?? purchase.vendor.name,
+                        farm: place(purchase.offer.stock.sourceFarmCity),
+                        mandi: place(purchase.offer.stock.sourceMandiCity),
+                      })}
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Quantity</div>
-                        <div className="font-semibold text-charcoal">{qty(purchase.quantityKg)}</div>
+                        <div className="text-[10px] text-[#636E72]">{t('purchases.quantity')}</div>
+                        <div className="font-semibold text-charcoal">{kg(purchase.quantityKg)}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Rate paid</div>
+                        <div className="text-[10px] text-[#636E72]">{t('purchases.ratePaid')}</div>
                         <div className="font-semibold text-charcoal">
-                          {money(purchase.ratePerKg)}/kg
+                          {perKg(purchase.ratePerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Order value</div>
+                        <div className="text-[10px] text-[#636E72]">{t('purchases.orderValue')}</div>
                         <div className="font-semibold text-agri-900">
                           {money(purchase.grossAmount)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Ordered</div>
+                        <div className="text-[10px] text-[#636E72]">{t('purchases.ordered')}</div>
                         <div className="font-semibold text-charcoal">
-                          {purchase.createdAt.toLocaleDateString('en-PK', {
-                            day: 'numeric',
-                            month: 'short',
-                          })}
+                          {date(purchase.createdAt, { day: 'numeric', month: 'short' })}
                         </div>
                       </div>
                     </div>
@@ -140,15 +137,15 @@ export default async function PurchasesPage() {
                 {stock && (
                   <div className="mt-3 pt-3 border-t border-[#E5E7EB] flex items-center justify-between gap-2 text-[11px]">
                     <span className="text-[#636E72]">
-                      In shop as <span className="font-mono">{stock.stockNumber}</span> ·{' '}
-                      {qty(stock.availableKg)} unlisted
-                      {soldOn > 0 ? ` · ${qty(soldOn)} moved to the counter` : ''}
+                      {t('purchases.inShopAs')} <span className="font-mono">{stock.stockNumber}</span> ·{' '}
+                      {t('purchases.unlisted', { qty: kg(stock.availableKg) })}
+                      {soldOn > 0 ? t('purchases.moved', { qty: kg(soldOn) }) : ''}
                     </span>
                     <Link
                       href="/shop-stock"
                       className="font-semibold text-agri-900 hover:underline whitespace-nowrap"
                     >
-                      Open stock
+                      {t('purchases.openStock')}
                     </Link>
                   </div>
                 )}

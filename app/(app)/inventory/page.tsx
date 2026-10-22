@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
 import { createAuction } from '@/lib/actions/auctions';
 import ActionForm, { Field, inputClass } from '@/components/ui/ActionForm';
+import { getI18n } from '@/lib/i18n/server';
 import {
   Badge,
   Card,
@@ -11,9 +12,6 @@ import {
   EmptyState,
   PageHeader,
   StatCard,
-  humanStatus,
-  money,
-  qty,
   statusTone,
 } from '@/components/ui/kit';
 
@@ -26,6 +24,7 @@ function firstPhoto(photos: unknown): string | null {
 
 export default async function InventoryPage() {
   const user = await requireCapability('arhti.inventory.manage');
+  const { t, crop, place, status, grade, kg, perKg, money } = await getI18n();
 
   const lots = await prisma.arhtiInventoryLot.findMany({
     where: { arhtiId: user.id, status: { not: InventoryLotStatus.SPOILED } },
@@ -65,32 +64,31 @@ export default async function InventoryPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <PageHeader
-        title="Mandi Inventory"
-        titleUrdu="منڈی اسٹاک"
-        subtitle="Produce you own after weighing it in. Put any uncommitted quantity into a mandi auction for vendors to bid on."
+        title={t('inventory.title')}
+        subtitle={t('inventory.subtitle')}
         action={
           <Link
             href="/auction-house"
             className="text-[11px] font-semibold text-agri-900 hover:underline whitespace-nowrap"
           >
-            Auction House
+            {t('inventory.auctionHouse')}
           </Link>
         }
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <StatCard label="Lots held" value={String(lots.length)} />
-        <StatCard label="Unsold stock" value={qty(held)} tone="accent" />
-        <StatCard label="Locked in auctions" value={qty(inAuction)} />
-        <StatCard label="Capital at cost" value={money(Math.round(capital))} />
+        <StatCard label={t('inventory.statLots')} value={String(lots.length)} />
+        <StatCard label={t('inventory.statUnsold')} value={kg(held)} tone="accent" />
+        <StatCard label={t('inventory.statLocked')} value={kg(inAuction)} />
+        <StatCard label={t('inventory.statCapital')} value={money(Math.round(capital))} />
       </div>
 
       {lots.length === 0 ? (
         <EmptyState
-          title="No stock yet"
-          message="Weigh in an inbound consignment on the Receiving screen and the lot appears here under your ownership."
+          title={t('inventory.emptyTitle')}
+          message={t('inventory.emptyMessage')}
           actionHref="/receiving"
-          actionLabel="Open Receiving"
+          actionLabel={t('inventory.emptyAction')}
         />
       ) : (
         <div className="space-y-3">
@@ -108,37 +106,37 @@ export default async function InventoryPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{lot.crop.name}</span>
-                      <Badge tone="neutral">{lot.grade}</Badge>
-                      <Badge tone={statusTone(lot.status)}>{humanStatus(lot.status)}</Badge>
+                      <span className="text-sm font-bold text-charcoal">{crop(lot.crop)}</span>
+                      <Badge tone="neutral">{grade(lot.grade)}</Badge>
+                      <Badge tone={statusTone(lot.status)}>{status(lot.status)}</Badge>
                     </div>
                     <div className="text-[11px] text-[#636E72] font-mono mt-0.5">
                       {lot.lotNumber}
                     </div>
                     <div className="text-[11px] text-[#636E72]">
-                      From {lot.deal.farmer.name}, {lot.sourceCity} · held at {lot.mandi.name}
+                      {t('inventory.from', { name: lot.deal.farmer.name, city: place(lot.sourceCity), mandi: place(lot.mandi.name) })}
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Received</div>
+                        <div className="text-[10px] text-[#636E72]">{t('inventory.received')}</div>
                         <div className="font-semibold text-charcoal">
-                          {qty(lot.receivedQuantityKg)}
+                          {kg(lot.receivedQuantityKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Available</div>
+                        <div className="text-[10px] text-[#636E72]">{t('inventory.available')}</div>
                         <div className="font-semibold text-agri-900">
-                          {qty(lot.availableQuantityKg)}
+                          {kg(lot.availableQuantityKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Your cost</div>
+                        <div className="text-[10px] text-[#636E72]">{t('inventory.cost')}</div>
                         <div className="font-semibold text-charcoal">
-                          {money(lot.purchasePricePerKg)}/kg
+                          {perKg(lot.purchasePricePerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">Source deal</div>
+                        <div className="text-[10px] text-[#636E72]">{t('inventory.sourceDeal')}</div>
                         <Link
                           href={`/deals/${lot.deal.id}`}
                           className="font-semibold text-agri-900 hover:underline truncate block"
@@ -153,16 +151,16 @@ export default async function InventoryPage() {
                 {liveAuction && (
                   <div className="mt-3 p-2.5 rounded-lg bg-[#E8F3EE] border border-[#B7D4C8] text-[11px] flex items-center justify-between gap-2 flex-wrap">
                     <span className="text-agri-900 font-semibold">
-                      {qty(liveAuction.quantityKg)} live in {liveAuction.auctionNumber} —{' '}
+                      {t('inventory.liveIn', { qty: kg(liveAuction.quantityKg), auction: liveAuction.auctionNumber })}{' '}
                       {liveAuction.currentHighestBid
-                        ? `top bid ${money(liveAuction.currentHighestBid)}/kg`
-                        : `reserve ${money(liveAuction.reservePrice)}/kg, no bids yet`}
+                        ? t('inventory.topBid', { rate: perKg(liveAuction.currentHighestBid) })
+                        : t('inventory.reserveNoBids', { rate: perKg(liveAuction.reservePrice) })}
                     </span>
                     <Link
                       href="/auction-house"
                       className="font-semibold text-agri-900 hover:underline"
                     >
-                      Manage
+                      {t('inventory.manage')}
                     </Link>
                   </div>
                 )}
@@ -170,21 +168,19 @@ export default async function InventoryPage() {
                 {canAuction && (
                   <details className="mt-3 pt-3 border-t border-[#E5E7EB]">
                     <summary className="text-[11px] font-semibold text-agri-900 cursor-pointer">
-                      Open a mandi auction on this lot
+                      {t('inventory.openAuction')}
                     </summary>
                     <ActionForm
                       action={createAuction}
-                      submitLabel="Start auction"
-                      submitLabelUrdu="نیلامی شروع"
-                      successMessage="Auction is live. Vendors in the mandi can bid now."
+                      submitLabel={t('inventory.start')}
+                      successMessage={t('inventory.started')}
                       hidden={{ inventoryLotId: lot.id }}
                       className="mt-3"
                     >
                       <div className="grid sm:grid-cols-2 gap-3">
                         <Field
-                          label="Quantity (kg)"
-                          labelUrdu="مقدار"
-                          hint={`Up to ${qty(lot.availableQuantityKg)}`}
+                          label={t('common.qtyKg')}
+                          hint={t('inventory.upTo', { qty: kg(lot.availableQuantityKg) })}
                         >
                           <input
                             type="number"
@@ -198,9 +194,8 @@ export default async function InventoryPage() {
                           />
                         </Field>
                         <Field
-                          label="Reserve price (Rs/kg)"
-                          labelUrdu="کم از کم ریٹ"
-                          hint={`Must cover your ${money(lot.purchasePricePerKg)}/kg cost`}
+                          label={t('inventory.reserve')}
+                          hint={t('inventory.reserveHint', { rate: perKg(lot.purchasePricePerKg) })}
                         >
                           <input
                             type="number"
@@ -212,7 +207,7 @@ export default async function InventoryPage() {
                             className={inputClass}
                           />
                         </Field>
-                        <Field label="Minimum bid increment (Rs)">
+                        <Field label={t('inventory.increment')}>
                           <input
                             type="number"
                             name="minimumIncrement"
@@ -222,12 +217,12 @@ export default async function InventoryPage() {
                             className={inputClass}
                           />
                         </Field>
-                        <Field label="Duration (minutes)">
+                        <Field label={t('inventory.duration')}>
                           <select name="durationMinutes" defaultValue={30} className={inputClass}>
-                            <option value={15}>15 minutes</option>
-                            <option value={30}>30 minutes</option>
-                            <option value={60}>1 hour</option>
-                            <option value={180}>3 hours</option>
+                            <option value={15}>{t('inventory.min15')}</option>
+                            <option value={30}>{t('inventory.min30')}</option>
+                            <option value={60}>{t('inventory.hour1')}</option>
+                            <option value={180}>{t('inventory.hour3')}</option>
                           </select>
                         </Field>
                       </div>

@@ -16,6 +16,7 @@ import {
   QUICK_PROMPTS,
   ROLE_NAMES,
   STATUSES,
+  STORED_TEXT_TEMPLATES,
   UI,
   type Lang,
   type UiKey,
@@ -31,6 +32,13 @@ export function parseLang(value: string | undefined | null): Lang {
 }
 
 type Vars = Record<string, string | number>;
+
+/** Keys that have `.one` and `.other` variants. */
+type PluralBase = UiKey extends infer K
+  ? K extends `${infer Base}.one`
+    ? Base
+    : never
+  : never;
 
 function fill(text: string, vars?: Vars) {
   if (!vars) return text;
@@ -88,7 +96,7 @@ export function makeI18n(lang: Lang) {
     t,
 
     /** Plural helper for keys with `.one` / `.other` variants. */
-    plural(base: 'crops.pendingOffers', count: number) {
+    plural(base: PluralBase, count: number) {
       return t(`${base}.${count === 1 ? 'one' : 'other'}` as UiKey, { count });
     },
 
@@ -183,6 +191,52 @@ export function makeI18n(lang: Lang) {
       return summary;
     },
 
+    /**
+     * Notification / supply-chain event text stored in English. In Urdu mode it
+     * is translated when it matches a known template (STORED_TEXT_TEMPLATES);
+     * otherwise it is returned exactly as stored. `cropNames` maps English crop
+     * names to Urdu (matched without regard to case).
+     */
+    storedText(text: string, cropNames: Record<string, string>) {
+      if (!ur || !text) return text;
+      const cropUr = (value: string) => {
+        const key = value.trim().toLowerCase();
+        for (const [en, urName] of Object.entries(cropNames)) {
+          if (en.toLowerCase() === key) return urName;
+        }
+        return value;
+      };
+      for (const { pattern, ur: template, parts } of STORED_TEXT_TEMPLATES) {
+        const match = text.match(pattern);
+        if (!match) continue;
+        return fillMatch(template, match, (value, index) => {
+          switch (parts?.[index - 1]) {
+            case 'kg':
+              return `${value} کلو`;
+            case 'rs':
+              return `${value} روپے`;
+            case 'perKg':
+              return `${value} روپے فی کلو`;
+            case 'crop':
+              return cropUr(value);
+            case 'variety': {
+              // "Roma tomato": the variety is typed text, the last word is the crop.
+              const words = value.split(' ');
+              const last = words.pop() ?? '';
+              return [...words, cropUr(last)].join(' ');
+            }
+            case 'place':
+              return place(value);
+            case 'grade':
+              return GRADES[value]?.ur ?? value;
+            default:
+              return value;
+          }
+        });
+      }
+      return text;
+    },
+
     number,
 
     /** "Rs 9,200" / "9,200 روپے" */
@@ -207,6 +261,16 @@ export function makeI18n(lang: Lang) {
     kg(n: number) {
       const value = number(n, 1);
       return ur ? `${value} کلو` : `${value} kg`;
+    },
+
+    /** Same wording as formatDistance() in lib/geo.ts, in the active language. */
+    distance(km: number | null) {
+      if (km === null) return ur ? 'فاصلہ معلوم نہیں' : 'Distance unknown';
+      if (km < 1) {
+        const m = Math.round(km * 1000);
+        return ur ? `${m} میٹر دور` : `${m} m away`;
+      }
+      return ur ? `${km} کلومیٹر دور` : `${km} km away`;
     },
 
     /** Dates with Urdu month names in Urdu mode; digits stay Western. */

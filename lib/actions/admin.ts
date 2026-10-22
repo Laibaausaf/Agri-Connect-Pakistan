@@ -146,7 +146,7 @@ export async function getTraceBatches(query?: string) {
       originProvince: true,
       harvestDate: true,
       status: true,
-      crop: { select: { name: true, imageUrl: true } },
+      crop: { select: { name: true, nameUrdu: true, imageUrl: true } },
       farmer: { select: { name: true } },
       _count: { select: { chainEvents: true } },
     },
@@ -178,7 +178,7 @@ export async function getBatchTrace(batchId: string) {
       harvestDate: true,
       askingPricePerKg: true,
       status: true,
-      crop: { select: { name: true, imageUrl: true } },
+      crop: { select: { name: true, nameUrdu: true, imageUrl: true } },
       farmer: {
         select: {
           name: true,

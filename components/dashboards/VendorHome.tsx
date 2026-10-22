@@ -1,16 +1,20 @@
 import Link from 'next/link';
 import { AuctionStatus, OfferListingStatus, SaleStatus, StockStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { Badge, Card, CropThumb, StatCard, humanStatus, money, qty, statusTone } from '@/components/ui/kit';
+import { getI18n } from '@/lib/i18n/server';
+import type { I18n } from '@/lib/i18n';
+import { Badge, Card, CropThumb, StatCard, statusTone } from '@/components/ui/kit';
 
-function endsIn(endTime: Date) {
+function endsIn(endTime: Date, t: I18n['t']) {
   const mins = Math.round((new Date(endTime).getTime() - Date.now()) / 60000);
-  if (mins <= 0) return 'closing now';
-  if (mins < 60) return `${mins} min left`;
-  return `${Math.round(mins / 60)} h left`;
+  if (mins <= 0) return t('vhome.closingNow');
+  if (mins < 60) return t('vhome.minLeft', { count: mins });
+  return t('vhome.hoursLeft', { count: Math.round(mins / 60) });
 }
 
 export default async function VendorHome({ userId, name }: { userId: string; name: string }) {
+  const { t, plural, crop, place, status, kg, perKg, money } = await getI18n();
+
   const [profile, auctions, myBids, stocks, offers, orders, spend] = await Promise.all([
     prisma.vendorProfile.findUnique({
       where: { userId },
@@ -27,7 +31,7 @@ export default async function VendorHome({ userId, name }: { userId: string; nam
         bidCount: true,
         endTime: true,
         mandi: { select: { name: true, city: true } },
-        inventoryLot: { select: { crop: { select: { name: true, imageUrl: true } }, sourceCity: true } },
+        inventoryLot: { select: { crop: { select: { name: true, nameUrdu: true, imageUrl: true } }, sourceCity: true } },
       },
       orderBy: { endTime: 'asc' },
       take: 4,
@@ -46,7 +50,7 @@ export default async function VendorHome({ userId, name }: { userId: string; nam
         grade: true,
         sourceFarmCity: true,
         sourceMandiCity: true,
-        crop: { select: { name: true, imageUrl: true } },
+        crop: { select: { name: true, nameUrdu: true, imageUrl: true } },
         offers: {
           where: { status: OfferListingStatus.ACTIVE },
           select: { id: true, remainingKg: true, pricePerKg: true },
@@ -63,7 +67,7 @@ export default async function VendorHome({ userId, name }: { userId: string; nam
         remainingKg: true,
         offeredQuantityKg: true,
         pricePerKg: true,
-        crop: { select: { name: true, imageUrl: true } },
+        crop: { select: { name: true, nameUrdu: true, imageUrl: true } },
         stock: { select: { costPerKg: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -81,7 +85,7 @@ export default async function VendorHome({ userId, name }: { userId: string; nam
         deliveryCity: true,
         createdAt: true,
         shopkeeper: { select: { name: true, shopkeeperProfile: { select: { shopName: true } } } },
-        offer: { select: { crop: { select: { name: true, imageUrl: true } } } },
+        offer: { select: { crop: { select: { name: true, nameUrdu: true, imageUrl: true } } } },
       },
       orderBy: { createdAt: 'desc' },
       take: 4,
@@ -101,47 +105,45 @@ export default async function VendorHome({ userId, name }: { userId: string; nam
     <>
       <Card className="mb-4 bg-agri-900 border-agri-900">
         <div className="text-white">
-          <div className="text-[11px] text-white/70">Wholesale vendor</div>
+          <div className="text-[11px] text-white/70">{t('vhome.role')}</div>
           <h1 className="text-lg font-bold">{profile?.businessName ?? name}</h1>
           <p className="text-[11px] text-white/80 mt-1 max-w-lg">
-            {profile?.warehouseCity ? `Warehouse in ${profile.warehouseCity}. ` : ''}Win lots in the
-            mandi auctions, then move them through your wholesale shop to shopkeepers.
+            {profile?.warehouseCity ? t('vhome.warehouseIn', { city: place(profile.warehouseCity) }) : ''}
+            {t('vhome.tagline')}
           </p>
         </div>
       </Card>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <StatCard
-          label="Auctions live"
+          label={t('vhome.auctionsLive')}
           value={String(auctions.length)}
           tone="accent"
-          hint={myBids.length ? `You have ${myBids.length} bids in` : 'No bids placed'}
+          hint={myBids.length ? t('vhome.bidsIn', { count: myBids.length }) : t('vhome.noBids')}
         />
-        <StatCard label="Warehouse" value={qty(warehouseKg)} hint={`${money(capital)} of stock`} />
+        <StatCard label={t('vhome.warehouse')} value={kg(warehouseKg)} hint={t('vhome.ofStock', { amount: money(capital) })} />
         <StatCard
-          label="Not on shelf"
+          label={t('vhome.notOnShelf')}
           value={String(unlisted.length)}
           tone={unlisted.length ? 'warn' : 'default'}
-          hint="Lots without a live offer"
+          hint={t('vhome.noLiveOffer')}
         />
         <StatCard
-          label="Shopkeeper orders"
+          label={t('vhome.orders')}
           value={String(orders.length)}
-          hint={`${money(spend._sum.grossAmount ?? 0)} bought at mandi`}
+          hint={t('vhome.boughtMandi', { amount: money(spend._sum.grossAmount ?? 0) })}
         />
       </div>
 
       <Card className="mb-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-bold text-charcoal">Auctions closing soon</h2>
+          <h2 className="text-xs font-bold text-charcoal">{t('vhome.closingSoon')}</h2>
           <Link href="/auctions" className="text-[11px] font-semibold text-agri-900 hover:underline">
-            All auctions
+            {t('vhome.allAuctions')}
           </Link>
         </div>
         {auctions.length === 0 ? (
-          <p className="text-[11px] text-[#636E72] py-4 text-center">
-            No mandi auction running right now.
-          </p>
+          <p className="text-[11px] text-[#636E72] py-4 text-center">{t('vhome.noAuction')}</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {auctions.map((auction) => {
@@ -162,23 +164,23 @@ export default async function VendorHome({ userId, name }: { userId: string; nam
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-semibold text-charcoal">
-                        {auction.inventoryLot.crop.name}
+                        {crop(auction.inventoryLot.crop)}
                       </span>
                       {mine !== undefined && (
                         <Badge tone={leading ? 'green' : 'red'}>
-                          {leading ? 'You lead' : 'Outbid'}
+                          {leading ? t('vhome.youLead') : t('vhome.outbid')}
                         </Badge>
                       )}
                     </div>
                     <div className="text-[11px] text-[#636E72]">
-                      {qty(auction.quantityKg)} · <span className="font-semibold text-charcoal">
-                        {money(top)}/kg
+                      {kg(auction.quantityKg)} · <span className="font-semibold text-charcoal">
+                        {perKg(top)}
                       </span>{' '}
-                      · {auction.bidCount} bids
+                      · {t('common.bids', { count: auction.bidCount })}
                     </div>
                     <div className="text-[10px] text-[#636E72]">
-                      {auction.mandi.city} · from {auction.inventoryLot.sourceCity} ·{' '}
-                      {endsIn(auction.endTime)}
+                      {place(auction.mandi.city)} · {t('vhome.from', { city: place(auction.inventoryLot.sourceCity) })} ·{' '}
+                      {endsIn(auction.endTime, t)}
                     </div>
                   </div>
                 </Link>
@@ -192,16 +194,14 @@ export default async function VendorHome({ userId, name }: { userId: string; nam
         <Card>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-bold text-charcoal">
-              {unlisted.length ? 'Stock earning nothing yet' : 'Warehouse stock'}
+              {unlisted.length ? t('vhome.earningNothing') : t('vhome.warehouseStock')}
             </h2>
             <Link href="/stock" className="text-[11px] font-semibold text-agri-900 hover:underline">
-              Warehouse
+              {t('vhome.warehouse')}
             </Link>
           </div>
           {stocks.length === 0 ? (
-            <p className="text-[11px] text-[#636E72] py-4 text-center">
-              Win a mandi auction and the lot lands here.
-            </p>
+            <p className="text-[11px] text-[#636E72] py-4 text-center">{t('vhome.winLot')}</p>
           ) : (
             <div className="space-y-2">
               {(unlisted.length ? unlisted : stocks).slice(0, 4).map((stock) => (
@@ -213,13 +213,13 @@ export default async function VendorHome({ userId, name }: { userId: string; nam
                 >
                   <CropThumb imageUrl={stock.crop.imageUrl} name={stock.crop.name} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold text-charcoal">{stock.crop.name}</div>
+                    <div className="text-xs font-semibold text-charcoal">{crop(stock.crop)}</div>
                     <div className="text-[11px] text-[#636E72]">
-                      {qty(stock.availableKg)} free · cost {money(stock.costPerKg)}/kg
+                      {t('vhome.free', { qty: kg(stock.availableKg), rate: perKg(stock.costPerKg) })}
                     </div>
                     <div className="text-[10px] text-[#636E72]">
-                      {stock.sourceFarmCity} → {stock.sourceMandiCity} mandi
-                      {stock.offers.length === 0 ? ' · not listed for shopkeepers' : ''}
+                      {t('vhome.route', { farm: place(stock.sourceFarmCity), mandi: place(stock.sourceMandiCity) })}
+                      {stock.offers.length === 0 ? t('vhome.notListed') : ''}
                     </div>
                   </div>
                   {stock.offers.length === 0 && (
@@ -227,7 +227,7 @@ export default async function VendorHome({ userId, name }: { userId: string; nam
                       href="/wholesale-shop/new"
                       className="bg-agri-900 hover:bg-agri-800 text-white text-[10px] font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap"
                     >
-                      List it
+                      {t('vhome.listIt')}
                     </Link>
                   )}
                 </div>
@@ -238,16 +238,15 @@ export default async function VendorHome({ userId, name }: { userId: string; nam
 
         <Card>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-bold text-charcoal">Shopkeeper orders</h2>
+            <h2 className="text-xs font-bold text-charcoal">{t('vhome.orders')}</h2>
             <Link href="/sales" className="text-[11px] font-semibold text-agri-900 hover:underline">
-              All orders
+              {t('vhome.allOrders')}
             </Link>
           </div>
           {orders.length === 0 ? (
             <>
               <p className="text-[11px] text-[#636E72] py-2 text-center">
-                No open order. {offers.length} live {offers.length === 1 ? 'offer' : 'offers'} on your
-                shelf.
+                {plural('vhome.noOrder', offers.length)}
               </p>
               {offers.length > 0 && (
                 <div className="space-y-2">
@@ -258,13 +257,12 @@ export default async function VendorHome({ userId, name }: { userId: string; nam
                     >
                       <CropThumb imageUrl={offer.crop.imageUrl} name={offer.crop.name} size="sm" />
                       <div className="min-w-0 flex-1">
-                        <div className="text-xs font-semibold text-charcoal">{offer.crop.name}</div>
+                        <div className="text-xs font-semibold text-charcoal">{crop(offer.crop)}</div>
                         <div className="text-[11px] text-[#636E72]">
-                          {money(offer.pricePerKg)}/kg · {qty(offer.remainingKg)} left of{' '}
-                          {qty(offer.offeredQuantityKg)}
+                          {t('vhome.leftOf', { rate: perKg(offer.pricePerKg), left: kg(offer.remainingKg), total: kg(offer.offeredQuantityKg) })}
                         </div>
                         <div className="text-[10px] text-[#636E72]">
-                          {money(offer.pricePerKg - offer.stock.costPerKg)}/kg margin
+                          {t('vhome.margin', { rate: perKg(offer.pricePerKg - offer.stock.costPerKg) })}
                         </div>
                       </div>
                     </div>
@@ -279,16 +277,15 @@ export default async function VendorHome({ userId, name }: { userId: string; nam
                   <CropThumb imageUrl={order.offer.crop.imageUrl} name={order.offer.crop.name} size="sm" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-semibold text-charcoal">{order.offer.crop.name}</span>
-                      <Badge tone={statusTone(order.status)}>{humanStatus(order.status)}</Badge>
+                      <span className="text-xs font-semibold text-charcoal">{crop(order.offer.crop)}</span>
+                      <Badge tone={statusTone(order.status)}>{status(order.status)}</Badge>
                     </div>
                     <div className="text-[11px] text-[#636E72]">
-                      {qty(order.quantityKg)} at {money(order.ratePerKg)}/kg ={' '}
-                      {money(order.grossAmount)}
+                      {t('vhome.orderLine', { qty: kg(order.quantityKg), rate: perKg(order.ratePerKg), total: money(order.grossAmount) })}
                     </div>
                     <div className="text-[10px] text-[#636E72]">
                       {order.shopkeeper.shopkeeperProfile?.shopName ?? order.shopkeeper.name}
-                      {order.deliveryCity ? ` · deliver to ${order.deliveryCity}` : ''}
+                      {order.deliveryCity ? t('vhome.deliverTo', { city: place(order.deliveryCity) }) : ''}
                     </div>
                   </div>
                 </div>

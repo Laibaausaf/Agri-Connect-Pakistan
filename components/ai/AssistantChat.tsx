@@ -608,11 +608,11 @@ export default function AssistantChat({
             <div className="min-w-0">
               <div className="text-lg font-bold text-agri-900 leading-tight">{crop.trim()}</div>
               <div className="text-sm text-[#4B5563] leading-snug">{market.trim()}</div>
-              {date && <div className="text-sm text-[#636E72] mt-0.5">Recorded {date}</div>}
+              {date && <div className="text-sm text-[#636E72] mt-0.5">{t('chat.priceRecorded', { date })}</div>}
             </div>
             <div className="text-right shrink-0">
-              <div className="text-2xl font-extrabold text-agri-900 leading-none">Rs {price}</div>
-              <div className="text-sm text-[#636E72]">per kg</div>
+              <div className="text-2xl font-extrabold text-agri-900 leading-none">{t('chat.priceAmount', { price })}</div>
+              <div className="text-sm text-[#636E72]">{t('chat.pricePerKg')}</div>
             </div>
           </div>
         );
