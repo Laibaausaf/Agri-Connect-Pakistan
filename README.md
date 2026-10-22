@@ -68,12 +68,12 @@ Access is capability-based, defined once in `lib/permissions.ts` and consumed by
 
 - `can(role, capability)` / `canAny(role, ...)` — capability checks
 - `canAccessPath(role, pathname)` — route checks via `ROUTE_CAPABILITIES` (longest prefix wins)
-- `requireCapability(capability)` — used by **every** server action; returns the user or throws
+- `requireCapability(capability)` — called by server actions before they touch the database; returns the user or throws
 
 Enforcement is layered, not cosmetic:
 
 1. `middleware.ts` blocks unauthorized page routes (redirect to the role's home) and API routes (403 JSON).
-2. Every exported server action calls `requireCapability` before touching the database — verified statically by `npm run verify`.
+2. Exported server actions call `requireCapability` (or `requireAuth`) before touching the database — checked statically by `npm run verify`, which currently flags one exception: `logout` in `lib/actions/auth.ts`.
 3. Confidential rows are filtered in the Prisma `where` clause, not hidden in the UI.
 
 Hiding a nav link is never the security boundary. A farmer who types `/auction-house` is redirected; a shopkeeper who strips the client-side `min` attribute off an order form is still rejected by the server.
@@ -110,7 +110,7 @@ Password for all accounts: `demo123`
 | `consumer@demo.pk` | CONSUMER | Ayesha Siddiqui — G-11/3 |
 | `admin@demo.pk` | ADMIN | Mandi Administration |
 
-Every role logs in with real work waiting: the farmer has two competing offers, the arhti has a truck to weigh, the vendor has a live auction, the shopkeeper has an order to fulfil, the consumer has a delivered order to rate.
+After a fresh seed (`npm run db:setup` or `npm run db:reset`), every role logs in with real work waiting: the farmer has two competing offers, the arhti has a truck to weigh, the vendor has a live auction, the shopkeeper has an order to fulfil, the consumer has a delivered order to rate. The seeded auction closes about 6 hours after seeding; run `npm run db:reset` to open a fresh one.
 
 ## Demo flow
 
@@ -131,19 +131,44 @@ To walk it live instead:
 
 ## Getting started
 
+Requires Node.js 18.18 or later.
+
 ```bash
-npm install          # also runs prisma generate
-npm run db:migrate   # apply migrations
-npm run db:seed      # load the demo supply chain
+npm install                 # also runs prisma generate
+cp .env.example .env        # Windows (cmd): copy .env.example .env
+```
+
+Open `.env` and set `NEXTAUTH_SECRET` to a random string of at least 32 characters. This prints one (works on Windows, macOS and Linux):
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+`AI_API_KEY` is optional (see [Environment variables](#environment-variables)). Then:
+
+```bash
+npm run db:setup            # create the tables and load the demo supply chain
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000) and log in as `farmer@demo.pk` / `demo123` (or any [demo account](#demo-accounts)).
+
+`npm run db:setup` uses `prisma db push`, which creates the tables straight from `prisma/schema.prisma`. The repository does not ship migration files, so `npm run db:migrate` (`prisma migrate dev`) does not work on a fresh clone; don't use it for setup.
+
+### Environment variables
+
+| Variable | Required | What it is and how to get it |
+|---|---|---|
+| `DATABASE_URL` | Yes | SQLite file, relative to `prisma/`. Keep the default `file:./dev.db`. |
+| `NEXTAUTH_SECRET` | Yes | Secret that signs the login session. Any random string of 32+ characters (command above). `AUTH_SECRET` is also accepted. |
+| `AI_API_KEY` | No | API key for the farmer AI assistant. Create one in the [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/) console, **Singapore** region (keys only work in the region they were created in). Without a key the assistant still works, using its rule-based fallback. |
+| `AI_BASE_URL` | No | OpenAI-compatible endpoint. Default: `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` (Model Studio, Singapore). |
+| `AI_MODEL` | No | Model name. Default: `qwen-plus-2025-12-01`. |
 
 ### Resetting the demo
 
 ```bash
-npm run db:reset     # wipe, re-migrate and re-seed
+npm run db:reset     # drop all data, recreate the tables and re-seed
 ```
 
 The admin console also has a guarded reset form.
@@ -152,11 +177,11 @@ The admin console also has a guarded reset form.
 
 ```bash
 npm run typecheck    # tsc --noEmit
-npm run verify       # 147 business-rule and conservation checks
+npm run verify       # business-rule and conservation checks
 npm run build        # production build
 ```
 
-`npm run verify` (`scripts/verify-rules.ts`) is the executable version of the domain rules. It asserts the permission matrix (farmer cannot bid, shopkeeper cannot bid, consumer cannot reach wholesale, only the arhti runs auctions), proves every exported server action is gated by scanning `lib/actions/` for a `requireCapability` call, and checks quantity conservation at every stage — that each batch's harvested weight still equals what remains plus what it committed downstream. It runs against the live database, so it also passes after you move stock through the UI.
+`npm run verify` (`scripts/verify-rules.ts`) is the executable version of the domain rules. It asserts the permission matrix (farmer cannot bid, shopkeeper cannot bid, consumer cannot reach wholesale, only the arhti runs auctions), scans `lib/actions/` for exported server actions that do not call `requireCapability` or `requireAuth` (it currently reports `logout` in `lib/actions/auth.ts`), and checks quantity conservation at every stage — that each batch's harvested weight still equals what remains plus what it committed downstream. It runs against the live database, so it also checks stock you move through the UI. Some checks (such as "a live auction is open") depend on the demo data being fresh.
 
 ## Tech stack
 
@@ -169,6 +194,7 @@ npm run build        # production build
 | Auth | NextAuth v5 (credentials, JWT) |
 | Realtime | Socket.IO (live auction bidding) |
 | Validation | Zod |
+| AI (farmer assistant) | Qwen (`qwen-plus-2025-12-01`) on Alibaba Cloud Model Studio, OpenAI-compatible API |
 
 ## Layout
 
@@ -198,8 +224,22 @@ lib/
 
 ## AI assistant
 
-One visible "AgriConnect AI", but its context and tools are gated by the same capabilities as the rest of the app — it cannot surface data the signed-in role could not otherwise reach. Intent classification is rule-based with domain specialists (price, crop, logistics, settlement), so there is no external LLM dependency. Replies are bilingual English/Urdu. Consumers do not have it.
+One visible "AgriConnect AI" at `/ai-assistant`, available to farmers, arhtis, vendors and shopkeepers (consumers and the admin do not have it). Its data access is gated by the same capabilities as the rest of the app, so it cannot surface data the signed-in role could not otherwise reach.
+
+- **Farmers** get an LLM assistant (`lib/actions/natural-ai.ts`) for post-harvest questions: prices and price trends, which mandis pay more, what they will receive after commission, mandi cess and transport, selling now or holding, storage and transport. It also reads the farmer's own crops, offers, deals and payments, and can list a crop by chat (the listing is created only after the farmer presses Confirm). It replies in the farmer's language and script: English, Urdu or Roman Urdu. It is instructed to refer questions about growing the crop to the local agriculture extension office.
+- **Arhtis, vendors and shopkeepers** get the rule-based assistant (`lib/actions/ai.ts`): keyword matching to role-specific tools, with English and Urdu replies.
+- **Fallback:** if the LLM call fails for any reason (no API key, network error, timeout, invalid response, free quota used up), the farmer's message is answered by the rule-based assistant instead.
+- **Voice input** uses the browser's Web Speech API (Urdu or English); the recognised text is placed in the input box for the farmer to check before sending.
+
+## How we use Alibaba Cloud
+
+The farmer assistant runs on **Qwen** through **Alibaba Cloud Model Studio** (Singapore region), using its OpenAI-compatible Chat Completions endpoint.
+
+- **Model:** `qwen-plus-2025-12-01` (configurable via `AI_MODEL`; endpoint via `AI_BASE_URL`).
+- **JSON mode:** requests use `response_format: { type: "json_object" }`. Every reply is validated with Zod before use; anything that does not validate falls back to the rule-based assistant.
+- **Facts are computed on the server, not by the model:** price rankings per crop (highest first, kept separate for app mandi records and the AMIS tomato report) and net-amount estimates (using the same commission, mandi cess and transport rules as the real settlement) are calculated in code and sent to Qwen as ready-made text. After Qwen replies, the server corrects altered deal and batch numbers, re-asks once (when the first reply was quick) if the reply quotes a per-kg price that is not in the data or is in the wrong language, and adds general advice under a fixed "general guidance (not live data)" label.
+- **Cost control:** we run on Model Studio's free quota with the console's "stop when free quota is exhausted" setting turned on, so usage can never be billed. When the free quota is used up, Model Studio returns `403 AllocationQuota.FreeTierOnly` and the app falls back to the rule-based assistant. Each request has a 30-second timeout.
 
 ## License
 
-Built as a hackathon MVP. See repository for license details.
+Licensed under the Apache License 2.0. See [LICENSE](LICENSE).

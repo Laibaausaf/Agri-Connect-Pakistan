@@ -12,7 +12,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
-    "db:reset": "prisma migrate reset --force && npm run db:seed",
+    "db:setup": "prisma db push && npm run db:seed",
+    "db:reset": "prisma db push --force-reset && npm run db:seed",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
     "verify:amis-data": "tsx scripts/verify-amis-data.ts"
