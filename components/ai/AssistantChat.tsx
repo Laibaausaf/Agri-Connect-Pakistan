@@ -287,16 +287,36 @@ export default function AssistantChat({
           },
         ]);
 
+        /*
+         * The farmer assistant may replace an earlier crop listing or
+         * return one that is already shown, so drop superseded actions
+         * and never list the same action twice.
+         */
+        const superseded =
+          'supersededActionIds' in result
+            ? result.supersededActionIds
+            : [];
+
+        if (superseded.length) {
+          setPending((previous) =>
+            previous.filter((action) => !superseded.includes(action.id))
+          );
+        }
+
         if (result.pendingActionId) {
-          setPending((previous) => [
-            ...previous,
-            {
-              id: result.pendingActionId!,
-              actionType: result.pendingActionType ?? result.tool,
-              humanSummary:
-                result.pendingActionSummary ?? 'Review requested action',
-            },
-          ]);
+          setPending((previous) =>
+            previous.some((action) => action.id === result.pendingActionId)
+              ? previous
+              : [
+                  ...previous,
+                  {
+                    id: result.pendingActionId!,
+                    actionType: result.pendingActionType ?? result.tool,
+                    humanSummary:
+                      result.pendingActionSummary ?? 'Review requested action',
+                  },
+                ]
+          );
         }
       }
     } catch (requestError) {
@@ -602,7 +622,9 @@ export default function AssistantChat({
             {line}
           </div>
         );
-      } else if (i === 0 || /:$/.test(line)) {
+      } else if ((i === 0 && user.role !== 'FARMER') || /:$/.test(line)) {
+        // Farmer replies are short conversational answers, so their first
+        // line is not automatically a heading; other roles keep it.
         out.push(
           <div key={`h${i}`} dir="auto" className="text-lg font-bold text-agri-900 mb-1 mt-1">
             {line}

@@ -33,7 +33,7 @@ export default function FarmerCropWizard({ action, crops, priceByCrop, defaults 
   const [readyDate, setReadyDate] = useState('');
   const [packaging, setPackaging] = useState('');
   const [notes, setNotes] = useState('');
-  const [state, formAction, pending] = useActionState(async (_prev: { error?: string } | null, formData: FormData) => action(formData), null);
+  const [state, formAction, pending] = useActionState(async (_prev: { error?: string } | null, formData: FormData) => action(formData) as Promise<{ error?: string } | null>, null);
   const selectedCrop = crops.find((crop) => crop.id === cropId);
   const suggestedPrice = cropId ? priceByCrop[cropId] : undefined;
   const stepTitles = ['Which crop did you grow?', 'How much crop is ready?', 'What price would you like?', 'Add crop pictures', 'A few final details', 'Check your crop details'];
