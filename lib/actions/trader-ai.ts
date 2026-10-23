@@ -1,12 +1,12 @@
 'use server';
 
 /*
- * AgriConnect AI for traders (phase 1: arhti). Same approach as the farmer
- * chat in lib/actions/natural-ai.ts: the server collects the user's own data
- * and calculates every amount, the model (OpenAI-compatible, JSON mode) only
- * explains it, the reply is checked in code, and any failure falls back to
- * the rule-based assistant in lib/actions/ai.ts. These assistants answer
- * questions only; they never prepare or perform an action.
+ * AgriConnect AI for traders: arhti, vendor and shopkeeper. Same approach as
+ * the farmer chat in lib/actions/natural-ai.ts: the server collects the
+ * user's own data and calculates every amount, the model (OpenAI-compatible,
+ * JSON mode) only explains it, the reply is checked in code, and any failure
+ * falls back to the rule-based assistant in lib/actions/ai.ts. These
+ * assistants answer questions only; they never prepare or perform an action.
  *
  * The small helpers below are copied from natural-ai.ts on purpose, so the
  * farmer chat stays exactly as it is.
@@ -16,11 +16,14 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import {
   AuctionStatus,
+  ConsumerOrderStatus,
   CropBatchStatus,
   DealStatus,
   DeductionType,
+  OfferListingStatus,
   OfferStatus,
   Prisma,
+  StockStatus,
   TransportResponsibility,
   UserRole,
 } from '@prisma/client';
@@ -29,7 +32,7 @@ import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
 import { askAiSchema } from '@/lib/validations/ai';
 import { getArhtiEarnings } from '@/lib/earnings';
-import { DEFAULT_COMMISSION_RATE, vendorCommission } from '@/lib/commission';
+import { DEFAULT_COMMISSION_RATE, vendorCommission, vendorPaysPerKg } from '@/lib/commission';
 import {
   AMIS_TOMATO_PRICES,
   AMIS_TOMATO_REPORT_DATE,
@@ -48,44 +51,37 @@ const DEFAULT_AI_MODEL = 'qwen-plus-2025-12-01';
 // Covers the whole request, including reading the response body.
 const AI_TIMEOUT_MS = 30_000;
 
-// A reply in the wrong language or with an unknown amount is retried once,
-// but only if the first call was quick.
+// A reply in the wrong language, voice or with an unknown amount is retried
+// once, but only if the first call was quick.
 const RETRY_BUDGET_MS = 15_000;
 
 // Recent turns sent to the model (the session itself keeps 12).
 const HISTORY_FOR_MODEL = 6;
 
-// Highest prices sent per source, besides the trader's own mandi and named cities.
+// Highest prices sent per source, besides the user's own city and named cities.
 const TOP_PRICES_PER_SOURCE = 6;
 
-// Newest open farmer batches from the Farmer Market sent to the model.
+// Newest open farmer batches from the Farmer Market sent to the model (arhti).
 const OPEN_FARMER_BATCHES = 15;
 
 // Recent records per list sent to the model.
 const RECENT_RECORDS = 10;
+
+// Open auctions / wholesale offers on the market sent to the model.
+const MARKET_RECORDS = 15;
 
 const AMIS_REPORT_ISO_DATE = '2026-10-10';
 
 // Same rate as receiveProduce in lib/actions/deals.ts.
 const MANDI_CESS_RATE = 0.005;
 
+type TraderRole = 'ARHTI' | 'VENDOR' | 'SHOPKEEPER';
+
 /*
  * Runtime validation for the model output. JSON Object mode guarantees valid
  * JSON but not the keys. There is no action field: these assistants only
- * answer.
+ * answer. suggestedView is checked against the user's own pages below.
  */
-const ARHTI_VIEWS = [
-  'NONE',
-  'FARMER_MARKET',
-  'BUY_REQUESTS',
-  'DEALS',
-  'RECEIVING',
-  'INVENTORY',
-  'AUCTIONS',
-  'SALES',
-  'INSIGHTS',
-] as const;
-
 const traderAiResultSchema = z.object({
   language: z.enum(['english', 'urdu', 'roman_urdu']).catch('english'),
   reply: z.string().trim().min(1),
@@ -94,7 +90,7 @@ const traderAiResultSchema = z.object({
     .nullish()
     .catch(null)
     .transform((value) => value?.trim() || null),
-  suggestedView: z.enum(ARHTI_VIEWS).catch('NONE'),
+  suggestedView: z.string().catch('NONE'),
 });
 
 type TraderAiResult = z.infer<typeof traderAiResultSchema>;
@@ -111,17 +107,35 @@ type StoredHistory = {
   text: string;
 };
 
+type ViewLink = { label: string; href: string };
+
 // Labels are the app's navigation labels, so the chat translates them.
-const ARHTI_VIEW_LINKS: Record<TraderAiResult['suggestedView'], { label: string; href: string } | null> = {
-  NONE: null,
-  FARMER_MARKET: { label: 'Farmer Market', href: '/sourcing' },
-  BUY_REQUESTS: { label: 'My Buy Requests', href: '/demand' },
-  DEALS: { label: 'Farmer Deals', href: '/deals' },
-  RECEIVING: { label: 'Receive & Verify', href: '/receiving' },
-  INVENTORY: { label: 'Mandi Inventory', href: '/inventory' },
-  AUCTIONS: { label: 'Auction House', href: '/auction-house' },
-  SALES: { label: 'Sales & Commission', href: '/sales' },
-  INSIGHTS: { label: 'Trade Insights', href: '/insights' },
+const VIEW_LINKS: Record<TraderRole, Record<string, ViewLink>> = {
+  ARHTI: {
+    FARMER_MARKET: { label: 'Farmer Market', href: '/sourcing' },
+    BUY_REQUESTS: { label: 'My Buy Requests', href: '/demand' },
+    DEALS: { label: 'Farmer Deals', href: '/deals' },
+    RECEIVING: { label: 'Receive & Verify', href: '/receiving' },
+    INVENTORY: { label: 'Mandi Inventory', href: '/inventory' },
+    AUCTIONS: { label: 'Auction House', href: '/auction-house' },
+    SALES: { label: 'Sales & Commission', href: '/sales' },
+    INSIGHTS: { label: 'Trade Insights', href: '/insights' },
+  },
+  VENDOR: {
+    AUCTIONS: { label: 'Mandi Auctions', href: '/auctions' },
+    STOCK: { label: 'My Warehouse', href: '/stock' },
+    WHOLESALE_SHOP: { label: 'My Wholesale Shop', href: '/wholesale-shop' },
+    SALES: { label: 'Shopkeeper Orders', href: '/sales' },
+    INSIGHTS: { label: 'Trade Insights', href: '/insights' },
+  },
+  SHOPKEEPER: {
+    WHOLESALE_MARKET: { label: 'Wholesale Market', href: '/wholesale' },
+    PURCHASES: { label: 'My Purchases', href: '/purchases' },
+    SHOP_STOCK: { label: 'Shop Stock', href: '/shop-stock' },
+    STOREFRONT: { label: 'My Storefront', href: '/storefront' },
+    ORDERS: { label: 'Customer Orders', href: '/retail-orders' },
+    INSIGHTS: { label: 'Shop Insights', href: '/insights' },
+  },
 };
 
 // Fixed label for general-knowledge text, in the user's language (same as the farmer chat).
@@ -138,24 +152,32 @@ const PLAIN_STATUS: Record<string, string> = {
   PENDING: 'waiting for an answer',
   ACCEPTED: 'accepted',
   REJECTED: 'declined',
-  EXPIRED: 'expired',
+  EXPIRED: 'closed without a sale',
   WITHDRAWN: 'withdrawn',
   AGREED: 'agreed, pickup not arranged yet',
   PICKUP_SCHEDULED: 'pickup scheduled',
   PICKED_UP: 'picked up from the farm',
   IN_TRANSIT: 'on the way to the mandi, to be weighed on arrival',
   PAYMENT_PENDING: 'weighed, farmer not paid yet',
-  COMPLETED: 'completed, farmer paid',
+  COMPLETED: 'completed',
   CANCELLED: 'cancelled',
   OPEN: 'open',
   PARTIALLY_FULFILLED: 'partly filled',
   FULFILLED: 'filled',
   CLOSED: 'closed',
   IN_STOCK: 'in stock',
+  LOW_STOCK: 'running low',
   PARTIALLY_AUCTIONED: 'partly sent to auction',
-  SOLD_OUT: 'fully sent to auction',
+  SOLD_OUT: 'sold out',
   ACTIVE: 'live',
+  PAUSED: 'paused',
   SOLD: 'sold',
+  PAID: 'paid',
+  PLACED: 'new, waiting for the shop to accept',
+  CONFIRMED: 'accepted by the shop',
+  PREPARING: 'being packed',
+  OUT_FOR_DELIVERY: 'out for delivery',
+  DELIVERED: 'delivered',
 };
 
 const PLAIN_TRANSPORT: Record<TransportResponsibility, string> = {
@@ -179,6 +201,8 @@ const ROMAN_URDU_WORDS = new Set([
   'jee', 'ji', 'ha', 'haa', 'aaj', 'kal', 'parson', 'liya', 'diya', 'hy',
   'boli', 'bolian', 'neelami', 'nilami', 'munafa', 'kamai', 'kamaya',
   'kamayi', 'maal', 'kitnay', 'mila', 'mili', 'baqi', 'tolna', 'kanta',
+  'dukaan', 'dukan', 'gahak', 'grahak', 'khareeda', 'khareedi', 'becha',
+  'bechi', 'godam', 'thok', 'lagao', 'laga', 'lagi', 'pada', 'padi',
 ]);
 
 // Common English words, used to tell a short English message from a short Roman Urdu one.
@@ -186,30 +210,71 @@ const ENGLISH_WORDS = new Set([
   'the', 'is', 'are', 'my', 'i', 'how', 'what', 'where', 'when', 'which',
   'please', 'yes', 'no', 'ok', 'okay', 'it', 'was', 'will', 'get', 'much',
   'many', 'sell', 'price', 'today', 'yesterday', 'did', 'earn', 'auction',
+  'stock', 'orders', 'shop', 'margin', 'paid',
 ]);
 
-const INSTRUCTIONS = `
-You are AgriConnect AI for an ARHTI (commission agent) at a Pakistani sabzi mandi. The user is this arhti.
+/* ------------------------------------------------------------------ *
+ * Instructions: shared rules plus one section per role
+ * ------------------------------------------------------------------ */
+
+const ROLE_INSTRUCTIONS: Record<TraderRole, { intro: string; privacy: string; views: string }> = {
+  ARHTI: {
+    intro: `You are AgriConnect AI for an ARHTI (commission agent) at a Pakistani sabzi mandi. The user is this arhti.
 
 SCOPE: the arhti's own work in this app: farmer batches on the Farmer Market, their offers, buy requests and deals with farmers, trucks to receive and weigh on the kanta, farmer settlements, mandi inventory lots, their auctions and bids from vendors, their sales, commission and earnings, and mandi prices.
+- Earnings: use CONTEXT.earnings. It has three figures that add up to the total: commission from farmers (from PAID farmer settlements only), commission from vendors (paid on top of the auction price, on lots sold at auction) and trading margin ((auction price - price paid to the farmer) x kg sold at auction). Pending commission on unpaid settlements is separate and not in the total. Always say what each figure covers; they are not matched kg by kg.
+- "What do I earn if this auction sells now": use yourAuctions[].ifSoldAtTopBid exactly as given.
+YOU CANNOT send offers, accept or close anything, weigh, start or close auctions, pay farmers or contact anyone.`,
+    privacy: `Never reveal or estimate: another arhti's deals, commission, earnings or settlements; a vendor's warehouse costs, resale prices, margins or profits; a shopkeeper's costs or margins; settlements of farmers who did not deal with this arhti.`,
+    views: '"FARMER_MARKET" (open farmer batches), "BUY_REQUESTS", "DEALS" (farmer deals, settlements), "RECEIVING" (trucks to weigh), "INVENTORY" (lots), "AUCTIONS", "SALES" (sales, commission, earnings), "INSIGHTS"',
+  },
+  VENDOR: {
+    intro: `You are AgriConnect AI for a VENDOR (wholesale trader) in Pakistan. The user is this vendor: they buy at mandi auctions, keep stock in their warehouse and sell wholesale to shopkeepers.
+
+SCOPE: the vendor's own work in this app: live mandi auctions and their bids, the arhti's commission they pay on top of the winning price, lots they won and what they paid, warehouse stock and its cost, their wholesale offers, orders from shopkeepers, their margins, and mandi prices.
+- Commission: the winning vendor pays the arhti's commission on top of the auction price. For live auctions use liveAuctions[].youPayAtNextMinimumBid and .ifYouWinAtTopBid exactly as given.
+- Warehouse cost per kg already includes the commission paid.
+- Margins and totals: use CONTEXT.summary and the per-record figures exactly as given.
+YOU CANNOT place bids, list or pause offers, accept orders or contact anyone.`,
+    privacy: `Never reveal or estimate: what the arhti paid the farmer, the arhti's purchase cost, margin, commission income or earnings; any farmer's price or settlement; other vendors' bids except the amounts shown on the auction, their stock, costs, prices paid or margins; a shopkeeper's retail prices, costs or margins.`,
+    views: '"AUCTIONS" (live auctions, bids), "STOCK" (warehouse, lots won, what was paid), "WHOLESALE_SHOP" (wholesale offers), "SALES" (orders from shopkeepers, revenue, margin), "INSIGHTS"',
+  },
+  SHOPKEEPER: {
+    intro: `You are AgriConnect AI for a SHOPKEEPER (retail shop) in Pakistan. The user is this shopkeeper: they buy wholesale from vendors and sell to customers through their storefront.
+
+SCOPE: the shopkeeper's own work in this app: wholesale offers on the market, their wholesale purchases, shop stock and its cost, their retail listings, customer orders, their margins and takings, and mandi prices.
+- Shop stock cost per kg is the wholesale price they paid.
+- Margins and totals: use CONTEXT.summary and the per-record figures exactly as given.
+YOU CANNOT buy, list, price or change orders, or contact anyone.`,
+    privacy: `Never reveal or estimate: a vendor's purchase cost, the auction price, the arhti's commission, or any vendor's or arhti's margin or profit; any farmer's price or settlement; other shopkeepers' purchases, prices, sales or margins; customers' phone numbers or addresses.`,
+    views: '"WHOLESALE_MARKET" (offers to buy), "PURCHASES" (wholesale orders placed), "SHOP_STOCK", "STOREFRONT" (retail listings), "ORDERS" (customer orders), "INSIGHTS"',
+  },
+};
+
+function instructionsFor(role: TraderRole) {
+  const r = ROLE_INSTRUCTIONS[role];
+  const views = Object.keys(VIEW_LINKS[role]);
+  return `
+${r.intro}
 - Anything not about this trading or this app: decline politely in one sentence.
 
-YOU ONLY ANSWER QUESTIONS. You cannot send offers, accept or close anything, weigh, start or close auctions, pay farmers or contact anyone. If asked to do something, say which page to use (suggestedView) and that they do it there. You have no phone numbers.
+YOU ONLY ANSWER QUESTIONS. If asked to do something, say which page to use (suggestedView) and that they do it there. You have no phone numbers.
+
+VOICE (strict)
+You are the assistant talking TO the user. Always address the user as "you" (Roman Urdu "aap", Urdu "آپ"): "you earned", "aap ko mila", "آپ کو ملے". Never speak as the user: never "I/my/we" (mujhe, maine, mera; مجھے، میں نے، میرا) about the user's trading, money or records. You may say "I" only about yourself as the assistant ("I can only see...").
 
 PRIVACY (strict)
-CONTEXT holds only THIS arhti's own records and what the app shows them. Never reveal or estimate other people's confidential figures: another arhti's deals, commission, earnings or settlements; a vendor's warehouse costs, resale prices, margins or profits; a shopkeeper's costs or margins; settlements of farmers who did not deal with this arhti. If asked, say in one sentence that you can only see this arhti's own trading, and give nothing more. Never guess such numbers from other data. Never say something did not happen because it is not in CONTEXT (e.g. who bought the produce after the vendor): say it is not visible to this arhti.
+CONTEXT holds only THIS user's own records and what the app already shows them. ${r.privacy} If asked, say in one sentence that you can only see the user's own trading, and give nothing more. Never guess such numbers from other data, and never use a public offer price or the user's own prices as someone else's purchase or sale price. CONTEXT may list competitors ("...NotVisibleToYou"): never state what they bought, paid, charge or sold. Never say something did not happen because it is not in CONTEXT: say it is not visible to the user.
 
 DATA RULES (strict)
-- CONTEXT is the only source of facts. Its numbers are already calculated. Copy amounts, kg, rates and percentages exactly; never calculate, add up, round, re-sort or convert them yourself. If a total you need is not in CONTEXT, say it is not available instead of working it out.
-- Copy deal, lot, auction, sale and request numbers and names character for character.
-- Earnings: use CONTEXT.earnings. It has three figures that add up to the total: commission from farmers (from PAID farmer settlements only), commission from vendors (paid on top of the auction price, on lots sold at auction) and trading margin ((auction price - price paid to the farmer) x kg sold at auction). Pending commission on unpaid settlements is separate and not in the total. Always say what each figure covers; they are not matched kg by kg.
-- "What do I earn if this auction sells now": use liveAuctions[].ifSoldAtTopBid exactly as given.
+- CONTEXT is the only source of facts. Its numbers are already calculated. Copy amounts, kg, rates and percentages exactly; never calculate, add up, round, re-sort or convert them yourself. If a figure you need is not in CONTEXT, say it is not available instead of working it out.
+- Copy order, sale, stock, lot, auction, deal and request numbers and names character for character.
 - "Where is the price highest": use CONTEXT.priceRanking. Each highestFirst list is already sorted; line "1." is the highest. Name the source (app mandi record with its date and age, or AMIS report with reportDate) and keep the two sources apart. Never call a record "today's" unless it is 0 days old.
 - Never state a per-kg price or a rupee amount that is not in CONTEXT. Do not invent records. If CONTEXT has no data for the question, say so.
 - Never show internal names (CONTEXT, field names, status codes).
 
 GENERAL KNOWLEDGE
-Anything not in CONTEXT (usual seasonal trends, how auctions usually go, storage and handling at the mandi) goes ONLY in "generalGuidance", never in "reply". The app shows it under a "general guidance" label. Only add it when it directly helps with THIS question; 1-2 short sentences, no prices or amounts, no questions or offers of help. Otherwise null.
+Anything not in CONTEXT (usual seasonal trends, how buying and selling usually goes, storage and handling) goes ONLY in "generalGuidance", never in "reply". The app shows it under a "general guidance" label. Only add it when it directly helps with THIS question and you are sure it is correct, natural and in the user's language; otherwise null. 1-2 short sentences, no prices or amounts, no questions or offers of help.
 
 LANGUAGE (strict)
 Reply in exactly the language and script of the latest message (USER_MESSAGE_SCRIPT, ROMAN_URDU_LIKELY):
@@ -221,11 +286,12 @@ generalGuidance uses the same language. Numbers, "Rs" and "kg" may stay as they 
 STYLE
 Answer the question first, in 2-4 short sentences or up to 5 lines starting with "- ". When asked to choose, give ONE recommendation and the main reason. If something essential is missing, ask ONE short question. Plain text, no Markdown or emojis. Use recentConversation for follow-ups.
 
-suggestedView: the page for the data you answered about: "FARMER_MARKET" (open farmer batches), "BUY_REQUESTS", "DEALS" (farmer deals, settlements), "RECEIVING" (trucks to weigh), "INVENTORY" (lots), "AUCTIONS", "SALES" (sales, commission, earnings), "INSIGHTS"; price questions and declines: "NONE".
+suggestedView: the page for the data you answered about: ${r.views}; price questions and declines: "NONE".
 
 OUTPUT: only one JSON object with exactly these keys:
-{"language":"english|urdu|roman_urdu","reply":"string","generalGuidance":"string or null","suggestedView":"NONE|FARMER_MARKET|BUY_REQUESTS|DEALS|RECEIVING|INVENTORY|AUCTIONS|SALES|INSIGHTS"}
+{"language":"english|urdu|roman_urdu","reply":"string","generalGuidance":"string or null","suggestedView":"NONE|${views.join('|')}"}
 `.trim();
+}
 
 /* ------------------------------------------------------------------ *
  * Helpers (copied from natural-ai.ts)
@@ -293,6 +359,24 @@ function inExpectedLanguage(text: string, script: MessageScript, romanUrdu: bool
   return !romanUrdu || romanUrduLikely(text);
 }
 
+/*
+ * Sentences where the assistant speaks AS the user about the user's own
+ * trading ("I got Rs 9,053 commission", "maine becha", "میں نے خریدے").
+ * The assistant talking about itself ("I can only see...") is fine.
+ */
+const SPEAKING_AS_USER = [
+  /\b(?:I|we)\s+(?:have\s+|had\s+)?(?:got|earned|made|bought|sold|paid|received|won|own|hold|spent)\b/i,
+  /\b(?:my|our)\s+(?:commission|earnings?|income|margin|profit|lots?|deals?|auctions?|sales?|stock|warehouse|shop|offers?|orders?|purchases?|customers?|bids?|money|takings)\b/i,
+  /\b(?:mujhe|mujhay|muje|maine|mainay|mein\s+ne|hamein|humein|hum\s+ne)\b[^.!?\n]{0,40}?\b(?:mila|mili|mile|kamaya|kamaye|kamayi|khareed\w*|khareed|becha|bechi|bechay|beche|diya|diye|di|jeeta|jeeti)\b/i,
+  /\b(?:mera|meri|mere|hamara|hamari|hamare)\s+(?:commission|kamai|munafa|lot|deal|neelami|maal|stock|dukaan|dukan|order|orders|offer|boli|paisa|paise|godam)\b/i,
+  /(?:مجھے|میں نے|ہمیں|ہم نے)[^۔.!؟\n]{0,40}?(?:ملا|ملی|ملے|کمایا|کمائے|خرید|بیچ|دیا|دیے|جیت)/,
+  /(?:میرا|میری|میرے|ہمارا|ہماری|ہمارے)\s*(?:کمیشن|کمائی|منافع|لاٹ|سودا|سودے|نیلامی|مال|اسٹاک|دکان|آرڈر|آفر|بولی|گودام)/,
+];
+
+function speaksAsUser(text: string) {
+  return SPEAKING_AS_USER.some((pattern) => pattern.test(text));
+}
+
 function plainStatus(status: string) {
   return PLAIN_STATUS[status] ?? status.replace(/_/g, ' ').toLowerCase();
 }
@@ -322,7 +406,7 @@ function money(amount: number) {
 }
 
 function perKg(amount: number) {
-  return `Rs ${amount.toLocaleString('en-PK', { maximumFractionDigits: 1 })}/kg`;
+  return `Rs ${amount.toLocaleString('en-PK', { maximumFractionDigits: 2 })}/kg`;
 }
 
 function percent(rate: number) {
@@ -332,6 +416,10 @@ function percent(rate: number) {
 // Lower-case letters and digits only, so "Rahim Yar Khan" matches "RahimYarKhan".
 function placeKey(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function cityList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((c): c is string => typeof c === 'string') : [];
 }
 
 type RankedPrice = {
@@ -577,14 +665,53 @@ async function createOrResumeSession(requestedSessionId: string | undefined, use
 }
 
 /* ------------------------------------------------------------------ *
- * Price ranking (same sources and rules as the farmer chat)
+ * Shared context pieces
  * ------------------------------------------------------------------ */
 
-async function getPriceRanking(wantedPlaces: string[]) {
-  const [marketPrices, crops] = await Promise.all([
+/*
+ * Every amount and per-kg price written into a context goes through these,
+ * so the reply can be checked against what the server calculated.
+ */
+function amountRecorder() {
+  const totals = new Set<number>();
+  const rates = new Set<number>();
+  return {
+    rs: (amount: number) => {
+      totals.add(Math.round(amount));
+      return money(amount);
+    },
+    pk: (amount: number) => {
+      rates.add(amount);
+      return perKg(amount);
+    },
+    addRates: (values: number[]) => values.forEach((value) => rates.add(value)),
+    allowed: () => ({ allowedTotals: [...totals], allowedPerKg: [...rates] }),
+  };
+}
+
+// Price ranking: same sources and rules as the farmer chat.
+async function getPriceRanking(homeCity: string | null, message: string) {
+  const [marketPrices, crops, mandis] = await Promise.all([
     prisma.marketPrice.findMany({ include: { crop: true, mandi: true }, orderBy: { recordedAt: 'desc' }, take: 100 }),
     prisma.crop.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
+    prisma.mandi.findMany({ select: { city: true } }),
   ]);
+
+  // Always kept: the user's own city and any city named in the message.
+  const messageKey = placeKey(message);
+  const wantedPlaces = [
+    ...new Set(
+      [
+        homeCity ?? '',
+        ...[...mandis.map((m) => m.city), ...AMIS_TOMATO_PRICES.map((row) => row.city)].filter((city) => {
+          const key = placeKey(city);
+          return key.length >= 4 && messageKey.includes(key);
+        }),
+      ]
+        .map(placeKey)
+        .filter(Boolean)
+    ),
+  ];
 
   const ranking = crops
     .map((crop) => {
@@ -651,23 +778,37 @@ async function getPriceRanking(wantedPlaces: string[]) {
   return { forModel, allowedPerKg, crops: crops.map((crop) => crop.name) };
 }
 
+type TraderContext = {
+  forModel: Record<string, unknown>;
+  allowedPerKg: number[];
+  allowedTotals: number[];
+  knownIds: string[];
+  /** Competitors whose purchases, prices and sales the user must never see. */
+  competitors: string[];
+};
+
+/** Other arhtis or other shops, by business and personal name. */
+async function competitorsOf(userId: string, role: 'ARHTI' | 'SHOPKEEPER') {
+  if (role === 'ARHTI') {
+    const others = await prisma.user.findMany({
+      where: { role: UserRole.ARHTI, id: { not: userId } },
+      select: { name: true, arhtiProfile: { select: { businessName: true } } },
+    });
+    return others.flatMap((u) => [u.name, u.arhtiProfile?.businessName ?? '']).filter(Boolean);
+  }
+  const others = await prisma.user.findMany({
+    where: { role: UserRole.SHOPKEEPER, id: { not: userId } },
+    select: { name: true, shopkeeperProfile: { select: { shopName: true } } },
+  });
+  return others.flatMap((u) => [u.name, u.shopkeeperProfile?.shopName ?? '']).filter(Boolean);
+}
+
 /* ------------------------------------------------------------------ *
  * Arhti context: only this arhti's own records and what their pages show
  * ------------------------------------------------------------------ */
 
-async function getArhtiContext(userId: string, message: string) {
-  // Every amount and per-kg price written into the context is recorded here,
-  // so the reply can be checked against what the server calculated.
-  const totals = new Set<number>();
-  const rates = new Set<number>();
-  const rs = (amount: number) => {
-    totals.add(Math.round(amount));
-    return money(amount);
-  };
-  const pk = (amount: number) => {
-    rates.add(amount);
-    return perKg(amount);
-  };
+async function getArhtiContext(userId: string, message: string): Promise<TraderContext> {
+  const { rs, pk, addRates, allowed } = amountRecorder();
 
   const [arhti, openBatches, offers, demands, deals, lots, auctions, sales, earnings] = await Promise.all([
     prisma.user.findUnique({
@@ -728,7 +869,26 @@ async function getArhtiContext(userId: string, message: string) {
       where: { arhtiId: userId },
       include: {
         vendor: { select: { name: true, vendorProfile: { select: { businessName: true } } } },
-        auction: { include: { inventoryLot: { include: { crop: true } } } },
+        auction: {
+          include: {
+            inventoryLot: {
+              include: {
+                crop: true,
+                deal: {
+                  select: {
+                    dealNumber: true,
+                    settlement: {
+                      select: {
+                        status: true,
+                        deductions: { where: { type: DeductionType.ARHTI_COMMISSION }, select: { amount: true } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
       take: RECENT_RECORDS,
@@ -738,25 +898,10 @@ async function getArhtiContext(userId: string, message: string) {
 
   const commissionRate = arhti?.arhtiProfile?.commissionRate ?? DEFAULT_COMMISSION_RATE;
   const mandi = arhti?.arhtiProfile?.mandi ?? null;
+  const competitors = await competitorsOf(userId, 'ARHTI');
 
-  // Prices are always kept for the arhti's own mandi city and any city named in the message.
-  const messageKey = placeKey(message);
-  const mandiCities = (await prisma.mandi.findMany({ select: { city: true } })).map((m) => m.city);
-  const wantedPlaces = [
-    ...new Set(
-      [
-        mandi?.city ?? '',
-        ...[...mandiCities, ...AMIS_TOMATO_PRICES.map((row) => row.city)].filter((city) => {
-          const key = placeKey(city);
-          return key.length >= 4 && messageKey.includes(key);
-        }),
-      ]
-        .map(placeKey)
-        .filter(Boolean)
-    ),
-  ];
-  const ranking = await getPriceRanking(wantedPlaces);
-  ranking.allowedPerKg.forEach((value) => rates.add(value));
+  const ranking = await getPriceRanking(mandi?.city ?? null, message);
+  addRates(ranking.allowedPerKg);
 
   const vendorName = (v: { name: string; vendorProfile: { businessName: string | null } | null }) =>
     v.vendorProfile?.businessName ?? v.name;
@@ -895,21 +1040,36 @@ async function getArhtiContext(userId: string, message: string) {
     }),
 
     yourRecentSales: sales.map((sale) => {
-      const cost = sale.auction.inventoryLot.purchasePricePerKg;
+      const lot = sale.auction.inventoryLot;
+      const cost = lot.purchasePricePerKg;
+      const margin = (sale.ratePerKg - cost) * sale.quantityKg;
+      // The farmer's commission on this lot's deal, in proportion to the kg in
+      // this sale (a lot can be auctioned in parts), once the farmer is paid.
+      const settlement = lot.deal.settlement;
+      const farmerCommission =
+        settlement?.status === 'paid' && lot.receivedQuantityKg > 0
+          ? (settlement.deductions[0]?.amount ?? 0) * (sale.quantityKg / lot.receivedQuantityKg)
+          : 0;
       return {
         saleNumber: sale.saleNumber,
-        crop: sale.auction.inventoryLot.crop.name,
+        crop: lot.crop.name,
         vendor: vendorName(sale.vendor),
         sold: `${sale.quantityKg.toLocaleString('en-PK')} kg at ${pk(sale.ratePerKg)}, ${rs(sale.grossAmount)}`,
         vendorPaidCommission: rs(sale.commission),
         vendorPaidInAll: rs(sale.grossAmount + sale.commission),
-        yourTradingMargin: `${rs((sale.ratePerKg - cost) * sale.quantityKg)} (bought from the farmer at ${pk(cost)})`,
+        yourTradingMargin: `${rs(margin)} (bought from the farmer at ${pk(cost)})`,
+        farmerCommissionOnThisLot:
+          settlement?.status === 'paid'
+            ? `${rs(farmerCommission)} (deal ${lot.deal.dealNumber})`
+            : 'farmer not paid yet, so not counted',
+        youEarnedOnThisSale: `${rs(Math.round(margin) + Math.round(sale.commission) + Math.round(farmerCommission))} (trading margin + vendor commission + farmer commission on this lot)`,
         date: isoDate(sale.createdAt),
       };
     }),
 
     priceRanking: ranking.forModel,
     supportedCrops: ranking.crops,
+    otherArhtisNotVisibleToYou: competitors,
   };
 
   const knownIds = [
@@ -920,25 +1080,390 @@ async function getArhtiContext(userId: string, message: string) {
     ...demands.map((demand) => demand.requestNumber),
   ];
 
-  return {
-    forModel,
-    allowedPerKg: [...rates],
-    allowedTotals: [...totals],
-    knownIds: [...new Set(knownIds)],
-  };
+  return { forModel, ...allowed(), knownIds: [...new Set(knownIds)], competitors };
 }
+
+/* ------------------------------------------------------------------ *
+ * Vendor context: live auctions (as /auctions shows them), the vendor's own
+ * purchases, warehouse, wholesale offers and orders. Never the arhti's cost
+ * or farmer prices.
+ * ------------------------------------------------------------------ */
+
+async function getVendorContext(userId: string, message: string): Promise<TraderContext> {
+  const { rs, pk, addRates, allowed } = amountRecorder();
+
+  const [vendor, liveAuctions, myBids, purchases, stocks, offers, orders] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, include: { vendorProfile: true } }),
+    prisma.auction.findMany({
+      where: { status: AuctionStatus.ACTIVE, endTime: { gt: new Date() } },
+      include: {
+        inventoryLot: { select: { sourceFarmerName: true, sourceCity: true, crop: { select: { name: true } } } },
+        mandi: { select: { name: true, city: true } },
+        arhti: { select: { name: true, arhtiProfile: { select: { businessName: true, commissionRate: true } } } },
+        bids: { orderBy: { amountPerKg: 'desc' }, take: 1, include: { bidder: { select: { id: true, name: true } } } },
+      },
+      orderBy: { endTime: 'asc' },
+      take: MARKET_RECORDS,
+    }),
+    prisma.bid.groupBy({ by: ['auctionId'], where: { bidderId: userId }, _max: { amountPerKg: true } }),
+    prisma.arhtiVendorSale.findMany({
+      where: { vendorId: userId },
+      include: {
+        auction: { select: { auctionNumber: true, mandi: { select: { name: true } }, inventoryLot: { select: { crop: { select: { name: true } } } } } },
+        arhti: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: RECENT_RECORDS,
+    }),
+    prisma.vendorInventory.findMany({
+      where: { vendorId: userId },
+      include: { crop: true },
+      orderBy: { createdAt: 'desc' },
+      take: RECENT_RECORDS,
+    }),
+    prisma.vendorOffer.findMany({
+      where: { vendorId: userId },
+      include: { crop: true, stock: { select: { stockNumber: true, costPerKg: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: RECENT_RECORDS,
+    }),
+    prisma.vendorShopkeeperSale.findMany({
+      where: { vendorId: userId },
+      include: {
+        shopkeeper: { select: { name: true, shopkeeperProfile: { select: { shopName: true, city: true } } } },
+        offer: { select: { offerNumber: true, crop: { select: { name: true } }, stock: { select: { costPerKg: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: RECENT_RECORDS,
+    }),
+  ]);
+
+  const ranking = await getPriceRanking(vendor?.vendorProfile?.warehouseCity ?? null, message);
+  addRates(ranking.allowedPerKg);
+
+  const myBidOn = new Map(myBids.map((b) => [b.auctionId, b._max.amountPerKg]));
+
+  // Totals over everything, as the vendor's insights page shows them.
+  const [allPurchases, allSales] = await Promise.all([
+    prisma.arhtiVendorSale.aggregate({ where: { vendorId: userId }, _sum: { grossAmount: true, commission: true, quantityKg: true }, _count: true }),
+    prisma.vendorShopkeeperSale.findMany({
+      where: { vendorId: userId },
+      select: { quantityKg: true, grossAmount: true, offer: { select: { stock: { select: { costPerKg: true } } } } },
+    }),
+  ]);
+  const soldKg = allSales.reduce((sum, s) => sum + s.quantityKg, 0);
+  const revenue = allSales.reduce((sum, s) => sum + s.grossAmount, 0);
+  const costOfSold = allSales.reduce((sum, s) => sum + s.quantityKg * s.offer.stock.costPerKg, 0);
+  const stockKg = stocks.reduce((sum, s) => sum + s.availableKg, 0);
+  const stockValue = stocks.reduce((sum, s) => sum + s.availableKg * s.costPerKg, 0);
+
+  const forModel = {
+    today: karachiToday(),
+
+    vendor: {
+      name: vendor?.name ?? null,
+      business: vendor?.vendorProfile?.businessName ?? null,
+      warehouseCity: vendor?.vendorProfile?.warehouseCity ?? null,
+      deliversTo: cityList(vendor?.vendorProfile?.servesCities),
+    },
+
+    summary: {
+      paidAtMandi: `${rs((allPurchases._sum.grossAmount ?? 0) + (allPurchases._sum.commission ?? 0))} for ${(allPurchases._sum.quantityKg ?? 0).toLocaleString('en-PK')} kg in ${allPurchases._count} lot(s), of which arhti commission ${rs(allPurchases._sum.commission ?? 0)}`,
+      wholesaleRevenue: `${rs(revenue)} for ${soldKg.toLocaleString('en-PK')} kg sold to shopkeepers`,
+      grossMarginOnWholesale: `${rs(revenue - costOfSold)} (wholesale revenue minus your cost incl. commission of the kg sold)`,
+      stockInWarehouse: `${stockKg.toLocaleString('en-PK')} kg not yet on offer, worth ${rs(stockValue)} at your cost`,
+    },
+
+    liveAuctions: liveAuctions.map((auction) => {
+      const rate = auction.arhti.arhtiProfile?.commissionRate ?? DEFAULT_COMMISSION_RATE;
+      const top = auction.bids[0];
+      const nextMin = top ? top.amountPerKg + auction.minimumIncrement : auction.reservePrice;
+      const mine = myBidOn.get(auction.id) ?? null;
+      return {
+        auctionNumber: auction.auctionNumber,
+        crop: auction.inventoryLot.crop.name,
+        quantityKg: auction.quantityKg,
+        grade: auction.grade,
+        mandi: `${auction.mandi.name}, ${auction.mandi.city}`,
+        arhti: auction.arhti.arhtiProfile?.businessName ?? auction.arhti.name,
+        grownBy: `${auction.inventoryLot.sourceFarmerName}, ${auction.inventoryLot.sourceCity}`,
+        reserve: pk(auction.reservePrice),
+        topBid: top ? `${pk(top.amountPerKg)} by ${top.bidder.id === userId ? 'you' : top.bidder.name}` : 'no bids yet',
+        youLead: !!top && top.bidder.id === userId,
+        yourHighestBid: mine !== null ? pk(mine) : null,
+        bids: auction.bidCount,
+        arhtiCommission: `${percent(rate)} on top of the winning price, paid by the winner`,
+        nextMinimumBid: pk(nextMin),
+        youPayAtNextMinimumBid: `${pk(vendorPaysPerKg(nextMin, rate))} incl. commission, ${rs(nextMin * auction.quantityKg * (1 + rate))} for ${auction.quantityKg.toLocaleString('en-PK')} kg`,
+        ...(top
+          ? {
+              ifYouWinAtTopBid: `${rs(top.amountPerKg * auction.quantityKg)} + ${rs(vendorCommission(top.amountPerKg * auction.quantityKg, rate))} commission = ${rs(top.amountPerKg * auction.quantityKg * (1 + rate))}`,
+            }
+          : {}),
+        endsAt: auction.endTime.toISOString().slice(0, 16).replace('T', ' ') + ' UTC',
+      };
+    }),
+
+    lotsYouWon: purchases.map((sale) => ({
+      saleNumber: sale.saleNumber,
+      auctionNumber: sale.auction.auctionNumber,
+      crop: sale.auction.inventoryLot.crop.name,
+      mandi: sale.auction.mandi.name,
+      arhti: sale.arhti.name,
+      bought: `${sale.quantityKg.toLocaleString('en-PK')} kg at ${pk(sale.ratePerKg)}, ${rs(sale.grossAmount)}`,
+      commissionPaid: rs(sale.commission),
+      paidInAll: rs(sale.grossAmount + sale.commission),
+      costPerKgInclCommission: pk((sale.grossAmount + sale.commission) / sale.quantityKg),
+      date: isoDate(sale.createdAt),
+    })),
+
+    warehouseStock: stocks.map((stock) => ({
+      stockNumber: stock.stockNumber,
+      crop: stock.crop.name,
+      grade: stock.grade,
+      from: `${stock.sourceFarmCity} farm, ${stock.sourceMandiCity} mandi`,
+      boughtKg: stock.quantityKg,
+      notYetOnOfferKg: stock.availableKg,
+      costPerKgInclCommission: pk(stock.costPerKg),
+      valueOfUnofferedAtCost: rs(stock.availableKg * stock.costPerKg),
+      status: plainStatus(stock.status),
+    })),
+
+    yourWholesaleOffers: offers.map((offer) => ({
+      offerNumber: offer.offerNumber,
+      crop: offer.crop.name,
+      stockNumber: offer.stock.stockNumber,
+      price: pk(offer.pricePerKg),
+      yourCost: pk(offer.stock.costPerKg),
+      marginPerKg: pk(offer.pricePerKg - offer.stock.costPerKg),
+      remainingKg: offer.remainingKg,
+      offeredKg: offer.offeredQuantityKg,
+      minimumOrderKg: offer.minOrderKg,
+      deliversTo: cityList(offer.deliveryCities),
+      deliveryHours: offer.deliveryEtaHours,
+      status: plainStatus(offer.status),
+    })),
+
+    ordersFromShopkeepers: orders.map((sale) => ({
+      saleNumber: sale.saleNumber,
+      shop: sale.shopkeeper.shopkeeperProfile?.shopName ?? sale.shopkeeper.name,
+      city: sale.shopkeeper.shopkeeperProfile?.city ?? sale.deliveryCity,
+      crop: sale.offer.crop.name,
+      sold: `${sale.quantityKg.toLocaleString('en-PK')} kg at ${pk(sale.ratePerKg)}, ${rs(sale.grossAmount)}`,
+      yourMargin: `${rs((sale.ratePerKg - sale.offer.stock.costPerKg) * sale.quantityKg)} (${pk(sale.ratePerKg - sale.offer.stock.costPerKg)} over your cost)`,
+      status: plainStatus(sale.status),
+      date: isoDate(sale.createdAt),
+    })),
+
+    priceRanking: ranking.forModel,
+    supportedCrops: ranking.crops,
+  };
+
+  const knownIds = [
+    ...liveAuctions.map((a) => a.auctionNumber),
+    ...purchases.flatMap((s) => [s.saleNumber, s.auction.auctionNumber]),
+    ...stocks.map((s) => s.stockNumber),
+    ...offers.map((o) => o.offerNumber),
+    ...orders.map((s) => s.saleNumber),
+  ];
+
+  return { forModel, ...allowed(), knownIds: [...new Set(knownIds)], competitors: [] };
+}
+
+/* ------------------------------------------------------------------ *
+ * Shopkeeper context: wholesale offers (as /wholesale shows them), the
+ * shopkeeper's own purchases, shop stock, listings and customer orders.
+ * Never the vendor's cost, the auction price or anyone else's margin.
+ * ------------------------------------------------------------------ */
+
+async function getShopkeeperContext(userId: string, message: string): Promise<TraderContext> {
+  const { rs, pk, addRates, allowed } = amountRecorder();
+
+  const [shopkeeper, market, purchases, stocks, listings, orders] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, include: { shopkeeperProfile: true } }),
+    prisma.vendorOffer.findMany({
+      where: { status: OfferListingStatus.ACTIVE, remainingKg: { gt: 0 } },
+      include: {
+        crop: true,
+        vendor: { select: { name: true, vendorProfile: { select: { businessName: true, warehouseCity: true } } } },
+        stock: { select: { sourceFarmCity: true, sourceMandiCity: true } },
+      },
+      orderBy: { pricePerKg: 'asc' },
+      take: MARKET_RECORDS,
+    }),
+    prisma.vendorShopkeeperSale.findMany({
+      where: { shopkeeperId: userId },
+      include: {
+        vendor: { select: { name: true, vendorProfile: { select: { businessName: true } } } },
+        offer: { select: { crop: { select: { name: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: RECENT_RECORDS,
+    }),
+    prisma.shopkeeperInventory.findMany({
+      where: { shopkeeperId: userId },
+      include: { crop: true },
+      orderBy: { createdAt: 'desc' },
+      take: RECENT_RECORDS,
+    }),
+    prisma.retailListing.findMany({
+      where: { shopkeeperId: userId },
+      include: { crop: true, stock: { select: { stockNumber: true, costPerKg: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: RECENT_RECORDS,
+    }),
+    prisma.consumerOrder.findMany({
+      where: { shopkeeperId: userId },
+      include: {
+        consumer: { select: { name: true } },
+        items: { include: { listing: { select: { title: true, crop: { select: { name: true } } } } } },
+      },
+      orderBy: { placedAt: 'desc' },
+      take: RECENT_RECORDS,
+    }),
+  ]);
+
+  const city = shopkeeper?.shopkeeperProfile?.city ?? null;
+  const ranking = await getPriceRanking(city, message);
+  const competitors = await competitorsOf(userId, 'SHOPKEEPER');
+  addRates(ranking.allowedPerKg);
+
+  // Totals over everything, as the shop's insights and orders pages show them.
+  const [allPurchases, soldItems] = await Promise.all([
+    prisma.vendorShopkeeperSale.aggregate({ where: { shopkeeperId: userId }, _sum: { grossAmount: true, quantityKg: true }, _count: true }),
+    prisma.consumerOrderItem.findMany({
+      where: { order: { shopkeeperId: userId, status: { not: ConsumerOrderStatus.CANCELLED } } },
+      select: { quantityKg: true, lineTotal: true, listing: { select: { stock: { select: { costPerKg: true } } } } },
+    }),
+  ]);
+  const soldKg = soldItems.reduce((sum, i) => sum + i.quantityKg, 0);
+  const retailRevenue = soldItems.reduce((sum, i) => sum + i.lineTotal, 0);
+  const costOfSold = soldItems.reduce((sum, i) => sum + i.quantityKg * i.listing.stock.costPerKg, 0);
+  const openOrders = orders.filter((o) => !([ConsumerOrderStatus.DELIVERED, ConsumerOrderStatus.CANCELLED] as ConsumerOrderStatus[]).includes(o.status));
+  const backRoomKg = stocks.reduce((sum, s) => sum + (s.status === StockStatus.SOLD_OUT ? 0 : s.availableKg), 0);
+
+  const forModel = {
+    today: karachiToday(),
+
+    shop: {
+      name: shopkeeper?.shopkeeperProfile?.shopName ?? shopkeeper?.name ?? null,
+      city,
+      rating: shopkeeper?.shopkeeperProfile?.ratingCount
+        ? `${shopkeeper.shopkeeperProfile.rating.toFixed(1)} from ${shopkeeper.shopkeeperProfile.ratingCount} customers`
+        : 'no ratings yet',
+    },
+
+    summary: {
+      boughtWholesale: `${rs(allPurchases._sum.grossAmount ?? 0)} for ${(allPurchases._sum.quantityKg ?? 0).toLocaleString('en-PK')} kg in ${allPurchases._count} order(s)`,
+      retailSales: `${rs(retailRevenue)} for ${soldKg.toLocaleString('en-PK')} kg sold to customers (not counting delivery fees or cancelled orders)`,
+      grossMarginOnRetail: `${rs(retailRevenue - costOfSold)} (retail sales minus your wholesale cost of the kg sold)`,
+      backRoomStock: `${backRoomKg.toLocaleString('en-PK')} kg in the shop not yet on the shelf`,
+      openCustomerOrders: openOrders.length,
+    },
+
+    wholesaleMarket: market.map((offer) => ({
+      crop: offer.crop.name,
+      vendor: offer.vendor.vendorProfile?.businessName ?? offer.vendor.name,
+      vendorWarehouse: offer.vendor.vendorProfile?.warehouseCity ?? null,
+      grownIn: `${offer.stock.sourceFarmCity}, traded at ${offer.stock.sourceMandiCity} mandi`,
+      grade: offer.grade,
+      price: pk(offer.pricePerKg),
+      availableKg: offer.remainingKg,
+      minimumOrderKg: offer.minOrderKg,
+      deliversTo: cityList(offer.deliveryCities),
+      deliversToYourCity: !!city && cityList(offer.deliveryCities).includes(city),
+      deliveryHours: offer.deliveryEtaHours,
+    })),
+
+    yourWholesalePurchases: purchases.map((sale) => ({
+      saleNumber: sale.saleNumber,
+      vendor: sale.vendor.vendorProfile?.businessName ?? sale.vendor.name,
+      crop: sale.offer.crop.name,
+      bought: `${sale.quantityKg.toLocaleString('en-PK')} kg at ${pk(sale.ratePerKg)}, ${rs(sale.grossAmount)}`,
+      status: plainStatus(sale.status),
+      date: isoDate(sale.createdAt),
+    })),
+
+    shopStock: stocks.map((stock) => ({
+      stockNumber: stock.stockNumber,
+      crop: stock.crop.name,
+      grade: stock.grade,
+      boughtKg: stock.quantityKg,
+      notYetOnShelfKg: stock.availableKg,
+      yourCost: pk(stock.costPerKg),
+      status: plainStatus(stock.status),
+    })),
+
+    yourRetailListings: listings.map((listing) => ({
+      title: listing.title,
+      crop: listing.crop.name,
+      stockNumber: listing.stock.stockNumber,
+      price: pk(listing.pricePerKg),
+      yourCost: pk(listing.stock.costPerKg),
+      marginPerKg: pk(listing.pricePerKg - listing.stock.costPerKg),
+      remainingKg: listing.remainingKg,
+      soldKg: listing.listedQuantityKg - listing.remainingKg,
+      packSizeKg: listing.packSizeKg,
+      status: plainStatus(listing.status),
+    })),
+
+    customerOrders: orders.map((order) => ({
+      orderNumber: order.orderNumber,
+      customer: order.consumer.name,
+      items: order.items.map((item) => `${item.quantityKg.toLocaleString('en-PK')} kg ${item.listing.crop.name} at ${pk(item.pricePerKg)} = ${rs(item.lineTotal)}`),
+      deliveryFee: rs(order.deliveryFee),
+      total: rs(order.totalAmount),
+      status: plainStatus(order.status),
+      placed: isoDate(order.placedAt),
+    })),
+
+    priceRanking: ranking.forModel,
+    supportedCrops: ranking.crops,
+    otherShopsNotVisibleToYou: competitors,
+  };
+
+  const knownIds = [
+    ...purchases.map((s) => s.saleNumber),
+    ...stocks.map((s) => s.stockNumber),
+    ...orders.map((o) => o.orderNumber),
+  ];
+
+  return { forModel, ...allowed(), knownIds: [...new Set(knownIds)], competitors };
+}
+
+const CONTEXT_FOR: Record<TraderRole, (userId: string, message: string) => Promise<TraderContext>> = {
+  ARHTI: getArhtiContext,
+  VENDOR: getVendorContext,
+  SHOPKEEPER: getShopkeeperContext,
+};
 
 /* ------------------------------------------------------------------ *
  * Ask
  * ------------------------------------------------------------------ */
 
 async function understandTrader(
+  role: TraderRole,
   message: string,
   history: StoredHistory[],
-  context: Awaited<ReturnType<typeof getArhtiContext>>
+  context: TraderContext
 ): Promise<{ result: TraderAiResult; script: MessageScript }> {
   const script = messageScript(message);
   const romanUrdu = script === 'latin' && romanUrduLikely(message);
+
+  // "CONTEXT" and the field names of the data (e.g. ifYouWinAtTopBid) must
+  // never reach the user.
+  const fieldNames = new Set<string>(['CONTEXT']);
+  const collectKeys = (value: unknown) => {
+    if (Array.isArray(value)) value.forEach(collectKeys);
+    else if (value && typeof value === 'object') {
+      for (const [key, inner] of Object.entries(value)) {
+        if (/[a-z][A-Z]/.test(key)) fieldNames.add(key);
+        collectKeys(inner);
+      }
+    }
+  };
+  collectKeys(context.forModel);
+  const internalNamesIn = (text: string) => [...fieldNames].filter((name) => new RegExp(`\\b${name}\\b`).test(text));
 
   const input = JSON.stringify({
     USER_MESSAGE_SCRIPT: script === 'urdu' ? 'urdu_script' : 'english_letters',
@@ -949,14 +1474,17 @@ async function understandTrader(
   });
 
   const messages: ChatMessage[] = [
-    { role: 'system', content: INSTRUCTIONS },
+    { role: 'system', content: instructionsFor(role) },
     { role: 'user', content: input },
   ];
 
+  // Problems code can detect, each with the correction sent on the retry.
   const problemsIn = (result: TraderAiResult) => {
-    const problems: string[] = [];
+    const problems: { kind: 'language' | 'amount' | 'voice' | 'internal' | 'privacy'; fix: string }[] = [];
     if (
       !replyMatchesScript(result.reply, script) ||
+      // An English or Roman Urdu reply has no Urdu-script words at all.
+      (script === 'latin' && countScripts(result.reply).urdu > 0) ||
       (romanUrdu && result.language === 'english') ||
       (result.generalGuidance !== null && !inExpectedLanguage(result.generalGuidance, script, romanUrdu))
     ) {
@@ -966,19 +1494,37 @@ async function understandTrader(
           : romanUrdu
             ? 'Roman Urdu (Urdu written in English letters)'
             : 'English letters (English or Roman Urdu, matching the user)';
-      problems.push(`The reply used the wrong language or script. Rewrite "reply" and "generalGuidance" entirely in ${wanted}.`);
+      problems.push({ kind: 'language', fix: `The reply used the wrong language or script. Rewrite "reply" and "generalGuidance" entirely in ${wanted}.` });
     }
     const text = `${result.reply}\n${result.generalGuidance ?? ''}`;
     const badRates = unknownPerKgPrices(text, context.allowedPerKg);
     if (badRates.length) {
       console.warn('Trader AI stated per-kg prices not in the data:', badRates);
-      problems.push(`These per-kg prices are not in CONTEXT: ${badRates.join(', ')}. Remove them; quote only prices exactly as given in CONTEXT.`);
+      problems.push({ kind: 'amount', fix: `These per-kg prices are not in CONTEXT: ${badRates.join(', ')}. Remove them; quote only prices exactly as given in CONTEXT.` });
     }
     // A known per-kg price written without "per kg" ("92 روپے") is not an invented amount.
     const badTotals = unknownRupeeTotals(text, [...context.allowedTotals, ...context.allowedPerKg]);
     if (badTotals.length) {
       console.warn('Trader AI stated amounts not in the data:', badTotals);
-      problems.push(`These rupee amounts are not in CONTEXT: ${badTotals.join(', ')}. Do not calculate amounts yourself; quote only amounts exactly as given in CONTEXT, or say the figure is not available.`);
+      problems.push({ kind: 'amount', fix: `These rupee amounts are not in CONTEXT: ${badTotals.join(', ')}. Do not calculate amounts yourself; quote only amounts exactly as given in CONTEXT, or say the figure is not available.` });
+    }
+    const leaked = internalNamesIn(text);
+    if (leaked.length) {
+      console.warn('Trader AI showed internal names:', leaked);
+      problems.push({ kind: 'internal', fix: `The reply shows internal names (${leaked.join(', ')}). Never name the data source or its fields; say it in plain words.` });
+    }
+    const pricedCompetitor = context.competitors.find((name) =>
+      result.reply
+        .split(/(?<=[.!?۔؟])\s+|\n/)
+        .some((sentence) => sentence.includes(name) && (perKgPricesIn(sentence).length > 0 || rupeeTotalsIn(sentence).length > 0))
+    );
+    if (pricedCompetitor) {
+      console.warn('Trader AI gave figures for a competitor:', pricedCompetitor);
+      problems.push({ kind: 'privacy', fix: `The reply gives prices or amounts for ${pricedCompetitor}, whose trading the user cannot see. Remove them and say that is not visible to the user.` });
+    }
+    if (speaksAsUser(result.reply)) {
+      console.warn('Trader AI spoke as the user.');
+      problems.push({ kind: 'voice', fix: 'The reply speaks as the user ("I/my", "mujhe/maine/mera", "مجھے/میں نے/میرا"). You are the assistant: rewrite it addressing the user as "you" ("aap", "آپ").' });
     }
     return problems;
   };
@@ -993,21 +1539,37 @@ async function understandTrader(
     ({ result, raw, usage } = await callModel([
       ...messages,
       { role: 'assistant', content: raw },
-      { role: 'user', content: `${problems.join(' ')} Keep every other fact the same. Return the same JSON object.` },
+      { role: 'user', content: `${problems.map((p) => p.fix).join(' ')} Keep every other fact the same. Return the same JSON object.` },
     ]));
     console.info('Trader AI usage (retry):', JSON.stringify(usage));
     result = normalizeResult(result, context.knownIds);
     problems = problemsIn(result);
   }
 
-  // An amount the server did not calculate is never shown: the rule-based
-  // assistant answers instead.
-  const amountProblem = problems.find((p) => p.includes('per-kg prices') || p.includes('rupee amounts'));
-  if (amountProblem) throw new Error(`Trader AI reply still has unchecked amounts: ${amountProblem}`);
+  // An amount the server did not calculate, a reply speaking as the user or
+  // figures for a competitor are never shown: the rule-based assistant answers instead.
+  const blocking = problems.find((p) => p.kind === 'amount' || p.kind === 'voice' || p.kind === 'privacy');
+  if (blocking) throw new Error(`Trader AI reply still not acceptable: ${blocking.fix}`);
 
-  // Better no guidance line than one in the wrong language.
-  if (result.generalGuidance !== null && !inExpectedLanguage(result.generalGuidance, script, romanUrdu)) {
-    console.warn('Trader AI guidance still in the wrong language; dropped.');
+  // A sentence that still names the internal data source is left out.
+  const withoutInternal = (text: string) =>
+    text
+      .split(/\n/)
+      .map((line) => line.split(/(?<=[.!?۔؟])\s+/).filter((sentence) => internalNamesIn(sentence).length === 0).join(' '))
+      .filter((line) => line.trim())
+      .join('\n');
+  result = {
+    ...result,
+    reply: withoutInternal(result.reply) || result.reply,
+    generalGuidance: result.generalGuidance ? withoutInternal(result.generalGuidance) || null : null,
+  };
+
+  // Same as the farmer chat: better no guidance line than a bad one.
+  if (
+    result.generalGuidance !== null &&
+    (!inExpectedLanguage(result.generalGuidance, script, romanUrdu) || speaksAsUser(result.generalGuidance))
+  ) {
+    console.warn('Trader AI guidance failed the language or voice check; dropped.');
     result = { ...result, generalGuidance: null };
   }
 
@@ -1021,10 +1583,15 @@ async function understandTrader(
   };
 }
 
-/** AgriConnect AI for the arhti. Called from askAi in natural-ai.ts. */
+function traderRole(role: UserRole): TraderRole | null {
+  return role === UserRole.ARHTI || role === UserRole.VENDOR || role === UserRole.SHOPKEEPER ? role : null;
+}
+
+/** AgriConnect AI for arhtis, vendors and shopkeepers. Called from askAi in natural-ai.ts. */
 export async function askTraderAi(formData: FormData) {
   const user = await requireCapability('shared.ai');
-  if (user.role !== UserRole.ARHTI) return legacyAskAi(formData);
+  const role = traderRole(user.role);
+  if (!role) return legacyAskAi(formData);
 
   const parsed = askAiSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) {
@@ -1037,8 +1604,8 @@ export async function askTraderAi(formData: FormData) {
   const history = getHistory(oldContext);
 
   try {
-    const context = await getArhtiContext(user.id, message);
-    const { result, script } = await understandTrader(message, history, context);
+    const context = await CONTEXT_FOR[role](user.id, message);
+    const { result, script } = await understandTrader(role, message, history, context);
     const language = replyLanguage(result, script, message, history);
     const replyText = composeReply(result, language);
 
@@ -1056,7 +1623,8 @@ export async function askTraderAi(formData: FormData) {
       },
     });
 
-    const view = ARHTI_VIEW_LINKS[result.suggestedView];
+    // Only the user's own pages; anything else the model names is ignored.
+    const view = VIEW_LINKS[role][result.suggestedView] ?? null;
     revalidatePath('/ai-assistant');
 
     return {

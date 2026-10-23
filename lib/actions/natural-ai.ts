@@ -2032,7 +2032,11 @@ function samePayload(a: unknown, b: Record<string, unknown>) {
 export async function askAi(formData: FormData) {
   const user = await requireCapability('shared.ai');
 
-  if (user.role === UserRole.ARHTI) {
+  if (
+    user.role === UserRole.ARHTI ||
+    user.role === UserRole.VENDOR ||
+    user.role === UserRole.SHOPKEEPER
+  ) {
     return askTraderAi(formData);
   }
 
