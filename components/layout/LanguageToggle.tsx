@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Languages } from 'lucide-react';
 import { LANG_COOKIE, type Lang } from '@/lib/i18n';
 import { useI18n } from '@/components/i18n/LanguageProvider';
 
@@ -10,7 +9,7 @@ import { useI18n } from '@/components/i18n/LanguageProvider';
  * survives page changes and later visits; the page then re-renders on the
  * server in the new language.
  */
-export default function LanguageToggle() {
+export default function LanguageToggle({ tone = 'brand', compact = false }: { tone?: 'brand' | 'paper'; compact?: boolean }) {
   const router = useRouter();
   const { lang, t } = useI18n();
 
@@ -26,8 +25,14 @@ export default function LanguageToggle() {
       onClick={() => choose(value)}
       aria-pressed={lang === value}
       lang={value}
-      className={`px-2.5 py-1 text-xs font-semibold transition-colors ${
-        lang === value ? 'bg-agri-900 text-white' : 'bg-white text-[#636E72] hover:bg-[#F8F9F5]'
+      className={`rounded-[9px] px-2.5 transition-colors ${compact ? 'h-[38px] min-w-11' : 'h-10 px-3.5'} ${
+        value === 'ur' ? 'font-[family-name:var(--font-naskh)] text-[15px] font-bold' : 'font-[family-name:var(--font-jakarta)] text-[13px] font-extrabold'
+      } ${
+        lang === value
+          ? 'bg-gold text-ongold'
+          : tone === 'brand'
+            ? 'text-white hover:bg-white/10'
+            : 'text-ink hover:bg-line'
       }`}
     >
       {label}
@@ -38,12 +43,11 @@ export default function LanguageToggle() {
     <div
       role="group"
       aria-label={t('header.languageLabel')}
-      className="flex items-center rounded-lg border border-[#E5E7EB] overflow-hidden"
+      className={`inline-flex shrink-0 items-center rounded-xl p-[3px] ${compact ? 'h-11' : 'h-12 p-1'} ${
+        tone === 'brand' ? 'bg-black/[.18]' : 'bg-sage'
+      }`}
     >
-      <span className="px-1.5 text-[#636E72]" aria-hidden="true">
-        <Languages className="w-3.5 h-3.5" />
-      </span>
-      {option('en', t('header.switchToEnglish'))}
+      {option('en', compact ? t('header.switchToEnglishShort') : t('header.switchToEnglish'))}
       {option('ur', t('header.switchToUrdu'))}
     </div>
   );

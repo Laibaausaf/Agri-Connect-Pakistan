@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { MapPin, Leaf, LogOut } from 'lucide-react';
 import { logout } from '@/lib/actions/auth';
 import { useI18n } from '@/components/i18n/LanguageProvider';
 import LanguageToggle from '@/components/layout/LanguageToggle';
+import ThemeToggle from '@/components/layout/ThemeToggle';
+import Icon from '@/components/ui/Icon';
+import { BrandGlow } from './Header';
 
 type ConsumerHeaderProps = {
   name: string;
@@ -13,34 +15,43 @@ type ConsumerHeaderProps = {
 
 export default function ConsumerHeader({ name, location }: ConsumerHeaderProps) {
   const { t } = useI18n();
-  return (
-    <header className="sticky top-0 z-30 bg-white border-b border-[#E5E7EB]">
-      <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-        <Link href="/shop" className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-full bg-agri-900 text-white flex items-center justify-center">
-            <Leaf className="w-4.5 h-4.5" />
-          </div>
-          <div className="leading-tight">
-            <div className="font-extrabold text-sm text-agri-900">{t('consumer.brand')}</div>
-            <div className="flex items-center gap-1 text-[11px] text-[#636E72]">
-              <MapPin className="w-3 h-3 text-agri-900" />
-              <span className="truncate max-w-[160px]">{location}</span>
-            </div>
-          </div>
-        </Link>
+  const logoutButton = (
+    <form action={logout}>
+      <button
+        type="submit"
+        title={t('header.logout')}
+        className="ac-press inline-flex h-12 shrink-0 items-center gap-1.5 rounded-[14px] bg-white/[.12] px-3 text-sm font-bold text-white hover:bg-white/20"
+      >
+        <Icon name="logout" size={20} />
+        <span className="hidden sm:inline">{t('header.logout')}</span>
+      </button>
+    </form>
+  );
 
+  return (
+    <header className="sticky top-0 z-50 bg-brand text-white">
+      <BrandGlow />
+      <div className="relative mx-auto flex max-w-5xl flex-col gap-1.5 px-4 pb-3 pt-2.5 sm:flex-row sm:items-center sm:gap-3 sm:py-3">
+        <div className="flex min-h-[52px] min-w-0 flex-1 items-center gap-2.5">
+          <Link href="/shop" className="flex min-w-0 flex-1 items-center gap-2.5">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold text-ongold">
+              <Icon name="leaf" size={24} />
+            </span>
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="whitespace-nowrap text-[17px] font-extrabold leading-tight">{t('consumer.brand')}</span>
+              <span className="truncate text-xs font-semibold text-[#D6E6D9]">{t('consumer.hi', { name: name.split(' ')[0] })}</span>
+            </span>
+          </Link>
+          <span className="sm:hidden">{logoutButton}</span>
+        </div>
         <div className="flex items-center gap-2">
-          <LanguageToggle />
-          <span className="hidden sm:inline text-xs text-[#636E72]">{t('consumer.hi', { name: name.split(' ')[0] })}</span>
-          <form action={logout}>
-            <button
-              type="submit"
-              className="p-2 rounded-lg bg-[#F8F9F5] border border-[#E5E7EB] text-[#636E72] hover:text-charcoal"
-              title={t('header.logout')}
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </form>
+          <span className="flex h-11 min-w-0 flex-1 items-center gap-1.5 rounded-xl border border-white/[.22] px-2.5 text-[13.5px] font-semibold sm:max-w-[280px]">
+            <Icon name="pin" size={18} />
+            <span className="truncate">{location}</span>
+          </span>
+          <LanguageToggle compact />
+          <ThemeToggle compact />
+          <span className="hidden sm:inline">{logoutButton}</span>
         </div>
       </div>
     </header>

@@ -1,4 +1,5 @@
 import { UserRole } from '@prisma/client';
+import type { IconName } from '@/components/ui/Icon';
 
 export type NavBadgeKey =
   | 'liveAuctions'
@@ -14,7 +15,7 @@ export type NavBadges = Partial<Record<NavBadgeKey, number>>;
 export type NavEntry = {
   href: string;
   label: string;
-  icon: string;
+  icon: IconName;
   badge?: NavBadgeKey;
   badgeStyle?: 'live' | 'count' | 'accent';
   primary?: boolean;
@@ -34,19 +35,19 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'My Farm',
       items: [
-        { href: '/for-you', label: 'For You', icon: 'Compass' },
-        { href: '/crops', label: 'My Crops', icon: 'Sprout', primary: true },
+        { href: '/for-you', label: 'For You', icon: 'compass' },
+        { href: '/crops', label: 'My Crops', icon: 'sprout', primary: true },
         {
           href: '/arhti-requests',
           label: 'Arhti Requests',
-          icon: 'Handshake',
+          icon: 'handshake',
           badge: 'pendingOffers',
           badgeStyle: 'count',
         },
         {
           href: '/deals',
           label: 'My Deals',
-          icon: 'FileCheck',
+          icon: 'deal',
           badge: 'activeDeals',
           badgeStyle: 'count',
         },
@@ -55,16 +56,16 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'Records',
       items: [
-        { href: '/records', label: 'Payments & Records', icon: 'Receipt' },
+        { href: '/records', label: 'Payments & Records', icon: 'wallet' },
         {
           href: '/messages',
           label: 'Messages',
-          icon: 'MessageSquare',
+          icon: 'message',
           badge: 'unreadMessages',
           badgeStyle: 'count',
         },
-        { href: '/ai-assistant', label: 'AgriConnect AI', icon: 'Sparkles' },
-        { href: '/profile', label: 'Profile', icon: 'User' },
+        { href: '/ai-assistant', label: 'AgriConnect AI', icon: 'sparkles' },
+        { href: '/profile', label: 'Profile', icon: 'user' },
       ],
     },
   ],
@@ -73,20 +74,20 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'Buying (from farmers)',
       items: [
-        { href: '/for-you', label: 'For You', icon: 'Compass' },
-        { href: '/sourcing', label: 'Farmer Market', icon: 'Sprout', primary: true },
-        { href: '/demand', label: 'My Buy Requests', icon: 'ClipboardList' },
+        { href: '/for-you', label: 'For You', icon: 'compass' },
+        { href: '/sourcing', label: 'Farmer Market', icon: 'sprout', primary: true },
+        { href: '/demand', label: 'My Buy Requests', icon: 'list' },
         {
           href: '/deals',
           label: 'Farmer Deals',
-          icon: 'Handshake',
+          icon: 'handshake',
           badge: 'activeDeals',
           badgeStyle: 'count',
         },
         {
           href: '/receiving',
           label: 'Receive & Verify',
-          icon: 'Scale',
+          icon: 'scale',
           badge: 'awaitingReceipt',
           badgeStyle: 'accent',
         },
@@ -95,15 +96,15 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'Selling (in the mandi)',
       items: [
-        { href: '/inventory', label: 'Mandi Inventory', icon: 'Boxes' },
+        { href: '/inventory', label: 'Mandi Inventory', icon: 'warehouse' },
         {
           href: '/auction-house',
           label: 'Auction House',
-          icon: 'Gavel',
+          icon: 'gavel',
           badge: 'liveAuctions',
           badgeStyle: 'live',
         },
-        { href: '/sales', label: 'Sales & Commission', icon: 'Receipt' },
+        { href: '/sales', label: 'Sales & Commission', icon: 'banknote' },
       ],
     },
     {
@@ -112,13 +113,13 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
         {
           href: '/messages',
           label: 'Messages',
-          icon: 'MessageSquare',
+          icon: 'message',
           badge: 'unreadMessages',
           badgeStyle: 'count',
         },
-        { href: '/insights', label: 'Trade Insights', icon: 'BarChart3' },
-        { href: '/ai-assistant', label: 'AgriConnect AI', icon: 'Sparkles' },
-        { href: '/profile', label: 'Profile', icon: 'User' },
+        { href: '/insights', label: 'Trade Insights', icon: 'chart' },
+        { href: '/ai-assistant', label: 'AgriConnect AI', icon: 'sparkles' },
+        { href: '/profile', label: 'Profile', icon: 'user' },
       ],
     },
   ],
@@ -127,26 +128,26 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'Procurement',
       items: [
-        { href: '/for-you', label: 'For You', icon: 'Compass' },
+        { href: '/for-you', label: 'For You', icon: 'compass' },
         {
           href: '/auctions',
           label: 'Mandi Auctions',
-          icon: 'Gavel',
+          icon: 'gavel',
           badge: 'liveAuctions',
           badgeStyle: 'live',
           primary: true,
         },
-        { href: '/stock', label: 'My Warehouse', icon: 'Boxes' },
+        { href: '/stock', label: 'My Warehouse', icon: 'warehouse' },
       ],
     },
     {
       title: 'Wholesale Shop',
       items: [
-        { href: '/wholesale-shop', label: 'My Wholesale Shop', icon: 'Store' },
+        { href: '/wholesale-shop', label: 'My Wholesale Shop', icon: 'store' },
         {
           href: '/sales',
           label: 'Shopkeeper Orders',
-          icon: 'ClipboardList',
+          icon: 'list',
           badge: 'openOrders',
           badgeStyle: 'count',
         },
@@ -158,13 +159,13 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
         {
           href: '/messages',
           label: 'Messages',
-          icon: 'MessageSquare',
+          icon: 'message',
           badge: 'unreadMessages',
           badgeStyle: 'count',
         },
-        { href: '/insights', label: 'Trade Insights', icon: 'BarChart3' },
-        { href: '/ai-assistant', label: 'AgriConnect AI', icon: 'Sparkles' },
-        { href: '/profile', label: 'Profile', icon: 'User' },
+        { href: '/insights', label: 'Trade Insights', icon: 'chart' },
+        { href: '/ai-assistant', label: 'AgriConnect AI', icon: 'sparkles' },
+        { href: '/profile', label: 'Profile', icon: 'user' },
       ],
     },
   ],
@@ -173,18 +174,18 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'Buy Stock',
       items: [
-        { href: '/for-you', label: 'For You', icon: 'Compass' },
+        { href: '/for-you', label: 'For You', icon: 'compass' },
         {
           href: '/wholesale',
           label: 'Wholesale Market',
-          icon: 'Store',
+          icon: 'store',
           primary: true,
         },
-        { href: '/purchases', label: 'My Purchases', icon: 'ClipboardList' },
+        { href: '/purchases', label: 'My Purchases', icon: 'receipt' },
         {
           href: '/shop-stock',
           label: 'Shop Stock',
-          icon: 'Boxes',
+          icon: 'package',
           badge: 'lowStock',
           badgeStyle: 'accent',
         },
@@ -193,11 +194,11 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'Sell Retail',
       items: [
-        { href: '/storefront', label: 'My Storefront', icon: 'ShoppingBag' },
+        { href: '/storefront', label: 'My Storefront', icon: 'store' },
         {
           href: '/retail-orders',
           label: 'Customer Orders',
-          icon: 'PackageCheck',
+          icon: 'cart',
           badge: 'openOrders',
           badgeStyle: 'count',
         },
@@ -209,13 +210,13 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
         {
           href: '/messages',
           label: 'Messages',
-          icon: 'MessageSquare',
+          icon: 'message',
           badge: 'unreadMessages',
           badgeStyle: 'count',
         },
-        { href: '/insights', label: 'Shop Insights', icon: 'BarChart3' },
-        { href: '/ai-assistant', label: 'AgriConnect AI', icon: 'Sparkles' },
-        { href: '/profile', label: 'Profile', icon: 'User' },
+        { href: '/insights', label: 'Shop Insights', icon: 'chart' },
+        { href: '/ai-assistant', label: 'AgriConnect AI', icon: 'sparkles' },
+        { href: '/profile', label: 'Profile', icon: 'user' },
       ],
     },
   ],
@@ -224,16 +225,16 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'Shop',
       items: [
-        { href: '/shop', label: 'Home', icon: 'Home', primary: true },
-        { href: '/nearby', label: 'Nearby Shops', icon: 'MapPin' },
+        { href: '/shop', label: 'Home', icon: 'leaf', primary: true },
+        { href: '/nearby', label: 'Nearby Shops', icon: 'pin' },
         {
           href: '/orders',
           label: 'My Orders',
-          icon: 'PackageCheck',
+          icon: 'truck',
           badge: 'openOrders',
           badgeStyle: 'count',
         },
-        { href: '/profile', label: 'Profile', icon: 'User' },
+        { href: '/profile', label: 'Profile', icon: 'user' },
       ],
     },
   ],
@@ -242,63 +243,70 @@ export const ROLE_NAV: Record<UserRole, NavSection[]> = {
     {
       title: 'Mandi Administration',
       items: [
-        { href: '/admin', label: 'Admin Console', icon: 'ShieldAlert', primary: true },
-        { href: '/admin/trace', label: 'Supply Chain Trace', icon: 'GitBranch' },
-        { href: '/insights', label: 'Market Insights', icon: 'BarChart3' },
+        { href: '/admin', label: 'Admin Console', icon: 'shield', primary: true },
+        { href: '/admin/trace', label: 'Supply Chain Trace', icon: 'route' },
+        { href: '/insights', label: 'Market Insights', icon: 'chart' },
         {
           href: '/messages',
           label: 'Messages',
-          icon: 'MessageSquare',
+          icon: 'message',
           badge: 'unreadMessages',
           badgeStyle: 'count',
         },
-        { href: '/profile', label: 'Profile', icon: 'User' },
+        { href: '/profile', label: 'Profile', icon: 'user' },
       ],
     },
   ],
 };
 
-/** Bottom bar on mobile: up to five destinations per role. */
+/**
+ * Bottom bar on phones: five tabs per role (Home, the main job, money or stock,
+ * the next job, More). "More" opens a sheet with every other page of the role,
+ * so each page stays one or two taps away. Consumers have four tabs.
+ */
+export const MORE_TAB = 'more';
+
 export const ROLE_MOBILE_NAV: Record<UserRole, NavEntry[]> = {
   FARMER: [
-    { href: '/for-you', label: 'Home', icon: 'Compass' },
-    { href: '/crops', label: 'Crops', icon: 'Sprout' },
-    { href: '/arhti-requests', label: 'Offers', icon: 'Handshake', badge: 'pendingOffers' },
-    { href: '/deals', label: 'Deals', icon: 'FileCheck' },
-    { href: '/ai-assistant', label: 'AI', icon: 'Mic' },
+    { href: '/for-you', label: 'Home', icon: 'home' },
+    { href: '/crops', label: 'Crops', icon: 'sprout' },
+    { href: '/arhti-requests', label: 'Offers', icon: 'handshake', badge: 'pendingOffers' },
+    { href: '/deals', label: 'Deals', icon: 'deal', badge: 'activeDeals' },
+    { href: MORE_TAB, label: 'More', icon: 'grid' },
   ],
   ARHTI: [
-    { href: '/for-you', label: 'Home', icon: 'Compass' },
-    { href: '/sourcing', label: 'Sourcing', icon: 'Sprout' },
-    { href: '/inventory', label: 'Stock', icon: 'Boxes' },
-    { href: '/auction-house', label: 'Auctions', icon: 'Gavel', badge: 'liveAuctions' },
-    { href: '/ai-assistant', label: 'AI', icon: 'Mic' },
+    { href: '/for-you', label: 'Home', icon: 'home' },
+    { href: '/receiving', label: 'Kanta', icon: 'scale', badge: 'awaitingReceipt' },
+    { href: '/inventory', label: 'Stock', icon: 'warehouse' },
+    { href: '/auction-house', label: 'Auctions', icon: 'gavel', badge: 'liveAuctions', badgeStyle: 'live' },
+    { href: MORE_TAB, label: 'More', icon: 'grid' },
   ],
   VENDOR: [
-    { href: '/for-you', label: 'Home', icon: 'Compass' },
-    { href: '/auctions', label: 'Auctions', icon: 'Gavel', badge: 'liveAuctions' },
-    { href: '/stock', label: 'Stock', icon: 'Boxes' },
-    { href: '/wholesale-shop', label: 'Shop', icon: 'Store' },
-    { href: '/ai-assistant', label: 'AI', icon: 'Mic' },
+    { href: '/for-you', label: 'Home', icon: 'home' },
+    { href: '/auctions', label: 'Auctions', icon: 'gavel', badge: 'liveAuctions', badgeStyle: 'live' },
+    { href: '/stock', label: 'Warehouse', icon: 'warehouse' },
+    { href: '/wholesale-shop', label: 'My shop', icon: 'store' },
+    { href: MORE_TAB, label: 'More', icon: 'grid' },
   ],
   SHOPKEEPER: [
-    { href: '/for-you', label: 'Home', icon: 'Compass' },
-    { href: '/wholesale', label: 'Buy', icon: 'Store' },
-    { href: '/shop-stock', label: 'Stock', icon: 'Boxes' },
-    { href: '/storefront', label: 'Store', icon: 'ShoppingBag' },
-    { href: '/retail-orders', label: 'Orders', icon: 'PackageCheck', badge: 'openOrders' },
+    { href: '/for-you', label: 'Home', icon: 'home' },
+    { href: '/wholesale', label: 'Buy stock', icon: 'store' },
+    { href: '/shop-stock', label: 'Stock', icon: 'package', badge: 'lowStock' },
+    { href: '/retail-orders', label: 'Orders', icon: 'cart', badge: 'openOrders' },
+    { href: MORE_TAB, label: 'More', icon: 'grid' },
   ],
   CONSUMER: [
-    { href: '/shop', label: 'Home', icon: 'Home' },
-    { href: '/nearby', label: 'Nearby', icon: 'MapPin' },
-    { href: '/orders', label: 'Orders', icon: 'PackageCheck', badge: 'openOrders' },
-    { href: '/profile', label: 'Profile', icon: 'User' },
+    { href: '/shop', label: 'Shop', icon: 'leaf' },
+    { href: '/nearby', label: 'Nearby', icon: 'pin' },
+    { href: '/orders', label: 'Orders', icon: 'truck', badge: 'openOrders' },
+    { href: '/profile', label: 'Profile', icon: 'user' },
   ],
   ADMIN: [
-    { href: '/admin', label: 'Console', icon: 'ShieldAlert' },
-    { href: '/admin/trace', label: 'Trace', icon: 'GitBranch' },
-    { href: '/insights', label: 'Insights', icon: 'BarChart3' },
-    { href: '/profile', label: 'Profile', icon: 'User' },
+    { href: '/admin', label: 'Console', icon: 'shield' },
+    { href: '/admin/trace', label: 'Trace', icon: 'route' },
+    { href: '/insights', label: 'Prices', icon: 'chart' },
+    { href: '/messages', label: 'Messages', icon: 'message', badge: 'unreadMessages' },
+    { href: MORE_TAB, label: 'More', icon: 'grid' },
   ],
 };
 

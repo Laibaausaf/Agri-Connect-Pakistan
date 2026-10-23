@@ -169,6 +169,25 @@ export function makeI18n(lang: Lang) {
       return one(message) ?? message.split(', ').map((part) => one(part) ?? part).join('، ');
     },
 
+    /**
+     * The same server error as a list of things to fix, for the summary at the
+     * top of a form. Validation errors arrive joined with ", "; a message that
+     * is known as a whole stays one item.
+     */
+    errorList(message: string): string[] {
+      const one = (text: string) => {
+        if (ERROR_MESSAGES[text]) return ur ? ERROR_MESSAGES[text] : text;
+        for (const { pattern, ur: template } of ERROR_PATTERNS) {
+          const match = text.match(pattern);
+          if (match) return ur ? fillMatch(template, match) : text;
+        }
+        return null;
+      };
+      const whole = one(message);
+      if (whole) return [whole];
+      return message.split(', ').map((part) => (ur ? one(part) ?? part : part));
+    },
+
     /** AI chat quick-prompt button text. */
     quickPrompt(prompt: string) {
       return ur ? QUICK_PROMPTS[prompt] ?? prompt : prompt;

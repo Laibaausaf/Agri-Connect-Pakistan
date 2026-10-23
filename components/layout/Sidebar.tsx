@@ -3,11 +3,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserRole } from '@prisma/client';
-import { PlusCircle } from 'lucide-react';
 import { ROLE_NAV, ROLE_PRIMARY_ACTION, type NavBadges, type NavEntry } from '@/lib/navigation';
 import { useI18n } from '@/components/i18n/LanguageProvider';
-import type { I18n } from '@/lib/i18n';
-import { navIcon } from './navIcons';
+import Icon from '@/components/ui/Icon';
+import { initialsOf } from './Header';
 
 type SidebarProps = {
   role: UserRole;
@@ -17,18 +16,34 @@ type SidebarProps = {
   aiHint?: string;
 };
 
-function badgeContent(item: NavEntry, badges: NavBadges, t: I18n['t']) {
+export function isActivePath(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** Count, "live" marker or nothing, from the role's nav badges. */
+export function NavBadge({ item, badges, onDark = false }: { item: NavEntry; badges: NavBadges; onDark?: boolean }) {
+  const { t } = useI18n();
   if (!item.badge) return null;
   const value = badges[item.badge] ?? 0;
   if (!value) return null;
 
   if (item.badgeStyle === 'live') {
-    return { text: t('sidebar.live'), className: 'bg-agri-900 text-white animate-pulse' };
+    return (
+      <span className="inline-flex h-6 shrink-0 items-center gap-1.5 rounded-xl bg-gold px-2.5 text-[11.5px] font-extrabold text-ongold">
+        <span className="ac-pulse h-[7px] w-[7px] rounded-full bg-ongold" />
+        {t('sidebar.live')}
+      </span>
+    );
   }
-  if (item.badgeStyle === 'accent') {
-    return { text: String(value), className: 'bg-[#E8F3EE] text-agri-900 border border-[#B7D4C8]' };
-  }
-  return { text: String(value), className: 'bg-agri-900 text-white' };
+  return (
+    <span
+      className={`tabular h-6 min-w-6 shrink-0 rounded-xl px-[7px] text-center text-[12.5px] font-extrabold leading-6 ${
+        onDark ? 'bg-[rgba(232,163,61,.22)] text-[#F6C871]' : 'bg-gold text-ongold'
+      }`}
+    >
+      {value}
+    </span>
+  );
 }
 
 export default function Sidebar({ role, badges, userName, userCity, aiHint }: SidebarProps) {
@@ -36,90 +51,86 @@ export default function Sidebar({ role, badges, userName, userCity, aiHint }: Si
   const { t, nav, navSection, role: roleName } = useI18n();
   const sections = ROLE_NAV[role] ?? [];
   const primaryAction = ROLE_PRIMARY_ACTION[role];
-  const initials = userName
-    .split(' ')
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
 
   return (
-    <aside className="hidden lg:flex flex-col w-72 bg-white text-charcoal border-e border-[#E5E7EB] shrink-0 select-none">
+    <aside className="hidden w-[272px] shrink-0 select-none flex-col gap-5 overflow-y-auto bg-side px-4 py-6 text-sidetext lg:flex">
       {primaryAction && (
-        <div className="p-4 border-b border-[#E5E7EB]">
-          <Link
-            href={primaryAction.href}
-            className="w-full flex items-center justify-center gap-2 bg-agri-900 hover:bg-agri-800 text-white py-3 px-3 rounded-lg text-base font-semibold shadow-xs transition-all active:scale-95"
-          >
-            <PlusCircle className="w-5 h-5 text-emerald-200" />
-            <span>{nav(primaryAction.label, role)}</span>
-          </Link>
-        </div>
+        <Link
+          href={primaryAction.href}
+          className="ac-press flex h-14 items-center justify-center gap-2.5 rounded-2xl border-[1.5px] border-gold bg-[rgba(232,163,61,.12)] text-base font-extrabold text-[#F6C871] hover:bg-[rgba(232,163,61,.2)]"
+        >
+          <Icon name="pluscircle" size={22} stroke={2.4} />
+          <span>{nav(primaryAction.label, role)}</span>
+        </Link>
       )}
 
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
+      <nav aria-label={t('sidebar.menuLabel')} className="flex flex-col gap-[18px]">
         {sections.map((section) => (
-          <div key={section.title} className="space-y-1">
-            <div className="px-3 pb-1 text-xs font-bold uppercase tracking-wider text-[#636E72]">
+          <div key={section.title} className="flex flex-col gap-1">
+            <span className="px-3 pb-1.5 text-xs font-bold uppercase tracking-[.08em] opacity-[.72]">
               {navSection(section.title)}
-            </div>
+            </span>
             {section.items.map((item) => {
-              const Icon = navIcon(item.icon);
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-              const badge = badgeContent(item, badges, t);
+              const active = isActivePath(pathname, item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`w-full flex items-center justify-between px-3 py-3 rounded-lg text-base font-medium transition-all text-start ${
-                    isActive
-                      ? 'bg-[#E8F3EE] text-agri-900 font-semibold shadow-sm'
-                      : 'text-[#636E72] hover:bg-[#F8F9F5] hover:text-charcoal'
+                  aria-current={active ? 'page' : undefined}
+                  className={`ac-press flex min-h-12 items-center gap-3 rounded-[14px] px-3 text-[15px] ${
+                    active ? 'bg-white/[.12] font-extrabold text-white' : 'font-semibold hover:bg-white/[.06]'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 truncate">
-                    <Icon
-                      className={`w-6 h-6 shrink-0 ${isActive ? 'text-agri-900' : 'text-[#636E72]'}`}
-                    />
-                    <span className="min-w-0 truncate">{nav(item.label, role)}</span>
-                  </div>
-                  {badge && (
-                    <span
-                      className={`text-xs px-1.5 py-0.5 rounded-md font-semibold uppercase ${badge.className}`}
-                    >
-                      {badge.text}
-                    </span>
-                  )}
+                  <span
+                    className={`inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] ${
+                      active ? 'bg-gold text-ongold' : 'bg-white/[.06]'
+                    }`}
+                  >
+                    <Icon name={item.icon} size={20} stroke={active ? 2.3 : 2} />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{nav(item.label, role)}</span>
+                  <NavBadge item={item} badges={badges} onDark />
                 </Link>
               );
             })}
           </div>
         ))}
-      </div>
+      </nav>
 
-      <div className="p-4 border-t border-[#E5E7EB] bg-white text-base">
-        {aiHint && (
-          <div className="bg-[#F8F9F5] p-3 rounded-xl border border-[#E5E7EB] mb-3">
-            <div className="text-xs uppercase tracking-wider text-[#636E72] font-bold mb-1">
-              {t('sidebar.aiTitle')}
-            </div>
-            <p className="text-base leading-relaxed text-charcoal">{aiHint}</p>
-          </div>
-        )}
+      <span className="flex-1" />
 
-        <div className="flex items-center gap-3 px-1">
-          <div className="w-9 h-9 rounded-full bg-agri-900 flex items-center justify-center text-white font-bold text-base shrink-0">
-            {initials || '?'}
-          </div>
-          <div className="overflow-hidden flex-1">
-            <div className="text-base font-bold text-charcoal truncate">{userName}</div>
-            <div className="text-xs text-[#636E72] truncate">
-              {roleName(role)}
-              {userCity ? ` • ${userCity}` : ''}
-            </div>
+      {aiHint && (
+        <Link
+          href="/ai-assistant"
+          className="ac-press flex flex-col gap-2.5 rounded-[18px] border border-white/10 bg-white/[.07] p-4 hover:bg-white/10"
+        >
+          <span className="flex items-center gap-2 text-[12.5px] font-extrabold tracking-[.04em] text-[#F6C871]">
+            <Icon name="sparkles" size={18} />
+            {t('sidebar.aiTitle')}
+          </span>
+          <span className="text-[14.5px] font-medium leading-relaxed">{aiHint}</span>
+          <span className="inline-flex items-center gap-1.5 text-[13.5px] font-extrabold text-white">
+            <Icon name="mic" size={18} />
+            {t('sidebar.askByVoice')}
+          </span>
+        </Link>
+      )}
+
+      <div className="flex items-center gap-3 border-t border-white/10 px-1 pt-4">
+        <span className="h-10 w-10 shrink-0 rounded-full bg-sage text-center text-sm font-extrabold leading-10 text-forest font-[family-name:var(--font-jakarta)]" dir="ltr">
+          {initialsOf(userName)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[15px] font-bold text-white">{userName}</div>
+          <div className="truncate text-[13px]">
+            {roleName(role)}
+            {userCity ? ` • ${userCity}` : ''}
           </div>
         </div>
       </div>
+      <p className="px-1 text-xs leading-relaxed opacity-70">
+        <span className="font-bold">{t('header.raast')}</span> · {t('header.bannerLong')}
+      </p>
     </aside>
   );
 }

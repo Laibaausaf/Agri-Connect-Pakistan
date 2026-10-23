@@ -56,6 +56,136 @@ export const UI = {
   /* Sidebar ----------------------------------------------------------------- */
   'sidebar.aiTitle': { en: 'AgriConnect AI', ur: 'ایگری کنیکٹ اے آئی' },
   'sidebar.live': { en: 'LIVE', ur: 'جاری' },
+  'sidebar.menuLabel': { en: 'Main menu', ur: 'مرکزی مینو' },
+  'sidebar.askByVoice': { en: 'Ask by voice', ur: 'بول کر پوچھیں' },
+
+  /* Header, redesign -------------------------------------------------------- */
+  // Short form of "English" for the phone header; a language switcher names
+  // each language in its own script.
+  'header.switchToEnglishShort': { en: 'EN', ur: 'EN' },
+  'header.alerts': { en: 'Alerts', ur: 'اطلاعات' },
+  'header.alertsAria': { en: 'Alerts, {count} unread', ur: 'اطلاعات، {count} نہیں پڑھیں' },
+  'header.accountAria': { en: 'Account menu: profile and log out', ur: 'اکاؤنٹ: پروفائل اور لاگ آؤٹ' },
+  'header.close': { en: 'Close', ur: 'بند کریں' },
+  'header.unread': { en: 'Unread', ur: 'نہیں پڑھا' },
+  'header.homeAria': { en: 'AgriConnect, go to your home page', ur: 'ایگری کنیکٹ، اپنے ہوم پیج پر جائیں' },
+
+  /* Notification kinds (from the stored notification type) ----------------- */
+  'notifKind.offer': { en: 'Offer', ur: 'پیشکش' },
+  'notifKind.pickup': { en: 'Pickup', ur: 'اٹھائی' },
+  'notifKind.weighing': { en: 'Weighing', ur: 'تول' },
+  'notifKind.auction': { en: 'Auction', ur: 'بولی' },
+  'notifKind.order': { en: 'Order', ur: 'آرڈر' },
+  'notifKind.payment': { en: 'Payment', ur: 'ادائیگی' },
+  'notifKind.rating': { en: 'Rating', ur: 'ریٹنگ' },
+  'notifKind.info': { en: 'Update', ur: 'اطلاع' },
+
+  /* Light / Dark theme ------------------------------------------------------ */
+  'theme.dark': { en: 'Dark', ur: 'رات' },
+  'theme.light': { en: 'Light', ur: 'دن' },
+  'theme.toDarkAria': { en: 'Switch to the dark theme', ur: 'رات والا رنگ لگائیں' },
+  'theme.toLightAria': { en: 'Switch to the light theme', ur: 'دن والا رنگ لگائیں' },
+
+  /* Phone bottom bar: the More sheet --------------------------------------- */
+  'more.title': { en: 'More', ur: 'مزید' },
+  'more.aria': { en: 'All pages', ur: 'تمام صفحات' },
+
+  /* Ask AI pill (opens the assistant) -------------------------------------- */
+  'askAi.title': { en: 'Ask AgriConnect', ur: 'مددگار سے پوچھیں' },
+  'askAi.sub': { en: 'Ask by voice or text', ur: 'بول کر یا لکھ کر پوچھیں' },
+  'askAi.aria': { en: 'Open the AgriConnect AI helper', ur: 'اے آئی مددگار کھولیں' },
+
+  /* Forms -------------------------------------------------------------------- */
+  'form.fix.one': { en: '1 thing to fix', ur: '1 چیز ٹھیک کریں' },
+  'form.fix.other': { en: '{count} things to fix', ur: '{count} چیزیں ٹھیک کریں' },
+
+  /* Landing page --------------------------------------------------------------- */
+  'landing.navHow': { en: 'How it works', ur: 'طریقہ کار' },
+  'landing.navPrices': { en: 'Mandi prices', ur: 'منڈی ریٹ' },
+  'landing.signIn': { en: 'Sign in', ur: 'لاگ ان' },
+  'landing.tag': { en: 'Pakistan’s first AI-powered digital mandi', ur: 'پاکستان کی پہلی اے آئی ڈیجیٹل منڈی' },
+  'landing.h1': { en: 'A fair price for every kilo you grow.', ur: 'اپنی ہر کلو فصل کی جائز قیمت پائیں۔' },
+  'landing.sub': {
+    en: 'Compare offers from verified arhtis, see your crop weighed on a certified kanta, and get paid straight to your bank by SBP Raast.',
+    ur: 'تصدیق شدہ آڑھتیوں کی آفرز کا موازنہ کریں، مستند کانٹے پر اپنی فصل کا تول دیکھیں، اور ایس بی پی راست سے سیدھی بینک میں رقم پائیں۔',
+  },
+  'landing.cta': { en: 'Start selling my crop', ur: 'اپنی فصل بیچنا شروع کریں' },
+  'landing.seePrices': { en: 'See today’s mandi prices', ur: 'آج کے منڈی ریٹ دیکھیں' },
+  'landing.haveAccount': { en: 'I already have an account · Sign in', ur: 'پہلے سے اکاؤنٹ ہے · لاگ ان' },
+  'landing.heroArtAlt': { en: 'Green fields under a golden sun', ur: 'سنہری دھوپ میں سبز کھیت' },
+  'landing.howTitle': { en: 'How it works', ur: 'یہ کیسے کام کرتا ہے' },
+  'landing.howSub': { en: 'Five clear steps instead of a middleman’s guesswork.', ur: 'آڑھت کے اندازوں کی جگہ پانچ صاف قدم۔' },
+  'landing.how1.title': { en: 'List your crop', ur: 'فصل درج کریں' },
+  'landing.how1.text': { en: 'Set the quantity, grade and the price you want.', ur: 'مقدار، گریڈ اور اپنی قیمت لکھیں۔' },
+  'landing.how2.title': { en: 'Get offers and bids', ur: 'آفرز اور بولیاں' },
+  'landing.how2.text': { en: 'Arhtis and buyers bid openly. You choose.', ur: 'آڑھتی اور خریدار کھلی بولی دیتے ہیں۔ فیصلہ آپ کا۔' },
+  'landing.how3.title': { en: 'Confirm the deal', ur: 'سودا پکا کریں' },
+  'landing.how3.text': { en: 'The winning rate is locked and a digital agreement is made.', ur: 'جیتا ہوا ریٹ پکا ہو جاتا ہے اور ڈیجیٹل معاہدہ بنتا ہے۔' },
+  'landing.how4.title': { en: 'Track the truck', ur: 'ٹرک دیکھیں' },
+  'landing.how4.text': { en: 'Farm-gate pickup with the live route to the mandi.', ur: 'کھیت سے مال اٹھانا اور منڈی تک راستہ۔' },
+  'landing.how5.title': { en: 'Weighed and paid', ur: 'تول اور ادائیگی' },
+  'landing.how5.text': { en: 'Certified kanta weight, then an instant Raast deposit.', ur: 'مستند کانٹے پر تول، پھر فوری راست ادائیگی۔' },
+  'landing.live': { en: 'Live mandi snapshot', ur: 'منڈی کا تازہ حال' },
+  'landing.mandiToday': { en: '{mandi} today', ur: 'آج {mandi}' },
+  'landing.mandiSub': { en: 'Public, verified wholesale clearing prices.', ur: 'عوامی، تصدیق شدہ ہول سیل ریٹ۔' },
+  'landing.volume': { en: 'Today’s volume', ur: 'آج کا مال' },
+  'landing.tonnes': { en: '{count} tonnes', ur: '{count} ٹن' },
+  'landing.auctions': { en: 'Active auctions', ur: 'جاری بولیاں' },
+  'landing.live.count': { en: '{count} live', ur: '{count} لائیو' },
+  'landing.perKg': { en: 'per kg', ur: 'فی کلو' },
+  'landing.noPrices': { en: 'No clearing prices recorded for this mandi yet.', ur: 'اس منڈی کے ریٹ ابھی درج نہیں ہوئے۔' },
+  'landing.privacy': { en: 'No private farmer earnings or debt data is ever shown publicly.', ur: 'کسی کسان کی ذاتی کمائی یا قرض کبھی عوامی طور پر نہیں دکھایا جاتا۔' },
+  'landing.allMandis': { en: 'See all mandis', ur: 'تمام منڈیاں دیکھیں' },
+  'landing.whyTitle': { en: 'Why AgriConnect', ur: 'ایگری کنیکٹ کیوں' },
+  'landing.whySub': { en: 'Built for how Pakistan’s mandis really work.', ur: 'پاکستان کی منڈیوں کے اصل طریقے کے مطابق۔' },
+  'landing.why1.title': { en: 'Transparent pricing', ur: 'شفاف قیمتیں' },
+  'landing.why1.text': { en: 'Open bidding removes hidden cuts. Every deduction is listed on a verified parchee.', ur: 'کھلی بولی سے چھپی کٹوتیاں ختم۔ ہر کٹوتی تصدیق شدہ پرچی پر لکھی ہوتی ہے۔' },
+  'landing.why2.title': { en: 'Verified transactions', ur: 'تصدیق شدہ لین دین' },
+  'landing.why2.text': { en: 'The mandi weighbridge confirms the exact weight before payment. Settled by SBP Raast.', ur: 'ادائیگی سے پہلے منڈی کا کانٹا صحیح وزن کی تصدیق کرتا ہے۔ ادائیگی ایس بی پی راست سے۔' },
+  'landing.why3.title': { en: 'A helper that listens', ur: 'سننے والا مددگار' },
+  'landing.why3.text': { en: 'Ask in Urdu or English, by voice. List a crop or check rates without typing.', ur: 'اردو یا انگریزی میں بول کر پوچھیں۔ لکھے بغیر فصل درج کریں یا ریٹ دیکھیں۔' },
+  'landing.whoTitle': { en: 'Made for everyone in the chain', ur: 'پوری زنجیر کے ہر فرد کے لیے' },
+  'landing.whoSub': { en: 'Each person sees only what is theirs.', ur: 'ہر شخص صرف اپنا حساب دیکھتا ہے۔' },
+  'landing.who1.title': { en: 'Farmer', ur: 'کسان' },
+  'landing.who1.text': { en: 'List crops, compare mandi returns, watch offers and get Raast payments.', ur: 'فصل درج کریں، منڈی ریٹ دیکھیں، آفرز اور راست ادائیگی پائیں۔' },
+  'landing.who2.title': { en: 'Arhti / commission agent', ur: 'آڑھتی / کمیشن ایجنٹ' },
+  'landing.who2.text': { en: 'Manage farmer deals, weigh on the kanta, run auctions and record commission.', ur: 'کسانوں کے سودے، کانٹا، بولی اور کمیشن کا حساب۔' },
+  'landing.who3.title': { en: 'Wholesale buyer', ur: 'ہول سیل خریدار' },
+  'landing.who3.text': { en: 'Find verified grades, bid in live auctions and track arriving trucks.', ur: 'تصدیق شدہ مال ڈھونڈیں، لائیو بولی دیں اور ٹرک دیکھیں۔' },
+  'landing.who4.title': { en: 'Shopkeeper and customer', ur: 'دکاندار اور گاہک' },
+  'landing.who4.text': { en: 'Buy daily wholesale stock, sell to nearby customers, every item traced to the farm.', ur: 'روز ہول سیل مال خریدیں، قریبی گاہکوں کو بیچیں، ہر چیز کھیت تک ٹریس۔' },
+  'landing.endTitle': { en: 'Your next harvest deserves a fair price.', ur: 'آپ کی اگلی فصل جائز قیمت کی حقدار ہے۔' },
+  'landing.cta2': { en: 'Create my free account', ur: 'مفت اکاؤنٹ بنائیں' },
+  'landing.free': { en: 'Free for farmers · works in Urdu and English', ur: 'کسانوں کے لیے مفت · اردو اور انگریزی میں' },
+  'landing.raast': { en: 'SBP Raast integrated', ur: 'ایس بی پی راست سے منسلک' },
+  'landing.pilot': { en: 'Pakistan Digital Mandi Operating System · Swabi to Islamabad pilot network', ur: 'پاکستان ڈیجیٹل منڈی نظام · صوابی تا اسلام آباد تجرباتی نیٹ ورک' },
+  'landing.scale': { en: 'Verified mandi scale', ur: 'تصدیق شدہ کانٹا' },
+  'landing.pricing': { en: 'Transparent pricing', ur: 'شفاف قیمتیں' },
+
+  /* Login ------------------------------------------------------------------ */
+  'login.side': { en: 'A fair price for every kilo you grow.', ur: 'اپنی ہر کلو فصل کی جائز قیمت پائیں۔' },
+  'login.sideSub': { en: 'Verified mandi scale · SBP Raast payments', ur: 'تصدیق شدہ منڈی کانٹا · ایس بی پی راست ادائیگی' },
+  'login.backHome': { en: 'Back to home', ur: 'واپس ہوم پیج' },
+  'login.welcome': { en: 'Welcome back', ur: 'خوش آمدید' },
+  'login.sub': { en: 'Sign in to your account', ur: 'اپنے اکاؤنٹ میں داخل ہوں' },
+  'login.email': { en: 'Email', ur: 'ای میل' },
+  'login.password': { en: 'Password', ur: 'پاس ورڈ' },
+  'login.show': { en: 'Show', ur: 'دکھائیں' },
+  'login.hide': { en: 'Hide', ur: 'چھپائیں' },
+  'login.showAria': { en: 'Show password', ur: 'پاس ورڈ دکھائیں' },
+  'login.hideAria': { en: 'Hide password', ur: 'پاس ورڈ چھپائیں' },
+  'login.signIn': { en: 'Sign in', ur: 'داخل ہوں' },
+  'login.signingIn': { en: 'Signing in…', ur: 'داخل ہو رہے ہیں…' },
+  'login.demo': { en: 'Demo accounts, password', ur: 'ڈیمو اکاؤنٹ، پاس ورڈ' },
+  'login.demoAria': { en: 'Fill in a demo account', ur: 'ڈیمو اکاؤنٹ بھریں' },
+  'login.invalid': { en: 'Invalid email or password. Try a demo account.', ur: 'ای میل یا پاس ورڈ درست نہیں۔ ڈیمو اکاؤنٹ آزمائیں۔' },
+  'login.unavailable': { en: 'Unable to sign in right now. Please try again.', ur: 'ابھی لاگ ان نہیں ہو سکا۔ دوبارہ کوشش کریں۔' },
+  'login.demo.FARMER': { en: 'Farmer', ur: 'کسان' },
+  'login.demo.ARHTI': { en: 'Arhti', ur: 'آڑھتی' },
+  'login.demo.VENDOR': { en: 'Vendor', ur: 'تھوک فروش' },
+  'login.demo.SHOPKEEPER': { en: 'Shopkeeper', ur: 'دکاندار' },
+  'login.demo.CONSUMER': { en: 'Consumer', ur: 'صارف' },
+  'login.demo.ADMIN': { en: 'Admin', ur: 'ایڈمن' },
 
   /* AI hints in the sidebar (per role) ------------------------------------- */
   'aiHint.FARMER': {
@@ -1327,6 +1457,12 @@ export const NAV_LABELS: Record<string, string> = {
   Console: 'پینل',
   Trace: 'ٹریس',
   Insights: 'رپورٹ',
+  Kanta: 'کانٹا',
+  Warehouse: 'گودام',
+  'My shop': 'میری دکان',
+  'Buy stock': 'مال خریدیں',
+  Prices: 'قیمتیں',
+  More: 'مزید',
   'Add Crop Batch': 'فصل شامل کریں',
   'Post Buy Request': 'طلب لگائیں',
   'List Wholesale Offer': 'آفر لگائیں',
@@ -1340,6 +1476,7 @@ export const NAV_LABELS: Record<string, string> = {
 /** Same English label, different Urdu for one role ("Stock"). */
 export const NAV_ROLE_LABELS: Record<string, string> = {
   'SHOPKEEPER:Stock': 'اسٹاک',
+  'CONSUMER:Shop': 'خریداری',
 };
 
 export const NAV_SECTIONS: Record<string, string> = {

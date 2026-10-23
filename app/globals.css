@@ -2,19 +2,73 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design tokens (redesign v2). Light is the default; the header toggle sets
+ * data-theme="dark" on <html>. 60% paper / 30% forest + sage / 10% gold:
+ * gold only for primary buttons, active states and key totals; the gradient
+ * only for the header, the landing hero and one hero block per dashboard.
+ */
 @layer base {
   :root {
-    --natural-bg: #F8F9F5;
-    --natural-card: #FFFFFF;
-    --natural-text: #2D3436;
-    --natural-muted: #636E72;
-    --natural-border: #E5E7EB;
-    --natural-primary: #1B4332;
-    --natural-primary-hover: #143326;
-    --natural-tint: #E8F3EE;
-    --natural-tint-border: #B7D4C8;
-    --natural-accent: #2D5A47;
-    --natural-chip: #F2F4F7;
+    --bg: #F7F5EE;
+    --sf: #FFFFFF;
+    --sg: #E6EFE3;
+    --ln: #D8E3D3;
+    --fo: #0F3D2E;
+    --ink: #16251D;
+    --mu: #4C5C53;
+    --gd: #E8A33D;
+    --og: #241703;
+    --gi: #8A5A0B;
+    --gr: linear-gradient(135deg, #0F3D2E 0%, #17603C 58%, #23804A 100%);
+    --sd: #0F3D2E;
+    --st: #E6EFE3;
+    --sh: 0 1px 2px rgba(15, 61, 46, 0.06), 0 8px 24px -12px rgba(15, 61, 46, 0.2);
+
+    /* Status: always colour + icon + text */
+    --okb: #E2F1E5; --okf: #1B6A39;
+    --wab: #FCEBCC; --waf: #7F4D00;
+    --erb: #FBE3DF; --erf: #A1261A;
+    --inb: #E1EBF8; --inf: #1E4E8A;
+
+    /* Type: English */
+    --fd: var(--font-fraunces), Georgia, serif;
+    --fb: var(--font-jakarta), system-ui, sans-serif;
+    --hs: 1;
+    --hl: 1.12;
+    --bl: 1.5;
+
+    color-scheme: light;
+  }
+
+  :root[data-theme='dark'] {
+    --bg: #0B1A14;
+    --sf: #13261D;
+    --sg: #183126;
+    --ln: #24402F;
+    --fo: #9FD8B1;
+    --ink: #EAF1EB;
+    --mu: #A6B8AD;
+    --gi: #F0B65A;
+    --gr: linear-gradient(135deg, #0D2E22 0%, #134A33 58%, #1B6942 100%);
+    --sd: #0F2219;
+    --st: #C9D8CE;
+    --sh: 0 0 0 1px #24402F;
+    --okb: #123824; --okf: #86DBA5;
+    --wab: #3A2A0E; --waf: #F3C46E;
+    --erb: #3E1713; --erf: #F5A399;
+    --inb: #13283F; --inf: #97C1F3;
+    color-scheme: dark;
+  }
+
+  /* Urdu: the whole document is right-to-left. Nastaliq for headings only
+     (smaller, taller lines), Naskh for body text. */
+  html[lang='ur'] {
+    --fd: var(--font-nastaliq), var(--font-naskh), serif;
+    --fb: var(--font-naskh), var(--font-jakarta), sans-serif;
+    --hs: 0.8;
+    --hl: 1.95;
+    --bl: 1.65;
   }
 
   html {
@@ -22,45 +76,247 @@
   }
 
   body {
-    background-color: #F8F9F5;
-    color: #2D3436;
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: var(--fb);
+    line-height: var(--bl);
     -webkit-font-smoothing: antialiased;
+    transition: background-color 0.45s ease, color 0.45s ease;
   }
+
+  html[lang='ur'] h1,
+  html[lang='ur'] h2,
+  html[lang='ur'] h3 {
+    font-family: var(--fd);
+    line-height: var(--hl);
+    font-weight: 700;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible {
+    outline: 3px solid var(--gd);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Headings: Fraunces in English, Nastaliq at 0.8x in Urdu. */
+  .font-display {
+    font-family: var(--fd);
+    line-height: var(--hl);
+    letter-spacing: -0.01em;
+  }
+  html[lang='ur'] .font-display {
+    letter-spacing: 0;
+  }
+  .h-display { font-size: calc(48px * var(--hs)); }
+  .h-page { font-size: calc(32px * var(--hs)); }
+  .h-section { font-size: calc(24px * var(--hs)); }
+  .h-card { font-size: calc(20px * var(--hs)); }
+
+  /* Buttons: icon + label, 48px minimum, 56px for the one primary per screen. */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 0 18px;
+    border-radius: 16px;
+    font-weight: 700;
+    font-size: 15px;
+    line-height: 1.2;
+    transition: transform 0.12s ease, box-shadow 0.2s ease, background-color 0.3s ease, color 0.3s ease;
+    cursor: pointer;
+    text-align: center;
+  }
+  .btn:active:not(:disabled) { transform: scale(0.97); }
+  .btn:disabled { cursor: not-allowed; }
+  .btn-primary { min-height: 56px; background: var(--gd); color: var(--og); box-shadow: 0 10px 22px -12px rgba(232, 163, 61, 0.9); }
+  .btn-primary:hover:not(:disabled) { background: #DD962E; }
+  .btn-secondary { background: var(--sg); color: var(--ink); }
+  .btn-secondary:hover:not(:disabled) { background: color-mix(in srgb, var(--sg) 80%, var(--fo)); }
+  .btn-outline { background: var(--sf); color: var(--ink); border: 1.5px solid var(--ln); }
+  .btn-outline:hover:not(:disabled) { border-color: var(--fo); }
+  .btn-gold-outline { background: transparent; color: var(--gi); border: 1.5px solid var(--gd); }
+  .btn-danger { background: var(--erf); color: #FFFFFF; }
+  :root[data-theme='dark'] .btn-danger { color: #2A0B07; }
+  .btn-disabled,
+  .btn:disabled { background: var(--sg); color: var(--mu); box-shadow: none; opacity: 0.75; }
+  .btn-sm { min-height: 40px; padding: 0 14px; font-size: 14px; border-radius: 12px; }
+
+  /* Inputs: label above, 52px field, 1.5px border, gold focus ring. */
+  .field-input {
+    width: 100%;
+    min-height: 52px;
+    padding: 0 14px;
+    border-radius: 14px;
+    border: 1.5px solid var(--ln);
+    background: var(--sf);
+    color: var(--ink);
+    font-size: 16px;
+    font-weight: 600;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  textarea.field-input { padding: 12px 14px; min-height: 96px; }
+  .field-input::placeholder { color: var(--mu); font-weight: 500; opacity: 0.8; }
+  .field-input:focus { outline: none; border-color: var(--gd); box-shadow: 0 0 0 4px rgba(232, 163, 61, 0.25); }
+  .field-input[aria-invalid='true'] { border-color: var(--erf); background: var(--erb); }
+
+  .card {
+    background: var(--sf);
+    border: 1px solid var(--ln);
+    border-radius: 22px;
+    box-shadow: var(--sh);
+  }
+
+  .hero-gradient {
+    background: var(--gr);
+    color: #FFFFFF;
+    position: relative;
+    overflow: hidden;
+  }
+  /* The bright leaf glow sits only in the far corner, so text keeps 4.9:1. */
+  .hero-gradient::before {
+    content: '';
+    position: absolute;
+    top: -90px;
+    inset-inline-end: -70px;
+    width: 240px;
+    height: 240px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(46, 158, 91, 0.55), rgba(46, 158, 91, 0) 66%);
+    pointer-events: none;
+  }
+  .hero-gradient > * { position: relative; }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+  .tabular { font-variant-numeric: tabular-nums; }
+  .pb-safe { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+}
+
+/* Motion: explains change, never decorates. Only opacity and transform, so it
+   stays light on cheap phones; all of it switches off under reduced motion. */
+@keyframes acUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes acGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes acFill { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes acPulse {
+  0% { box-shadow: 0 0 0 0 rgba(232, 163, 61, 0.6); }
+  70% { box-shadow: 0 0 0 12px rgba(232, 163, 61, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(232, 163, 61, 0); }
+}
+@keyframes acPop { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes acFlash { 0% { background-color: rgba(232, 163, 61, 0.5); } 100% { background-color: transparent; } }
+@keyframes acShake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+@keyframes acDrive { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(6px); } }
+@keyframes acSheet { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes acFade { from { opacity: 0; } to { opacity: 1; } }
+
+.ac-up { animation: acUp 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.ac-d1 { animation-delay: 0.08s; }
+.ac-d2 { animation-delay: 0.16s; }
+.ac-d3 { animation-delay: 0.24s; }
+.ac-d4 { animation-delay: 0.32s; }
+.ac-d5 { animation-delay: 0.4s; }
+.ac-grow { transform-origin: left center; animation: acGrow 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) 0.2s both; }
+[dir='rtl'] .ac-grow { transform-origin: right center; }
+.ac-fill { transform-origin: top center; animation: acFill 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) 0.2s both; }
+.ac-pulse { animation: acPulse 1.8s ease-out infinite; }
+.ac-pop { animation: acPop 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.ac-flash { animation: acFlash 1.6s ease-out both; }
+.ac-shake { animation: acShake 0.45s ease both; }
+.ac-drive { animation: acDrive 1.6s ease-in-out infinite; }
+.ac-sheet { animation: acSheet 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.ac-fade { animation: acFade 0.2s ease both; }
+.ac-press { transition: transform 0.12s ease, box-shadow 0.2s ease, background-color 0.3s ease; }
+.ac-press:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /*
- * Urdu mode (language toggle in the header). Nastaliq script needs a taller
- * line height and slightly larger small text to stay readable. Kept outside
- * the Tailwind layers so it overrides the leading-* and text-[..px] utilities.
+ * Urdu small text: pages not yet redesigned use 9-11px text, which is too
+ * small for Naskh. Batch and deal numbers stay in a Latin monospace font.
  */
-.urdu-mode {
-  font-family: var(--font-urdu), 'Noto Nastaliq Urdu', serif;
-}
-
-.urdu-mode,
-.urdu-mode * {
-  line-height: 2;
-}
-
-.urdu-mode .text-\[9px\],
-.urdu-mode .text-\[10px\],
-.urdu-mode .text-\[11px\] {
+html[lang='ur'] .text-\[9px\],
+html[lang='ur'] .text-\[10px\],
+html[lang='ur'] .text-\[11px\] {
   font-size: 12px;
 }
 
-.urdu-mode .text-xs {
+html[lang='ur'] .text-xs {
   font-size: 13px;
 }
 
-/* Batch and deal numbers stay in a Latin monospace font. */
-.urdu-mode .font-mono {
+/* Latin text inside Urdu pages (emails, phone numbers, passwords) keeps the
+   English body font instead of Naskh's Latin letters. */
+html[lang='ur'] [dir='ltr'] {
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+}
+
+html[lang='ur'] .font-mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   line-height: 1.6;
 }
+
+/*
+ * TEMPORARY (redesign phases 1-3): pages not yet redesigned still use the old
+ * hard-coded colours. These rules map them onto the dark tokens so those pages
+ * stay readable in dark mode. Remove each rule once no page uses the class.
+ */
+:root[data-theme='dark'] .bg-white,
+:root[data-theme='dark'] .bg-white\/50 { background-color: var(--sf); }
+:root[data-theme='dark'] .bg-surface,
+:root[data-theme='dark'] .bg-\[\#F8F9F5\],
+:root[data-theme='dark'] .bg-\[\#F8FAF7\],
+:root[data-theme='dark'] .bg-\[\#F8FBF8\],
+:root[data-theme='dark'] .bg-\[\#F5F7F3\] { background-color: var(--bg); }
+:root[data-theme='dark'] .bg-\[\#F2F4F7\],
+:root[data-theme='dark'] .bg-\[\#E8F3EE\],
+:root[data-theme='dark'] .bg-\[\#E8F3EE\]\/60,
+:root[data-theme='dark'] .bg-agri-50,
+:root[data-theme='dark'] .bg-agri-100 { background-color: var(--sg); }
+:root[data-theme='dark'] .text-charcoal,
+:root[data-theme='dark'] .text-\[\#2D3436\] { color: var(--ink); }
+:root[data-theme='dark'] .text-\[\#636E72\] { color: var(--mu); }
+:root[data-theme='dark'] .text-agri-900,
+:root[data-theme='dark'] .text-agri-800,
+:root[data-theme='dark'] .text-agri-700 { color: var(--fo); }
+:root[data-theme='dark'] .border-\[\#E5E7EB\],
+:root[data-theme='dark'] .border-\[\#B7D4C8\],
+:root[data-theme='dark'] .border-\[\#D9E2DC\] { border-color: var(--ln); }
+:root[data-theme='dark'] .bg-agri-900 { background-color: #17603C; }
+:root[data-theme='dark'] .bg-agri-800,
+:root[data-theme='dark'] .hover\:bg-agri-800:hover { background-color: #1B6942; }
+:root[data-theme='dark'] .bg-red-50,
+:root[data-theme='dark'] .bg-rose-50 { background-color: var(--erb); }
+:root[data-theme='dark'] .text-red-700,
+:root[data-theme='dark'] .text-rose-700 { color: var(--erf); }
+:root[data-theme='dark'] .bg-amber-50,
+:root[data-theme='dark'] .bg-amber-100 { background-color: var(--wab); }
+:root[data-theme='dark'] .text-amber-700,
+:root[data-theme='dark'] .text-amber-800,
+:root[data-theme='dark'] .text-amber-900 { color: var(--waf); }
+:root[data-theme='dark'] .border-amber-200,
+:root[data-theme='dark'] .border-red-200,
+:root[data-theme='dark'] .border-rose-200 { border-color: var(--ln); }
+:root[data-theme='dark'] .hover\:bg-\[\#F8F9F5\]:hover,
+:root[data-theme='dark'] .hover\:bg-\[\#E8F3EE\]:hover,
+:root[data-theme='dark'] .hover\:bg-\[\#E5E7EB\]:hover,
+:root[data-theme='dark'] .hover\:bg-\[\#F8FBF8\]:hover { background-color: var(--sg); }
+:root[data-theme='dark'] input:not(.field-input),
+:root[data-theme='dark'] select:not(.field-input),
+:root[data-theme='dark'] textarea:not(.field-input) { background-color: var(--sf); color: var(--ink); }

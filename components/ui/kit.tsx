@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import Icon, { type IconName } from '@/components/ui/Icon';
 
 /**
  * Page title. `title` is already in the chosen language; `titleUrdu` is no
@@ -16,12 +17,10 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
-      <div>
-        <h1 className="text-xl font-bold text-charcoal flex items-center gap-2">
-          {title}
-        </h1>
-        {subtitle && <p className="text-xs text-[#636E72] mt-1 max-w-2xl">{subtitle}</p>}
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div className="min-w-0">
+        <h1 className="font-display h-page font-semibold text-ink">{title}</h1>
+        {subtitle && <p className="mt-1.5 max-w-2xl text-sm text-muted">{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -38,9 +37,7 @@ export function Card({
   padded?: boolean;
 }) {
   return (
-    <div
-      className={`bg-white border border-[#E5E7EB] rounded-2xl shadow-sm ${padded ? 'p-4' : ''} ${className}`}
-    >
+    <div className={`card ${padded ? 'p-4 sm:p-5' : ''} ${className}`}>
       {children}
     </div>
   );
@@ -57,40 +54,48 @@ export function StatCard({
   hint?: string;
   tone?: 'default' | 'accent' | 'warn';
 }) {
-  const toneClass =
-    tone === 'accent'
-      ? 'text-agri-900'
-      : tone === 'warn'
-        ? 'text-amber-700'
-        : 'text-charcoal';
+  const toneClass = tone === 'accent' ? 'text-goldtext' : tone === 'warn' ? 'text-warn-fg' : 'text-ink';
   return (
-    <div className="bg-white border border-[#E5E7EB] rounded-2xl p-4 shadow-sm">
-      <div className="text-[10px] uppercase tracking-wider text-[#636E72] font-bold">{label}</div>
-      <div className={`text-xl font-bold mt-1 ${toneClass}`}>{value}</div>
-      {hint && <div className="text-[10px] text-[#636E72] mt-0.5">{hint}</div>}
+    <div className="rounded-2xl bg-sage p-4">
+      <div className="text-[12.5px] font-bold text-muted">{label}</div>
+      <div className={`tabular mt-1 text-[22px] font-extrabold leading-tight ${toneClass}`}>{value}</div>
+      {hint && <div className="mt-1 text-xs text-muted">{hint}</div>}
     </div>
   );
 }
 
+const BADGE_TONES = {
+  neutral: { className: 'bg-sage text-ink', icon: null },
+  green: { className: 'bg-ok-bg text-ok-fg', icon: 'checkcircle' },
+  amber: { className: 'bg-warn-bg text-warn-fg', icon: 'clock' },
+  red: { className: 'bg-err-bg text-err-fg', icon: 'alert' },
+  info: { className: 'bg-info-bg text-info-fg', icon: 'info' },
+  live: { className: 'bg-gold text-ongold', icon: null },
+} satisfies Record<string, { className: string; icon: IconName | null }>;
+
+/** Status is never shown by colour alone: colour + icon + word. */
 export function Badge({
   children,
   tone = 'neutral',
+  icon,
+  big = false,
 }: {
   children: ReactNode;
-  tone?: 'neutral' | 'green' | 'amber' | 'red' | 'live';
+  tone?: keyof typeof BADGE_TONES;
+  icon?: IconName;
+  big?: boolean;
 }) {
-  const map = {
-    neutral: 'bg-[#F2F4F7] text-[#636E72] border-[#E5E7EB]',
-    green: 'bg-[#E8F3EE] text-agri-900 border-[#B7D4C8]',
-    amber: 'bg-amber-50 text-amber-700 border-amber-200',
-    red: 'bg-red-50 text-red-700 border-red-200',
-    live: 'bg-agri-900 text-white border-agri-900 animate-pulse',
-  };
+  const style = BADGE_TONES[tone];
+  const iconName = icon ?? style.icon;
   return (
     <span
-      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase tracking-wide ${map[tone]}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full font-bold leading-none ${
+        big ? 'h-[34px] px-3 text-sm' : 'h-7 px-2.5 text-[12.5px]'
+      } ${style.className}`}
     >
-      {children}
+      {tone === 'live' && <span className="ac-pulse h-2 w-2 shrink-0 rounded-full bg-current" aria-hidden="true" />}
+      {iconName && <Icon name={iconName} size={big ? 17 : 15} stroke={2.4} />}
+      <span>{children}</span>
     </span>
   );
 }
@@ -107,14 +112,15 @@ export function EmptyState({
   actionLabel?: string;
 }) {
   return (
-    <div className="bg-white border border-dashed border-[#E5E7EB] rounded-2xl p-8 text-center">
-      <div className="text-sm font-semibold text-charcoal">{title}</div>
-      <p className="text-xs text-[#636E72] mt-1.5 max-w-md mx-auto">{message}</p>
+    <div className="rounded-card border-[1.5px] border-dashed border-line bg-sf px-6 py-10 text-center">
+      <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sage text-forest">
+        <Icon name="sprout" size={28} />
+      </span>
+      <div className="mt-4 font-display h-card font-semibold text-ink">{title}</div>
+      <p className="mx-auto mt-2 max-w-md text-sm text-muted">{message}</p>
       {actionHref && actionLabel && (
-        <Link
-          href={actionHref}
-          className="inline-flex mt-4 bg-agri-900 hover:bg-agri-800 text-white text-xs font-semibold px-4 py-2 rounded-xl"
-        >
+        <Link href={actionHref} className="btn btn-secondary mt-5">
+          <Icon name="arrowright" size={18} />
           {actionLabel}
         </Link>
       )}
@@ -138,13 +144,13 @@ export function CropThumb({
       <img
         src={imageUrl}
         alt={name}
-        className={`${dim} rounded-xl object-cover border border-[#E5E7EB] shrink-0 bg-[#F8F9F5]`}
+        className={`${dim} shrink-0 rounded-xl border border-line bg-sage object-cover`}
       />
     );
   }
   return (
     <div
-      className={`${dim} rounded-xl bg-[#F8F9F5] border border-[#E5E7EB] flex items-center justify-center shrink-0`}
+      className={`${dim} flex shrink-0 items-center justify-center rounded-xl border border-line bg-sage`}
     >
       {cropEmoji(name)}
     </div>

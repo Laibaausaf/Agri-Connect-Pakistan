@@ -2,8 +2,8 @@
 
 import { useActionState } from 'react';
 import type { ReactNode } from 'react';
-import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useI18n } from '@/components/i18n/LanguageProvider';
+import Icon from '@/components/ui/Icon';
 
 export type ActionResult = { error?: string; success?: boolean } | null | undefined | void;
 
@@ -21,10 +21,10 @@ type Props = {
 };
 
 const variants = {
-  primary: 'bg-agri-900 hover:bg-agri-800 text-white',
-  secondary: 'bg-[#F2F4F7] hover:bg-[#E5E7EB] text-charcoal border border-[#E5E7EB]',
-  danger: 'bg-red-600 hover:bg-red-700 text-white',
-  inline: 'bg-agri-900 hover:bg-agri-800 text-white',
+  primary: 'btn-primary',
+  secondary: 'btn-secondary',
+  danger: 'btn-danger',
+  inline: 'btn-secondary btn-sm',
 };
 
 /**
@@ -48,7 +48,7 @@ export default function ActionForm({
     null
   );
 
-  const { isUrdu, error: errorText } = useI18n();
+  const { isUrdu, errorList, plural } = useI18n();
   const isInline = variant === 'inline';
 
   // One language at a time: the Urdu label (if given) only in Urdu mode.
@@ -62,15 +62,10 @@ export default function ActionForm({
         ))}
       {children}
 
-      {state?.error && (
-        <div className="mt-3 p-2.5 rounded-lg bg-red-50 text-red-700 text-xs flex items-start gap-2">
-          <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-          {errorText(state.error)}
-        </div>
-      )}
+      {state?.error && <FixList items={errorList(state.error)} title={plural('form.fix', errorList(state.error).length)} />}
       {state?.success && successMessage && (
-        <div className="mt-3 p-2.5 rounded-lg bg-[#E8F3EE] text-agri-900 text-xs flex items-start gap-2">
-          <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+        <div role="status" className="ac-up mt-3 flex items-start gap-2 rounded-2xl bg-ok-bg p-3 text-sm font-semibold text-ok-fg">
+          <Icon name="checkcircle" size={18} className="mt-0.5" />
           {successMessage}
         </div>
       )}
@@ -79,14 +74,31 @@ export default function ActionForm({
         type="submit"
         disabled={pending || disabled}
         title={disabled ? disabledReason : undefined}
-        className={`${isInline ? 'mt-2 px-3 py-1.5 text-[11px]' : 'mt-4 w-full py-2.5 text-xs'} ${
-          variants[variant]
-        } font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+        className={`btn ${isInline ? 'mt-2' : 'mt-4 w-full'} ${variants[variant]}`}
       >
-        {pending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+        {pending && <Icon name="refresh" size={18} className="animate-spin" />}
         {label}
       </button>
     </form>
+  );
+}
+
+/** "N things to fix" summary for a form, one line per problem. */
+export function FixList({ items, title }: { items: string[]; title: string }) {
+  return (
+    <div role="alert" className="ac-shake mt-3 rounded-2xl border-[1.5px] border-err-fg bg-err-bg p-3 text-err-fg">
+      <div className="flex items-center gap-2 text-sm font-extrabold">
+        <Icon name="alert" size={18} />
+        {title}
+      </div>
+      <ul className="mt-1.5 space-y-1 ps-7 text-sm font-semibold">
+        {items.map((item, i) => (
+          <li key={i} className="list-disc">
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -104,14 +116,11 @@ export function Field({
   const { isUrdu } = useI18n();
   return (
     <label className="block">
-      <span className="block text-[11px] font-semibold text-charcoal mb-1">
-        {isUrdu && labelUrdu ? labelUrdu : label}
-      </span>
+      <span className="mb-1.5 block text-sm font-bold text-ink">{isUrdu && labelUrdu ? labelUrdu : label}</span>
       {children}
-      {hint && <span className="block text-[10px] text-[#636E72] mt-1">{hint}</span>}
+      {hint && <span className="mt-1.5 block text-[13px] text-muted">{hint}</span>}
     </label>
   );
 }
 
-export const inputClass =
-  'w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-xs text-charcoal focus:outline-none focus:ring-2 focus:ring-agri-700 bg-white';
+export const inputClass = 'field-input';
