@@ -166,6 +166,7 @@ export const UI = {
   'login.side': { en: 'A fair price for every kilo you grow.', ur: 'اپنی ہر کلو فصل کی جائز قیمت پائیں۔' },
   'login.sideSub': { en: 'Verified mandi scale · SBP Raast payments', ur: 'تصدیق شدہ منڈی کانٹا · ایس بی پی راست ادائیگی' },
   'login.backHome': { en: 'Back to home', ur: 'واپس ہوم پیج' },
+  'login.home': { en: 'Home', ur: 'ہوم' },
   'login.welcome': { en: 'Welcome back', ur: 'خوش آمدید' },
   'login.sub': { en: 'Sign in to your account', ur: 'اپنے اکاؤنٹ میں داخل ہوں' },
   'login.email': { en: 'Email', ur: 'ای میل' },

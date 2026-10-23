@@ -69,77 +69,87 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-paper text-ink lg:grid lg:grid-cols-[1fr_1.05fr]">
-      {/* Brand panel: a band on phones, a full side on desktop */}
-      <aside className="relative bg-brand text-white lg:flex lg:flex-col lg:justify-between lg:p-12">
-        <BrandGlow />
-        <div className="relative flex items-center justify-between gap-2 px-4 pt-3 lg:hidden">
-          <Link href="/" className="inline-flex h-12 items-center gap-1.5 rounded-xl px-2 text-[15px] font-bold hover:bg-white/10">
+    <div className="min-h-screen bg-paper text-ink lg:grid lg:grid-cols-2">
+      {/* Brand panel: a band on phones, a full side on desktop, over the fields illustration */}
+      <aside className="relative overflow-hidden bg-brand px-4 pb-16 pt-3.5 text-white lg:flex lg:flex-col lg:justify-between lg:px-14 lg:pb-12 lg:pt-10">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/illustrations/fields.svg"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-x-0 bottom-0 h-40 w-full object-cover opacity-[.85] lg:inset-0 lg:h-full lg:opacity-100"
+        />
+        <div aria-hidden="true" className="absolute inset-0 hidden bg-[linear-gradient(180deg,rgba(10,40,29,.55),rgba(10,40,29,.1)_50%,rgba(10,40,29,.7))] lg:block" />
+
+        <div className="relative flex items-center gap-2 lg:hidden">
+          <Link href="/" className="inline-flex h-11 items-center gap-1 px-1.5 text-sm font-bold">
             <Icon name="arrowleft" size={20} />
-            {t('login.backHome')}
+            {t('login.home')}
           </Link>
-          <div className="flex items-center gap-2">
-            <LanguageToggle compact />
-            <ThemeToggle compact />
-          </div>
+          <span className="flex-1" />
+          <LanguageToggle compact />
+          <ThemeToggle compact />
         </div>
-        <Link href="/" className="relative flex flex-col items-center gap-2 pb-12 pt-5 lg:flex-row lg:gap-3 lg:p-0">
-          <span className="inline-flex h-[60px] w-[60px] items-center justify-center rounded-2xl bg-gold text-ongold lg:h-12 lg:w-12 lg:rounded-[14px]">
+
+        <Link href="/" className="relative flex flex-col items-center gap-2.5 pt-7 text-center lg:flex-row lg:gap-3 lg:pt-0">
+          <span className="inline-flex h-[60px] w-[60px] items-center justify-center rounded-[18px] bg-gold text-ongold lg:h-12 lg:w-12 lg:rounded-[14px]">
             <Icon name="sprout" size={30} />
           </span>
-          <span className="text-[22px] font-extrabold">{t('header.brand')}</span>
+          <span className="text-xl font-extrabold leading-none lg:text-[22px]">{t('header.brand')}</span>
         </Link>
-        <div className="relative hidden lg:block">
-          <p className="font-display h-page max-w-md font-semibold">{t('login.side')}</p>
-          <p className="mt-3 flex items-center gap-2 text-sm font-bold text-[#D6E6D9]">
-            <Icon name="shield" size={16} />
+
+        <div className="relative hidden max-w-[520px] flex-col gap-4 lg:flex">
+          <p className="font-display h-display font-semibold">{t('login.side')}</p>
+          <p className="flex items-center gap-2.5 text-[15px] font-bold text-sage">
+            <Icon name="shield" size={18} />
             {t('login.sideSub')}
           </p>
         </div>
       </aside>
 
-      <main className="relative -mt-8 px-4 pb-10 lg:mt-0 lg:flex lg:flex-col lg:px-12 lg:py-8">
-        <div className="hidden items-center justify-between lg:flex">
-          <Link href="/" className="inline-flex h-12 items-center gap-1.5 rounded-xl px-2 text-[15px] font-bold hover:bg-sage">
+      <main className="relative flex flex-col px-4 pb-10 lg:px-[72px] lg:py-8">
+        <div className="hidden items-center gap-2.5 lg:flex">
+          <Link href="/" className="inline-flex min-h-12 items-center gap-1.5 text-[15px] font-bold">
             <Icon name="arrowleft" size={20} />
             {t('login.backHome')}
           </Link>
-          <div className="flex items-center gap-2">
-            <LanguageToggle compact tone="paper" />
-            <ThemeToggle compact tone="paper" />
-          </div>
+          <span className="flex-1" />
+          <LanguageToggle tone="paper" />
+          <ThemeToggle tone="paper" />
         </div>
 
-        <div className="card ac-up mx-auto w-full max-w-md p-5 sm:p-7 lg:my-auto lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
-          <h1 className="font-display h-page text-center font-semibold lg:text-start">{t('login.welcome')}</h1>
-          <p className="mt-1.5 text-center text-muted lg:text-start">{t('login.sub')}</p>
+        <div className="ac-up relative mx-auto -mt-10 flex w-full max-w-md flex-col gap-[18px] rounded-[28px] bg-sf px-5 py-[26px] shadow-[0_20px_40px_-24px_rgba(15,61,46,.5)] lg:my-auto lg:max-w-[460px] lg:gap-5 lg:rounded-none lg:bg-transparent lg:p-0 lg:shadow-none">
+          <div className="flex flex-col gap-1.5 text-center lg:text-start">
+            <h1 className="font-display text-[calc(30px*var(--hs))] font-semibold leading-[var(--hl)] lg:text-[calc(40px*var(--hs))]">{t('login.welcome')}</h1>
+            <p className="text-[15.5px] text-muted lg:text-base">{t('login.sub')}</p>
+          </div>
 
           {error && (
-            <div role="alert" className="ac-shake mt-5 flex items-start gap-2.5 rounded-2xl bg-err-bg p-3.5 text-sm font-bold text-err-fg">
-              <Icon name="alert" size={18} className="mt-0.5" />
+            <div role="alert" className="ac-shake flex items-start gap-2.5 rounded-2xl bg-err-bg p-3.5 text-[14.5px] font-bold text-err-fg lg:items-center lg:px-4 lg:text-[15px]">
+              <Icon name="alert" size={20} className="mt-0.5 lg:mt-0" />
               {ERROR_KEYS[error] ? t(ERROR_KEYS[error]) : error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-            <label className="block">
-              <span className="mb-1.5 flex items-center gap-1.5 text-sm font-bold">
-                <Icon name="mail" size={16} />
+          <form onSubmit={handleSubmit} className="flex flex-col gap-[18px] lg:gap-5">
+            <label className="flex flex-col gap-2">
+              <span className="flex items-center gap-2 text-[15px] font-bold">
+                <Icon name="mail" size={18} />
                 {t('login.email')}
               </span>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="field-input bg-paper"
+                className="field-input h-14 rounded-2xl bg-paper lg:bg-sf"
                 dir="ltr"
                 autoComplete="username"
                 required
               />
             </label>
-            <label className="block">
-              <span className="mb-1.5 flex items-center gap-1.5 text-sm font-bold">
-                <Icon name="lock" size={16} />
+            <label className="flex flex-col gap-2">
+              <span className="flex items-center gap-2 text-[15px] font-bold">
+                <Icon name="lock" size={18} />
                 {t('login.password')}
               </span>
               <span className="relative block" dir="ltr">
@@ -147,7 +157,7 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="field-input bg-paper pe-28"
+                  className="field-input h-14 rounded-2xl bg-paper pe-28 lg:bg-sf"
                   autoComplete="current-password"
                   required
                 />
@@ -156,24 +166,24 @@ export default function LoginPage() {
                   onClick={() => setShowPassword((shown) => !shown)}
                   aria-label={t(showPassword ? 'login.hideAria' : 'login.showAria')}
                   aria-pressed={showPassword}
-                  className="absolute end-1.5 top-1/2 inline-flex h-10 -translate-y-1/2 items-center gap-1.5 rounded-[10px] bg-sage px-3 text-[13px] font-bold"
+                  className="absolute end-1.5 top-1/2 inline-flex h-11 -translate-y-1/2 items-center gap-1.5 rounded-xl bg-sage px-2.5 text-[13px] font-bold text-ink lg:px-3"
                 >
                   <Icon name="eye" size={16} />
                   {t(showPassword ? 'login.hide' : 'login.show')}
                 </button>
               </span>
             </label>
-            <button type="submit" disabled={loading} className="btn btn-primary w-full">
+            <button type="submit" disabled={loading} className="btn btn-primary h-[58px] w-full rounded-[18px] text-[17px] font-extrabold">
               <Icon name={loading ? 'refresh' : 'lock'} size={20} className={loading ? 'animate-spin' : ''} />
               {loading ? t('login.signingIn') : t('login.signIn')}
             </button>
           </form>
 
-          <div className="mt-6 border-t border-line pt-5">
-            <p className="text-center text-sm text-muted">
-              {t('login.demo')} <span className="font-bold text-ink" dir="ltr">demo123</span>
+          <div className="flex flex-col gap-2.5 border-t border-line pt-4">
+            <p className="text-center text-sm text-muted lg:text-start">
+              {t('login.demo')} <strong className="font-[family-name:var(--font-jakarta)] text-ink" dir="ltr">demo123</strong>
             </p>
-            <div className="mt-3 grid grid-cols-3 gap-2" role="group" aria-label={t('login.demoAria')}>
+            <div className="grid grid-cols-3 gap-2 lg:grid-cols-6" role="group" aria-label={t('login.demoAria')}>
               {DEMO_ACCOUNTS.map((account) => {
                 const selected = email === account.email;
                 return (
@@ -182,7 +192,7 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => setEmail(account.email)}
                     aria-pressed={selected}
-                    className={`ac-press flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[13px] font-bold ${
+                    className={`ac-press flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[13px] font-extrabold lg:rounded-[14px] lg:text-[12.5px] ${
                       selected ? 'bg-forest text-paper' : 'bg-sage text-ink hover:bg-line'
                     }`}
                   >

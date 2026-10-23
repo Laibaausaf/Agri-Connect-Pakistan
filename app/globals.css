@@ -64,8 +64,11 @@
   /* Urdu: the whole document is right-to-left. Nastaliq for headings only
      (smaller, taller lines), Naskh for body text. */
   html[lang='ur'] {
-    --fd: var(--font-nastaliq), var(--font-naskh), serif;
-    --fb: var(--font-naskh), var(--font-jakarta), sans-serif;
+    /* Latin text (names, deal numbers, amounts) uses the English font; it has no
+       Urdu letters and no fallback of its own, so Urdu goes straight to Nastaliq
+       or Naskh (see jakartaLatin in app/fonts.ts). */
+    --fd: var(--font-jakarta-latin), var(--font-nastaliq), var(--font-naskh), serif;
+    --fb: var(--font-jakarta-latin), var(--font-naskh), sans-serif;
     --hs: 0.8;
     --hl: 1.95;
     --bl: 1.65;
