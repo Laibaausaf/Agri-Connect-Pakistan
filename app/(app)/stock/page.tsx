@@ -24,7 +24,7 @@ function firstPhoto(photos: unknown): string | null {
 
 export default async function VendorStockPage() {
   const user = await requireCapability('vendor.stock.manage');
-  const { t, crop, place, status, grade, kg, perKg, money } = await getI18n();
+  const { t, crop, place, status, grade, kg, perKg, money, number } = await getI18n();
 
   const [stocks, profile] = await Promise.all([
     prisma.vendorInventory.findMany({
@@ -36,6 +36,8 @@ export default async function VendorStockPage() {
             saleNumber: true,
             ratePerKg: true,
             quantityKg: true,
+            grossAmount: true,
+            commission: true,
             createdAt: true,
             auction: { select: { auctionNumber: true, arhti: { select: { name: true } } } },
           },
@@ -146,9 +148,9 @@ export default async function VendorStockPage() {
                         <div className="font-semibold text-agri-900">{kg(stock.availableKg)}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('stock.auctionCost')}</div>
+                        <div className="text-[10px] text-[#636E72]">{t('stock.costInclCommission')}</div>
                         <div className="font-semibold text-charcoal">
-                          {perKg(stock.costPerKg)}
+                          {t('common.perKgExact', { amount: number(stock.costPerKg, 2) })}
                         </div>
                       </div>
                       <div>
@@ -157,6 +159,15 @@ export default async function VendorStockPage() {
                           {stock.sale.auction.auctionNumber}
                         </div>
                       </div>
+                    </div>
+                    <div className="text-[11px] text-[#636E72] mt-2">
+                      {t('stock.paidLine', {
+                        paid: money(stock.sale.grossAmount + stock.sale.commission),
+                        value: money(stock.sale.grossAmount),
+                        rate: perKg(stock.sale.ratePerKg),
+                        commission: money(stock.sale.commission),
+                        sale: stock.sale.saleNumber,
+                      })}
                     </div>
                   </div>
                 </div>

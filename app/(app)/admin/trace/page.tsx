@@ -38,7 +38,7 @@ export default async function AdminTracePage({
 }) {
   await requireCapability('admin.trace');
   const { q, batch: batchId } = await searchParams;
-  const { t, isUrdu, crop, place, grade, kg, perKg, dateTime, date, storedText } = await getI18n();
+  const { t, isUrdu, crop, place, grade, kg, perKg, number, dateTime, date, storedText } = await getI18n();
   const when = (value: Date) => dateTime(value, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
   const day = (value: Date) => date(value, { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -63,9 +63,24 @@ export default async function AdminTracePage({
     trace?.chainEvents.find((e) => e.stage === stage && e.pricePerKg !== null)?.pricePerKg ?? null;
 
   const farmGate = priceAt(SupplyChainStage.FARMER_ARHTI_DEAL) ?? priceAt(SupplyChainStage.ARHTI_RECEIPT);
+
+  // The auction price is what the lot sold for; the vendor also paid the
+  // arhti's commission on top, read from the sale itself.
+  const saleEvent = trace?.chainEvents.find((e) => e.stage === SupplyChainStage.ARHTI_VENDOR_SALE && e.refId);
+  const sale = saleEvent?.refId
+    ? await prisma.arhtiVendorSale.findUnique({
+        where: { id: saleEvent.refId },
+        select: { commission: true, quantityKg: true },
+      })
+    : null;
+  const commissionNote =
+    sale && sale.quantityKg > 0 && sale.commission > 0
+      ? t('trace.commissionNote', { amount: number(sale.commission / sale.quantityKg, 2) })
+      : null;
+
   const journey = [
     { label: t('trace.farmGate'), role: t('trace.farmerArhti'), price: farmGate },
-    { label: t('trace.mandiAuction'), role: t('trace.arhtiVendor'), price: priceAt(SupplyChainStage.ARHTI_VENDOR_SALE) },
+    { label: t('trace.mandiAuction'), role: t('trace.arhtiVendor'), price: priceAt(SupplyChainStage.ARHTI_VENDOR_SALE), note: commissionNote },
     { label: t('trace.wholesale'), role: t('trace.vendorShop'), price: priceAt(SupplyChainStage.VENDOR_SHOPKEEPER_SALE) },
     { label: t('trace.retailShelf'), role: t('trace.shopConsumer'), price: priceAt(SupplyChainStage.RETAIL_LISTING) },
   ];
@@ -214,6 +229,9 @@ export default async function AdminTracePage({
                       {step.price !== null ? perKg(step.price) : '—'}
                     </div>
                     <div className="text-[10px] text-[#636E72]">{step.role}</div>
+                    {'note' in step && step.note && (
+                      <div className="text-[10px] text-[#636E72]">{step.note}</div>
+                    )}
                     {markup !== null && markup > 0 && (
                       <div className="text-[10px] text-amber-700 font-semibold mt-0.5">
                         {t('trace.markup', { pct: markup })}

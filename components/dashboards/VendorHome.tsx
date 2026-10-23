@@ -92,7 +92,7 @@ export default async function VendorHome({ userId, name }: { userId: string; nam
     }),
     prisma.arhtiVendorSale.aggregate({
       where: { vendorId: userId },
-      _sum: { grossAmount: true, quantityKg: true },
+      _sum: { grossAmount: true, commission: true, quantityKg: true },
     }),
   ]);
 
@@ -131,7 +131,7 @@ export default async function VendorHome({ userId, name }: { userId: string; nam
         <StatCard
           label={t('vhome.orders')}
           value={String(orders.length)}
-          hint={t('vhome.boughtMandi', { amount: money(spend._sum.grossAmount ?? 0) })}
+          hint={t('vhome.paidMandi', { amount: money((spend._sum.grossAmount ?? 0) + (spend._sum.commission ?? 0)) })}
         />
       </div>
 

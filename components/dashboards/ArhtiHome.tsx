@@ -8,6 +8,8 @@ import {
 } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { getI18n } from '@/lib/i18n/server';
+import { getArhtiEarnings } from '@/lib/earnings';
+import ArhtiEarnings from '@/components/dashboards/ArhtiEarnings';
 import { Badge, Card, CropThumb, StatCard, statusTone } from '@/components/ui/kit';
 
 const INCOMING: DealStatus[] = [
@@ -17,9 +19,10 @@ const INCOMING: DealStatus[] = [
 ];
 
 export default async function ArhtiHome({ userId, name }: { userId: string; name: string }) {
-  const { t, crop, place, status, grade, kg, perKg, money, isUrdu } = await getI18n();
+  const i18n = await getI18n();
+  const { t, crop, place, status, grade, kg, perKg, money, isUrdu } = i18n;
 
-  const [profile, incoming, lots, liveAuctions, freshBatches, openDemand, sales] = await Promise.all([
+  const [profile, incoming, lots, liveAuctions, freshBatches, openDemand, earnings] = await Promise.all([
     prisma.arhtiProfile.findUnique({
       where: { userId },
       select: { businessName: true, commissionRate: true, mandi: { select: { name: true, city: true } } },
@@ -93,10 +96,7 @@ export default async function ArhtiHome({ userId, name }: { userId: string; name
     prisma.arhtiDemandRequest.count({
       where: { arhtiId: userId, status: { in: [DemandStatus.OPEN, DemandStatus.PARTIALLY_FULFILLED] } },
     }),
-    prisma.arhtiVendorSale.aggregate({
-      where: { arhtiId: userId },
-      _sum: { grossAmount: true, commission: true, quantityKg: true },
-    }),
+    getArhtiEarnings(userId),
   ]);
 
   const stockKg = lots.reduce((sum, l) => sum + l.availableQuantityKg, 0);
@@ -119,7 +119,7 @@ export default async function ArhtiHome({ userId, name }: { userId: string; name
         </div>
       </Card>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
         <StatCard
           label={t('ahome.trucks')}
           value={String(incoming.length)}
@@ -133,12 +133,9 @@ export default async function ArhtiHome({ userId, name }: { userId: string; name
           tone="accent"
           hint={t('ahome.openRequests', { count: openDemand })}
         />
-        <StatCard
-          label={t('ahome.commission')}
-          value={money(sales._sum.commission ?? 0)}
-          hint={t('ahome.onSold', { qty: kg(sales._sum.quantityKg ?? 0) })}
-        />
       </div>
+
+      <ArhtiEarnings earnings={earnings} i18n={i18n} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         <Card>

@@ -7,6 +7,7 @@ import { requireCapability } from '@/lib/authz';
 import { can } from '@/lib/permissions';
 import AuctionBidPanel from '@/components/auctions/AuctionBidPanel';
 import { getI18n } from '@/lib/i18n/server';
+import { DEFAULT_COMMISSION_RATE } from '@/lib/commission';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +28,12 @@ export default async function AuctionDetailPage({ params }: { params: Promise<{ 
 
   if (!auction) notFound();
 
+  const arhtiProfile = await prisma.arhtiProfile.findUnique({
+    where: { userId: auction.arhtiId },
+    select: { commissionRate: true },
+  });
+  const commissionRate = arhtiProfile?.commissionRate ?? DEFAULT_COMMISSION_RATE;
+
   const canBid =
     can(user.role, 'vendor.auction.bid') &&
     auction.arhtiId !== user.id &&
@@ -42,7 +49,7 @@ export default async function AuctionDetailPage({ params }: { params: Promise<{ 
         <ArrowLeft className="w-3.5 h-3.5 rtl:-scale-x-100" /> {t('auctions.back')}
       </Link>
 
-      <AuctionBidPanel auction={auction} currentUser={user} canBid={canBid} />
+      <AuctionBidPanel auction={auction} currentUser={user} canBid={canBid} commissionRate={commissionRate} />
     </div>
   );
 }

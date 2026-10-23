@@ -3,6 +3,7 @@ import { AuctionStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
 import { getI18n } from '@/lib/i18n/server';
+import { DEFAULT_COMMISSION_RATE } from '@/lib/commission';
 import {
   Badge,
   Card,
@@ -40,7 +41,7 @@ export default async function AuctionsPage() {
           },
         },
         mandi: { select: { name: true, city: true } },
-        arhti: { select: { name: true } },
+        arhti: { select: { name: true, arhtiProfile: { select: { commissionRate: true } } } },
         bids: {
           orderBy: { amountPerKg: 'desc' },
           take: 1,
@@ -137,6 +138,11 @@ export default async function AuctionsPage() {
                           </div>
                           <div className="font-semibold text-agri-900">
                             {perKg(top?.amountPerKg ?? auction.reservePrice)}
+                          </div>
+                          <div className="text-[10px] text-[#636E72]">
+                            {t('auctions.commission', {
+                              rate: ((auction.arhti.arhtiProfile?.commissionRate ?? DEFAULT_COMMISSION_RATE) * 100).toFixed(1),
+                            })}
                           </div>
                         </div>
                         <div>

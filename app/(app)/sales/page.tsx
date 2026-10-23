@@ -3,6 +3,8 @@ import { SaleStatus, UserRole } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
 import { getI18n } from '@/lib/i18n/server';
+import { getArhtiEarnings } from '@/lib/earnings';
+import ArhtiEarnings from '@/components/dashboards/ArhtiEarnings';
 import {
   Badge,
   Card,
@@ -23,7 +25,9 @@ export default async function SalesPage() {
 }
 
 async function ArhtiSales({ userId }: { userId: string }) {
-  const { t, crop, place, status, grade, kg, perKg, money } = await getI18n();
+  const i18n = await getI18n();
+  const { t, crop, place, status, grade, kg, perKg, money } = i18n;
+  const earnings = await getArhtiEarnings(userId);
   const sales = await prisma.arhtiVendorSale.findMany({
     where: { arhtiId: userId },
     include: {
@@ -49,7 +53,6 @@ async function ArhtiSales({ userId }: { userId: string }) {
 
   const revenue = sales.reduce((sum, s) => sum + s.grossAmount, 0);
   const volume = sales.reduce((sum, s) => sum + s.quantityKg, 0);
-  const commission = sales.reduce((sum, s) => sum + s.commission, 0);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -58,12 +61,13 @@ async function ArhtiSales({ userId }: { userId: string }) {
         subtitle={t('sales.arhtiSubtitle')}
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-3 gap-3 mb-4">
         <StatCard label={t('sales.statSales')} value={String(sales.length)} />
         <StatCard label={t('sales.statVolume')} value={kg(volume)} />
         <StatCard label={t('sales.statRevenue')} value={money(Math.round(revenue))} tone="accent" />
-        <StatCard label={t('sales.statCommission')} value={money(Math.round(commission))} />
       </div>
+
+      <ArhtiEarnings earnings={earnings} i18n={i18n} />
 
       {sales.length === 0 ? (
         <EmptyState
@@ -126,6 +130,12 @@ async function ArhtiSales({ userId }: { userId: string }) {
                           {t('sales.total', { amount: money(Math.round(margin * sale.quantityKg)) })}
                         </div>
                       </div>
+                    </div>
+                    <div className="text-[11px] text-[#636E72] mt-2">
+                      {t('sales.vendorCommission', {
+                        commission: money(sale.commission),
+                        paid: money(sale.grossAmount + sale.commission),
+                      })}
                     </div>
                   </div>
                 </div>

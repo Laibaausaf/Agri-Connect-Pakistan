@@ -253,13 +253,21 @@ async function checkMoneyAndTrust() {
     check(`deal ${d.dealNumber}: farmer was paid the net amount`, !!payment && near(payment.amount, s.netPayable));
   }
 
-  const sales = await prisma.arhtiVendorSale.findMany();
+  const sales = await prisma.arhtiVendorSale.findMany({
+    include: { arhti: { select: { arhtiProfile: { select: { commissionRate: true } } } } },
+  });
   for (const s of sales) {
     check(`sale ${s.saleNumber}: gross = quantity x rate`, near(s.grossAmount, s.quantityKg * s.ratePerKg));
+    const rate = s.arhti.arhtiProfile?.commissionRate ?? 0.02;
+    check(`sale ${s.saleNumber}: commission = gross x arhti's rate`, near(s.commission, s.grossAmount * rate));
+    const stock = await prisma.vendorInventory.findUnique({ where: { saleId: s.id } });
+    check(`sale ${s.saleNumber}: vendor stock cost includes the commission`,
+      !!stock && near(stock.costPerKg, (s.grossAmount + s.commission) / s.quantityKg));
     const payment = await prisma.paymentRecord.findUnique({
       where: { transactionType_transactionId: { transactionType: 'ARHTI_VENDOR', transactionId: s.id } },
     });
-    check(`sale ${s.saleNumber}: payment recorded`, !!payment && near(payment.amount, s.grossAmount));
+    // The vendor pays the auction value plus the arhti's commission on it.
+    check(`sale ${s.saleNumber}: vendor paid value + commission`, !!payment && near(payment.amount, s.grossAmount + s.commission));
   }
 
   const vss = await prisma.vendorShopkeeperSale.findMany();

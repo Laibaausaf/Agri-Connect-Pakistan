@@ -893,6 +893,9 @@ async function main() {
   });
 
   const grossSaleA = kg(4920 * 92); // 452,640
+  // The vendor pays the auction value plus Haji Aslam's 2% commission on it.
+  const commissionSaleA = kg(grossSaleA * 0.02); // 9,052.8
+  const vendorPaysA = kg(grossSaleA + commissionSaleA); // 461,692.8
   const saleA = await prisma.arhtiVendorSale.create({
     data: {
       saleNumber: 'AVS-2025-1001',
@@ -903,7 +906,7 @@ async function main() {
       quantityKg: 4920,
       ratePerKg: 92,
       grossAmount: grossSaleA,
-      commission: kg(grossSaleA * 0.02),
+      commission: commissionSaleA,
       mandiId: islamabad.id,
       status: SaleStatus.COMPLETED,
       createdAt: daysAgo(8),
@@ -914,7 +917,7 @@ async function main() {
     data: {
       transactionType: TransactionType.ARHTI_VENDOR,
       transactionId: saleA.id,
-      amount: grossSaleA,
+      amount: vendorPaysA,
       payerId: vendor.id,
       recipientId: arhti.id,
       status: PaymentStatus.PAID,
@@ -948,7 +951,7 @@ async function main() {
       quantityKg: 4920,
       availableKg: 1920, // 3,000 kg listed on the wholesale shop
       grade: 'A',
-      costPerKg: 92,
+      costPerKg: kg(vendorPaysA / 4920), // Rs 93.84: Rs 92 + 2% commission
       sourceMandiCity: 'Islamabad',
       sourceFarmCity: 'Swabi',
       photos: ['/crops/tomato.png'],
@@ -1529,6 +1532,9 @@ async function main() {
   });
 
   const grossSaleB = kg(7950 * 55); // 437,250
+  // The vendor pays the auction value plus Malik Tanveer's 2.5% commission on it.
+  const commissionSaleB = kg(grossSaleB * 0.025); // 10,931.25
+  const vendorPaysB = kg(grossSaleB + commissionSaleB); // 448,181.25
   const saleB = await prisma.arhtiVendorSale.create({
     data: {
       saleNumber: 'AVS-2025-1002',
@@ -1539,7 +1545,7 @@ async function main() {
       quantityKg: 7950,
       ratePerKg: 55,
       grossAmount: grossSaleB,
-      commission: kg(grossSaleB * 0.025),
+      commission: commissionSaleB,
       mandiId: lahore.id,
       status: SaleStatus.COMPLETED,
       createdAt: daysAgo(16),
@@ -1550,7 +1556,7 @@ async function main() {
     data: {
       transactionType: TransactionType.ARHTI_VENDOR,
       transactionId: saleB.id,
-      amount: grossSaleB,
+      amount: vendorPaysB,
       payerId: vendor2.id,
       recipientId: arhti2.id,
       status: PaymentStatus.PAID,
@@ -1584,7 +1590,7 @@ async function main() {
       quantityKg: 7950,
       availableKg: 3950, // 4,000 kg on the wholesale shop
       grade: 'B',
-      costPerKg: 55,
+      costPerKg: kg(vendorPaysB / 7950), // Rs 56.375: Rs 55 + 2.5% commission
       sourceMandiCity: 'Lahore',
       sourceFarmCity: 'Okara',
       photos: ['/crops/potato.png'],

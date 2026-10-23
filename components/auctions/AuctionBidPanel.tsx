@@ -5,6 +5,7 @@ import { Prisma, UserRole } from '@prisma/client';
 import { getAuctionLiveState, placeBid } from '@/lib/actions/bid';
 import { useSocket } from '@/hooks/useSocket';
 import { useI18n } from '@/components/i18n/LanguageProvider';
+import { vendorPaysPerKg } from '@/lib/commission';
 import {
   Gavel,
   Clock,
@@ -74,16 +75,21 @@ export default function AuctionBidPanel({
   auction,
   currentUser,
   canBid,
+  commissionRate,
 }: {
   auction: AuctionDetail;
   currentUser: { id: string; name: string; role: UserRole };
   canBid: boolean;
+  /** The arhti's commission, paid by the winning vendor on top of the bid. */
+  commissionRate: number;
 }) {
   const { socket, connected } = useSocket();
-  const { t, plural, crop, place, grade, time, rate, isUrdu, error: errorText } = useI18n();
+  const { t, plural, crop, place, grade, time, rate, number, isUrdu, error: errorText } = useI18n();
   // "Rs 92" / "92 روپے" and "Rs 92 / kg" / "92 روپے فی کلو"
   const formatCurrency = (n: number) => rate(n);
   const perKgText = (n: number) => (isUrdu ? `${rate(n)} ${t('bid.perKg')}` : `${rate(n)} / kg`);
+  // Two decimals, for amounts that include the commission (e.g. Rs 83.64).
+  const perKgExact = (n: number) => t('common.perKgExact', { amount: number(n, 2) });
   const amountRef = useRef<HTMLInputElement>(null);
 
   const [currentHighestBid, setCurrentHighestBid] = useState(
@@ -100,6 +106,7 @@ export default function AuctionBidPanel({
     auction.status !== 'ACTIVE' || auction.endTime.getTime() <= Date.now()
   );
   const [latestBidderName, setLatestBidderName] = useState<string | undefined>();
+  const [typedBid, setTypedBid] = useState<number | null>(null);
 
   const [state, formAction, pending] = useActionState(
     async (_prev: BidState, formData: FormData): Promise<BidState> => placeBid(formData),
@@ -205,6 +212,7 @@ export default function AuctionBidPanel({
   useEffect(() => {
     if (state?.success && amountRef.current) {
       amountRef.current.value = '';
+      setTypedBid(null);
     }
     if (state?.currentHighestBid) {
       setCurrentHighestBid((prev) => Math.max(prev, state.currentHighestBid!));
@@ -225,6 +233,8 @@ export default function AuctionBidPanel({
   const highestBidderId = bids[0]?.bidderId;
   const userIsHighest = highestBidderId === currentUser.id;
   const minimumNextBid = currentHighestBid + auction.minimumIncrement;
+  const commissionPercent = (commissionRate * 100).toFixed(1);
+  const payBid = typedBid && typedBid >= minimumNextBid ? typedBid : minimumNextBid;
   const currentBidderName = bids[0]?.bidder?.name ?? latestBidderName;
 
   return (
@@ -303,6 +313,10 @@ export default function AuctionBidPanel({
                     +{perKgText(auction.minimumIncrement)}
                   </div>
                 </div>
+              </div>
+              <div className="mt-3 text-[11px] text-[#636E72]">
+                <span className="font-semibold text-charcoal">{t('bid.commission')}:</span>{' '}
+                {t('bid.commissionNote', { rate: commissionPercent })}
               </div>
             </div>
           </div>
@@ -398,9 +412,17 @@ export default function AuctionBidPanel({
                     placeholder={t('bid.minPlaceholder', { amount: minimumNextBid })}
                     required
                     className="w-full rounded-xl border border-[#E5E7EB] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-agri-500"
+                    onInput={(e) => setTypedBid(Number((e.target as HTMLInputElement).value) || null)}
                   />
                   <div className="text-[10px] text-[#636E72] mt-1">
                     {t('bid.minValid', { rate: perKgText(minimumNextBid) })}
+                  </div>
+                  <div className="text-[11px] text-charcoal mt-1">
+                    {t('bid.youPay', {
+                      bid: perKgText(payBid),
+                      rate: perKgExact(vendorPaysPerKg(payBid, commissionRate)),
+                      percent: commissionPercent,
+                    })}
                   </div>
                 </div>
 

@@ -6,6 +6,7 @@ import { requireCapability, ForbiddenError } from '@/lib/authz';
 import { drawFromArhtiLot, returnToArhtiLot, InventoryError, kg } from '@/lib/inventory';
 import { businessNumber, recordChainEvent, shortCode } from '@/lib/supplychain';
 import { getIO } from '@/lib/socket';
+import { DEFAULT_COMMISSION_RATE, vendorCommission } from '@/lib/commission';
 import { auctionIdSchema, createAuctionSchema } from '@/lib/validations/workflow';
 import {
   AuctionStatus,
@@ -113,7 +114,7 @@ export async function closeAuction(formData: FormData) {
   if (auction.arhtiId !== user.id) throw new ForbiddenError('This auction is not yours');
   if (auction.status !== AuctionStatus.ACTIVE) return { error: 'This auction is already closed' };
 
-  const commissionRate = auction.arhti.arhtiProfile?.commissionRate ?? 0.02;
+  const commissionRate = auction.arhti.arhtiProfile?.commissionRate ?? DEFAULT_COMMISSION_RATE;
 
   let outcome: { sold: false } | { sold: true; amountPerKg: number; winnerName: string };
   try {
@@ -139,8 +140,10 @@ export async function closeAuction(formData: FormData) {
         return { sold: false as const };
       }
 
+      // The vendor pays the auction value plus the arhti's commission on it.
       const gross = kg(auction.quantityKg * topBid.amountPerKg);
-      const commission = kg(gross * commissionRate);
+      const commission = vendorCommission(gross, commissionRate);
+      const vendorPays = kg(gross + commission);
 
       const sale = await tx.arhtiVendorSale.create({
         data: {
@@ -169,7 +172,8 @@ export async function closeAuction(formData: FormData) {
           quantityKg: auction.quantityKg,
           availableKg: auction.quantityKg,
           grade: auction.grade,
-          costPerKg: topBid.amountPerKg,
+          // What the vendor actually paid per kg, commission included.
+          costPerKg: kg(vendorPays / auction.quantityKg),
           sourceMandiCity: auction.mandi.city,
           sourceFarmCity: auction.inventoryLot.sourceCity,
           photos: auction.photos ?? [],
@@ -181,7 +185,7 @@ export async function closeAuction(formData: FormData) {
         data: {
           transactionType: TransactionType.ARHTI_VENDOR,
           transactionId: sale.id,
-          amount: gross,
+          amount: vendorPays,
           payerId: topBid.bidderId,
           recipientId: auction.arhtiId,
           status: PaymentStatus.PAID,
@@ -219,7 +223,7 @@ export async function closeAuction(formData: FormData) {
             userId: topBid.bidderId,
             type: NotificationType.AUCTION_WON,
             title: 'You won the auction',
-            message: `${auction.quantityKg.toLocaleString('en-PK')} kg ${auction.inventoryLot.crop.name} at Rs ${topBid.amountPerKg}/kg is now in your warehouse.`,
+            message: `${auction.quantityKg.toLocaleString('en-PK')} kg ${auction.inventoryLot.crop.name} at Rs ${topBid.amountPerKg}/kg is now in your warehouse. You paid Rs ${vendorPays.toLocaleString('en-PK')} including Rs ${commission.toLocaleString('en-PK')} arhti commission.`,
             link: '/stock',
           },
           {

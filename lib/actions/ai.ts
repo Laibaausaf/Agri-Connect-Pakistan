@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { getArhtiEarnings } from '@/lib/earnings';
 import { requireCapability, type SessionUser } from '@/lib/authz';
 import { can, type Capability, ROLE_LABEL } from '@/lib/permissions';
 import { askAiSchema, confirmAgentActionSchema } from '@/lib/validations/ai';
@@ -506,12 +507,8 @@ async function arhtiAuctionsTool(user: SessionUser): Promise<ToolReply> {
 }
 
 async function arhtiSalesTool(user: SessionUser): Promise<ToolReply> {
-  const [totals, recent] = await Promise.all([
-    prisma.arhtiVendorSale.aggregate({
-      where: { arhtiId: user.id },
-      _sum: { grossAmount: true, commission: true, quantityKg: true },
-      _count: true,
-    }),
+  const [earned, recent] = await Promise.all([
+    getArhtiEarnings(user.id),
     prisma.arhtiVendorSale.findMany({
       where: { arhtiId: user.id },
       include: {
@@ -527,16 +524,18 @@ async function arhtiSalesTool(user: SessionUser): Promise<ToolReply> {
     (s) =>
       `${s.saleNumber} · ${s.auction.inventoryLot.crop.name} ${kg(s.quantityKg)} to ${
         s.vendor.name
-      } at ${money(s.ratePerKg)}/kg, commission ${money(s.commission)}`
+      } at ${money(s.ratePerKg)}/kg, vendor paid ${money(s.commission)} commission on top`
   );
 
+  const pending = earned.pendingSettlements
+    ? `\nNot counted: ${money(earned.farmerCommissionPending)} commission on ${earned.pendingSettlements} farmer settlement(s) not yet paid.`
+    : '';
+
   return {
-    reply: `${totals._count} mandi sale(s), ${kg(totals._sum.quantityKg ?? 0)} moved for ${money(
-      totals._sum.grossAmount ?? 0
-    )}. Your commission: ${money(totals._sum.commission ?? 0)}.${
+    reply: `${earned.salesCount} mandi sale(s), ${kg(earned.soldKg)} moved for ${money(earned.auctionValue)}.\n\nWhat you earned:\n- Commission from farmers (paid settlements): ${money(earned.farmerCommission)}\n- Commission from vendors (lots sold at auction): ${money(earned.vendorCommission)}\n- Trading margin (auction price − farmer price, on lots sold): ${money(earned.tradingMargin)}\n- Total: ${money(earned.total)}${pending}${
       lines.length ? `\n\nRecent:\n${lines.join('\n')}` : ''
     }`,
-    replyUrdu: `کل فروخت ${money(totals._sum.grossAmount ?? 0)}، کمیشن ${money(totals._sum.commission ?? 0)}۔`,
+    replyUrdu: `کل فروخت ${money(earned.auctionValue)}۔ کسانوں سے کمیشن ${money(earned.farmerCommission)}، تھوک فروشوں سے کمیشن ${money(earned.vendorCommission)}، تجارتی منافع ${money(earned.tradingMargin)}، کل کمائی ${money(earned.total)}۔`,
     suggestedActions: [{ label: 'Sales & Commission', href: '/sales' }],
   };
 }

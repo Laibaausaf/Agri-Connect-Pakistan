@@ -65,7 +65,11 @@ export default async function AdminPage({
 
   const stages = [
     { label: t('admin.stageFarmer'), value: stats.farmerPayout, hint: t('admin.stageFarmerHint') },
-    { label: t('admin.stageMandi'), value: stats.mandiTradeValue, hint: kg(stats.mandiVolumeKg) },
+    {
+      label: t('admin.stageMandi'),
+      value: stats.mandiTradeValue,
+      hint: t('admin.stageMandiHint', { qty: kg(stats.mandiVolumeKg), commission: money(stats.mandiCommission) }),
+    },
     { label: t('admin.stageWholesale'), value: stats.wholesaleTradeValue, hint: kg(stats.wholesaleVolumeKg) },
     { label: t('admin.stageRetail'), value: stats.retailTradeValue, hint: t('admin.stageRetailHint') },
   ];

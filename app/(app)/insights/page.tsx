@@ -2,6 +2,8 @@ import { UserRole, ConsumerOrderStatus, AuctionStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
 import { getI18n } from '@/lib/i18n/server';
+import { getArhtiEarnings } from '@/lib/earnings';
+import ArhtiEarnings from '@/components/dashboards/ArhtiEarnings';
 import type { I18n } from '@/lib/i18n';
 import { Badge, Card, PageHeader, StatCard } from '@/components/ui/kit';
 
@@ -72,7 +74,7 @@ function CropTable({
 
 async function ArhtiInsights({ userId, i18n, cropLabel }: { userId: string; i18n: I18n; cropLabel: CropLabel }) {
   const { t, kg, money, perKg } = i18n;
-  const [deals, sales, auctions] = await Promise.all([
+  const [deals, sales, auctions, earnings] = await Promise.all([
     prisma.farmerArhtiDeal.findMany({
       where: { arhtiId: userId, receivedQuantityKg: { not: null } },
       select: {
@@ -88,18 +90,17 @@ async function ArhtiInsights({ userId, i18n, cropLabel }: { userId: string; i18n
         quantityKg: true,
         ratePerKg: true,
         grossAmount: true,
-        commission: true,
         auction: { select: { reservePrice: true, inventoryLot: { select: { crop: { select: { name: true } }, purchasePricePerKg: true } } } },
       },
     }),
     prisma.auction.groupBy({ by: ['status'], where: { arhtiId: userId }, _count: { status: true } }),
+    getArhtiEarnings(userId),
   ]);
 
   const boughtKg = deals.reduce((sum, d) => sum + (d.receivedQuantityKg ?? 0), 0);
   const boughtValue = deals.reduce((sum, d) => sum + (d.receivedQuantityKg ?? 0) * d.agreedPricePerKg, 0);
   const soldKg = sales.reduce((sum, s) => sum + s.quantityKg, 0);
   const soldValue = sales.reduce((sum, s) => sum + s.grossAmount, 0);
-  const commission = sales.reduce((sum, s) => sum + s.commission, 0);
   const aboveReserve = sales.filter((s) => s.ratePerKg > s.auction.reservePrice).length;
 
   const byCrop = new Map<string, CropRow>();
@@ -117,7 +118,7 @@ async function ArhtiInsights({ userId, i18n, cropLabel }: { userId: string; i18n
 
   return (
     <>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-3 gap-3 mb-4">
         <StatCard label={t('insights.boughtFarmers')} value={money(boughtValue)} hint={kg(boughtKg)} />
         <StatCard label={t('insights.soldVendors')} value={money(soldValue)} hint={kg(soldKg)} tone="accent" />
         <StatCard
@@ -125,8 +126,9 @@ async function ArhtiInsights({ userId, i18n, cropLabel }: { userId: string; i18n
           value={perKg(rate(soldValue, soldKg) - rate(boughtValue, boughtKg))}
           hint={t('insights.buySell', { buy: money(rate(boughtValue, boughtKg)), sell: money(rate(soldValue, soldKg)) })}
         />
-        <StatCard label={t('insights.commission')} value={money(commission)} hint={t('insights.auctionSales', { count: sales.length })} />
       </div>
+
+      <ArhtiEarnings earnings={earnings} i18n={i18n} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <CropTable
@@ -172,7 +174,7 @@ async function VendorInsights({ userId, i18n, cropLabel }: { userId: string; i18
   const [purchases, sales, stock] = await Promise.all([
     prisma.arhtiVendorSale.aggregate({
       where: { vendorId: userId },
-      _sum: { grossAmount: true, quantityKg: true },
+      _sum: { grossAmount: true, commission: true, quantityKg: true },
       _count: true,
     }),
     prisma.vendorShopkeeperSale.findMany({
@@ -212,8 +214,8 @@ async function VendorInsights({ userId, i18n, cropLabel }: { userId: string; i18
     <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <StatCard
-          label={t('insights.boughtMandi')}
-          value={money(purchases._sum.grossAmount ?? 0)}
+          label={t('insights.paidMandi')}
+          value={money((purchases._sum.grossAmount ?? 0) + (purchases._sum.commission ?? 0))}
           hint={t('insights.inLots', { qty: kg(boughtKg), count: purchases._count })}
         />
         <StatCard label={t('insights.wholesaleRevenue')} value={money(soldValue)} hint={kg(soldKg)} tone="accent" />
