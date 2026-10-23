@@ -527,15 +527,19 @@ async function arhtiSalesTool(user: SessionUser): Promise<ToolReply> {
       } at ${money(s.ratePerKg)}/kg, vendor paid ${money(s.commission)} commission on top`
   );
 
+  // Shown in whole rupees; the total is the sum of the rounded parts, as on the pages.
+  const earnedTotal =
+    Math.round(earned.farmerCommission) + Math.round(earned.vendorCommission) + Math.round(earned.tradingMargin);
+
   const pending = earned.pendingSettlements
     ? `\nNot counted: ${money(earned.farmerCommissionPending)} commission on ${earned.pendingSettlements} farmer settlement(s) not yet paid.`
     : '';
 
   return {
-    reply: `${earned.salesCount} mandi sale(s), ${kg(earned.soldKg)} moved for ${money(earned.auctionValue)}.\n\nWhat you earned:\n- Commission from farmers (paid settlements): ${money(earned.farmerCommission)}\n- Commission from vendors (lots sold at auction): ${money(earned.vendorCommission)}\n- Trading margin (auction price − farmer price, on lots sold): ${money(earned.tradingMargin)}\n- Total: ${money(earned.total)}${pending}${
+    reply: `${earned.salesCount} mandi sale(s), ${kg(earned.soldKg)} moved for ${money(earned.auctionValue)}.\n\nWhat you earned:\n- Commission from farmers (paid settlements): ${money(earned.farmerCommission)}\n- Commission from vendors (lots sold at auction): ${money(earned.vendorCommission)}\n- Trading margin (auction price − farmer price, on lots sold): ${money(earned.tradingMargin)}\n- Total: ${money(earnedTotal)}${pending}${
       lines.length ? `\n\nRecent:\n${lines.join('\n')}` : ''
     }`,
-    replyUrdu: `کل فروخت ${money(earned.auctionValue)}۔ کسانوں سے کمیشن ${money(earned.farmerCommission)}، تھوک فروشوں سے کمیشن ${money(earned.vendorCommission)}، تجارتی منافع ${money(earned.tradingMargin)}، کل کمائی ${money(earned.total)}۔`,
+    replyUrdu: `کل فروخت ${money(earned.auctionValue)}۔ کسانوں سے کمیشن ${money(earned.farmerCommission)}، تھوک فروشوں سے کمیشن ${money(earned.vendorCommission)}، تجارتی منافع ${money(earned.tradingMargin)}، کل کمائی ${money(earnedTotal)}۔`,
     suggestedActions: [{ label: 'Sales & Commission', href: '/sales' }],
   };
 }

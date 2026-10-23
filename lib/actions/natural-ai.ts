@@ -33,6 +33,7 @@ import {
   confirmAgentAction as legacyConfirmAgentAction,
   cancelAgentAction as legacyCancelAgentAction,
 } from '@/lib/actions/ai';
+import { askTraderAi } from '@/lib/actions/trader-ai';
 
 /*
  * LLM provider settings. Any OpenAI-compatible /chat/completions endpoint
@@ -2030,6 +2031,10 @@ function samePayload(a: unknown, b: Record<string, unknown>) {
  */
 export async function askAi(formData: FormData) {
   const user = await requireCapability('shared.ai');
+
+  if (user.role === UserRole.ARHTI) {
+    return askTraderAi(formData);
+  }
 
   if (user.role !== UserRole.FARMER) {
     return legacyAskAi(formData);

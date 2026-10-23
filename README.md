@@ -161,9 +161,10 @@ Open [http://localhost:3000](http://localhost:3000) and log in as `farmer@demo.p
 |---|---|---|
 | `DATABASE_URL` | Yes | SQLite file, relative to `prisma/`. Keep the default `file:./dev.db`. |
 | `NEXTAUTH_SECRET` | Yes | Secret that signs the login session. Any random string of 32+ characters (command above). `AUTH_SECRET` is also accepted. |
-| `AI_API_KEY` | No | API key for the farmer AI assistant. Create one in the [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/) console, **Singapore** region (keys only work in the region they were created in). Without a key the assistant still works, using its rule-based fallback. |
+| `AI_API_KEY` | No | API key for the AI assistant (farmer and arhti chats). Create one in the [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/) console, **Singapore** region (keys only work in the region they were created in). Without a key the assistant still works, using its rule-based fallback. |
 | `AI_BASE_URL` | No | OpenAI-compatible endpoint. Default: `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` (Model Studio, Singapore). |
 | `AI_MODEL` | No | Model name. Default: `qwen-plus-2025-12-01`. |
+| `AI_MODEL_TRADER` | No | Model for the arhti assistant (vendors and shopkeepers later), e.g. another `qwen-plus` snapshot with its own free quota. Falls back to `AI_MODEL`. |
 
 ### Resetting the demo
 
@@ -227,17 +228,18 @@ lib/
 One visible "AgriConnect AI" at `/ai-assistant`, available to farmers, arhtis, vendors and shopkeepers (consumers and the admin do not have it). Its data access is gated by the same capabilities as the rest of the app, so it cannot surface data the signed-in role could not otherwise reach.
 
 - **Farmers** get an LLM assistant (`lib/actions/natural-ai.ts`) for post-harvest questions: prices and price trends, which mandis pay more, what they will receive after commission, mandi cess and transport, selling now or holding, storage and transport. It also reads the farmer's own crops, offers, deals and payments, and can list a crop by chat (the listing is created only after the farmer presses Confirm). It replies in the farmer's language and script: English, Urdu or Roman Urdu. It is instructed to refer questions about growing the crop to the local agriculture extension office.
-- **Arhtis, vendors and shopkeepers** get the rule-based assistant (`lib/actions/ai.ts`): keyword matching to role-specific tools, with English and Urdu replies.
-- **Fallback:** if the LLM call fails for any reason (no API key, network error, timeout, invalid response, free quota used up), the farmer's message is answered by the rule-based assistant instead.
+- **Arhtis** get a Qwen-powered assistant (`lib/actions/trader-ai.ts`) built the same way as the farmer chat. It answers questions only, from the arhti's own records: Farmer Market batches, offers, buy requests, deals, kanta weighing, settlements, inventory lots, auctions, sales, earnings (commission from farmers, commission from vendors, trading margin) and mandi prices. Other people's confidential figures (another arhti's deals, vendors' or shopkeepers' costs and margins) are never sent to the model.
+- **Vendors and shopkeepers** get the rule-based assistant (`lib/actions/ai.ts`): keyword matching to role-specific tools, with English and Urdu replies.
+- **Fallback:** if the LLM call fails for any reason (no API key, network error, timeout, invalid response, free quota used up), the message is answered by the rule-based assistant instead (farmers and arhtis).
 - **Voice input** uses the browser's Web Speech API (Urdu or English); the recognised text is placed in the input box for the farmer to check before sending.
 
 ## How we use Alibaba Cloud
 
-The farmer assistant runs on **Qwen** through **Alibaba Cloud Model Studio** (Singapore region), using its OpenAI-compatible Chat Completions endpoint.
+The farmer and arhti assistants run on **Qwen** through **Alibaba Cloud Model Studio** (Singapore region), using its OpenAI-compatible Chat Completions endpoint.
 
-- **Model:** `qwen-plus-2025-12-01` (configurable via `AI_MODEL`; endpoint via `AI_BASE_URL`).
+- **Model:** `qwen-plus-2025-12-01` (configurable via `AI_MODEL`; endpoint via `AI_BASE_URL`). The arhti assistant uses `AI_MODEL_TRADER` when it is set, so it can run on a separate free quota.
 - **JSON mode:** requests use `response_format: { type: "json_object" }`. Every reply is validated with Zod before use; anything that does not validate falls back to the rule-based assistant.
-- **Facts are computed on the server, not by the model:** price rankings per crop (highest first, kept separate for app mandi records and the AMIS tomato report) and net-amount estimates (using the same commission, mandi cess and transport rules as the real settlement) are calculated in code and sent to Qwen as ready-made text. After Qwen replies, the server corrects altered deal and batch numbers, re-asks once (when the first reply was quick) if the reply quotes a per-kg price that is not in the data or is in the wrong language, and adds general advice under a fixed "general guidance (not live data)" label.
+- **Facts are computed on the server, not by the model:** price rankings per crop (highest first, kept separate for app mandi records and the AMIS tomato report) and net-amount estimates (using the same commission, mandi cess and transport rules as the real settlement) are calculated in code and sent to Qwen as ready-made text. After Qwen replies, the server corrects altered deal and batch numbers, re-asks once (when the first reply was quick) if the reply quotes a per-kg price that is not in the data or is in the wrong language (the arhti assistant also checks every rupee total, and falls back to the rule-based assistant if one is still not in the data), and adds general advice under a fixed "general guidance (not live data)" label.
 - **Cost control:** we run on Model Studio's free quota with the console's "stop when free quota is exhausted" setting turned on, so usage can never be billed. When the free quota is used up, Model Studio returns `403 AllocationQuota.FreeTierOnly` and the app falls back to the rule-based assistant. Each request has a 30-second timeout.
 
 ## License
