@@ -13,6 +13,8 @@ import LanguageToggle from '@/components/layout/LanguageToggle';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import Icon, { type IconName } from '@/components/ui/Icon';
 import type { UiKey } from '@/lib/i18n/translations';
+import { initialsOf } from '@/lib/initials';
+import BrandGlow from '@/components/ui/BrandGlow';
 
 type HeaderProps = {
   user: SessionUser;
@@ -45,18 +47,6 @@ const NOTIFICATION_KIND: Record<NotificationType, { icon: IconName; label: UiKey
   RATING_REQUEST: { icon: 'star', label: 'notifKind.rating', tone: 'bg-sage text-forest' },
   INFO: { icon: 'info', label: 'notifKind.info', tone: 'bg-sage text-forest' },
 };
-
-export function initialsOf(name: string) {
-  return (
-    name
-      .split(' ')
-      .filter(Boolean)
-      .map((part) => part[0])
-      .slice(0, 2)
-      .join('')
-      .toUpperCase() || '?'
-  );
-}
 
 export default function Header({
   user,
@@ -306,11 +296,3 @@ export default function Header({
   );
 }
 
-/** The leaf-green glow in the far corner of the gradient (header, heroes). */
-export function BrandGlow() {
-  return (
-    <span aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-      <span className="absolute -top-[90px] -end-[70px] h-60 w-60 rounded-full bg-[radial-gradient(circle,rgba(46,158,91,.55),rgba(46,158,91,0)_66%)]" />
-    </span>
-  );
-}

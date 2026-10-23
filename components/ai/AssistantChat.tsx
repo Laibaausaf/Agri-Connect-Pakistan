@@ -6,22 +6,7 @@ import { useRouter } from 'next/navigation';
 import {askAi, confirmAgentAction, cancelAgentAction,} from '@/lib/actions/natural-ai';
 import { UserRole } from '@prisma/client';
 import { useI18n } from '@/components/i18n/LanguageProvider';
-import {
-  Mic,
-  MicOff,
-  Send,
-  Sparkles,
-  User,
-  Bot,
-  TrendingUp,
-  Package,
-  Truck,
-  Receipt,
-  HelpCircle,
-  CheckCircle2,
-  XCircle,
-  Loader2,
-} from 'lucide-react';
+import Icon, { type IconName } from '@/components/ui/Icon';
 
 type UserSummary = {
   id: string;
@@ -104,25 +89,25 @@ declare global {
 
 type VoiceLanguage = 'ur-PK' | 'en-US';
 
-const toolIcons: Record<string, React.ElementType> = {
-  prices: TrendingUp,
-  myCrops: Package,
-  myOffers: Receipt,
-  myDeals: Truck,
-  myPayments: Receipt,
-  sourcing: Package,
-  receiving: Truck,
-  arhtiInventory: Package,
-  arhtiAuctions: TrendingUp,
-  arhtiSales: Receipt,
-  vendorAuctions: TrendingUp,
-  vendorStock: Package,
-  vendorWholesale: Receipt,
-  shopWholesale: TrendingUp,
-  shopStock: Package,
-  shopOrders: Receipt,
-  adminChain: TrendingUp,
-  help: HelpCircle,
+const toolIcons: Record<string, IconName> = {
+  prices: 'trendup',
+  myCrops: 'sprout',
+  myOffers: 'handshake',
+  myDeals: 'truck',
+  myPayments: 'wallet',
+  sourcing: 'sprout',
+  receiving: 'scale',
+  arhtiInventory: 'warehouse',
+  arhtiAuctions: 'gavel',
+  arhtiSales: 'banknote',
+  vendorAuctions: 'gavel',
+  vendorStock: 'warehouse',
+  vendorWholesale: 'store',
+  shopWholesale: 'store',
+  shopStock: 'package',
+  shopOrders: 'cart',
+  adminChain: 'route',
+  help: 'sparkles',
 };
 
 /*
@@ -571,7 +556,7 @@ export default function AssistantChat({
     const lines = text.split('\n').map((l) => l.trim());
 
     if (isUser) {
-      return <span className="block text-base">{text}</span>;
+      return <span className="block text-[15px]">{text}</span>;
     }
 
     const priceRe = /^(.*?)\s*[·:-]\s*(.*?):\s*Rs\.?\s*([\d,]+(?:\.\d+)?)\s*\/\s*(?:kg|کلو)\s*(.*)$/i;
@@ -582,7 +567,7 @@ export default function AssistantChat({
     const flushPrices = (key: string) => {
       if (priceRows.length) {
         out.push(
-          <div key={key} className="grid gap-2 sm:grid-cols-2 my-2">
+          <div key={key} className="my-2 divide-y divide-line overflow-hidden rounded-2xl bg-paper">
             {priceRows}
           </div>
         );
@@ -600,19 +585,15 @@ export default function AssistantChat({
         const [, crop, market, price, rest] = m;
         const date = rest.match(/\d{4}-\d{2}-\d{2}/)?.[0];
         priceRows.push(
-          <div
-            key={`r${i}`}
-            dir="auto"
-            className="flex items-center justify-between gap-3 rounded-xl border border-[#B7D4C8] bg-[#F3FAF6] px-4 py-3"
-          >
+          <div key={`r${i}`} dir="auto" className="flex items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0">
-              <div className="text-lg font-bold text-agri-900 leading-tight">{crop.trim()}</div>
-              <div className="text-sm text-[#4B5563] leading-snug">{market.trim()}</div>
-              {date && <div className="text-sm text-[#636E72] mt-0.5">{t('chat.priceRecorded', { date })}</div>}
+              <div className="text-base font-bold leading-tight">{crop.trim()}</div>
+              <div className="text-[13px] leading-snug text-muted">{market.trim()}</div>
+              {date && <div className="mt-0.5 text-[13px] text-muted">{t('chat.priceRecorded', { date })}</div>}
             </div>
-            <div className="text-right shrink-0">
-              <div className="text-2xl font-extrabold text-agri-900 leading-none">{t('chat.priceAmount', { price })}</div>
-              <div className="text-sm text-[#636E72]">{t('chat.pricePerKg')}</div>
+            <div className="shrink-0 text-end">
+              <div className="tabular text-xl font-extrabold leading-none">{t('chat.priceAmount', { price })}</div>
+              <div className="text-[13px] text-muted">{t('chat.pricePerKg')}</div>
             </div>
           </div>
         );
@@ -621,28 +602,29 @@ export default function AssistantChat({
       flushPrices(`p${i}`);
       if (/^[-•*]\s+/.test(line)) {
         out.push(
-          <div key={`b${i}`} dir="auto" className="flex gap-2 text-base leading-relaxed py-0.5">
-            <span className="text-agri-900 font-bold">•</span>
+          <div key={`b${i}`} dir="auto" className="flex gap-2 py-0.5 text-[15px] leading-relaxed">
+            <span className="font-bold text-goldtext">•</span>
             <span>{line.replace(/^[-•*]\s+/, '')}</span>
           </div>
         );
       } else if (noteRe.test(line)) {
         out.push(
-          <div key={`n${i}`} dir="auto" className="mt-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-900">
-            {line}
+          <div key={`n${i}`} dir="auto" className="mt-2 flex gap-2 rounded-xl bg-warn-bg px-3 py-2 text-sm text-warn-fg">
+            <Icon name="info" size={16} className="mt-0.5" />
+            <span>{line}</span>
           </div>
         );
       } else if ((i === 0 && user.role !== 'FARMER') || /:$/.test(line)) {
         // Farmer replies are short conversational answers, so their first
         // line is not automatically a heading; other roles keep it.
         out.push(
-          <div key={`h${i}`} dir="auto" className="text-lg font-bold text-agri-900 mb-1 mt-1">
+          <div key={`h${i}`} dir="auto" className="mb-1 mt-1 text-base font-bold">
             {line}
           </div>
         );
       } else {
         out.push(
-          <div key={`t${i}`} dir="auto" className="text-base leading-relaxed py-0.5">
+          <div key={`t${i}`} dir="auto" className="py-0.5 text-[15px] leading-relaxed">
             {line}
           </div>
         );
@@ -653,71 +635,45 @@ export default function AssistantChat({
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-white border border-[#E5E7EB] rounded-2xl shadow-sm overflow-hidden">
+    <div className="card flex h-full min-h-0 flex-col overflow-hidden">
       {/* Header */}
-      <div className="bg-[#E8F3EE] border-b border-[#B7D4C8] p-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-agri-900 text-white flex items-center justify-center">
-            <Sparkles className="w-4 h-4" />
-          </div>
-
-          <div>
-            <h1 className="text-sm font-bold text-agri-900">
-              {t('chat.title')}
-            </h1>
-
-            <p className="text-xs text-agri-900/80">
-              {t('chat.languages')}
-            </p>
-          </div>
+      <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+        <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-[#F6C871]">
+          <Icon name="sparkles" size={22} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-[17px] font-bold leading-tight">{t('chat.title')}</h1>
+          <p className="text-[13px] text-muted">{t('chat.languages')}</p>
         </div>
-
-        <span className="text-xs bg-white text-agri-900 border border-[#B7D4C8] px-2 py-0.5 rounded-full font-semibold">
+        <span className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full bg-sage px-2.5 text-[12.5px] font-bold">
+          <Icon name="user" size={14} />
           {i18n.role(user.role)}
         </span>
       </div>
 
       {/* Pending actions */}
       {pending.length > 0 && (
-        <div className="bg-amber-50 border-b border-amber-200 p-3 space-y-2">
-          <div className="text-xs font-bold uppercase tracking-wider text-amber-800">
+        <div className="space-y-2 border-b border-line bg-warn-bg p-3">
+          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[.08em] text-warn-fg">
+            <Icon name="clock" size={14} />
             {t('chat.pendingActions')}
           </div>
 
           {pending.map((action) => (
-            <div
-              key={action.id}
-              className="flex items-center justify-between gap-3 bg-white border border-amber-200 rounded-lg p-2.5"
-            >
-              <div className="text-sm text-charcoal min-w-0">
-                <span className="font-semibold">
-                  {actionLabel(action.actionType)}
-                </span>
-
-                <span className="text-[#636E72] ms-1">
-                  — {i18n.chatAction(action.humanSummary, cropNamesUrdu)}
-                </span>
+            <div key={action.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-sf p-3">
+              <div className="min-w-0 text-sm">
+                <span className="font-bold">{actionLabel(action.actionType)}</span>
+                <span className="ms-1 text-muted">— {i18n.chatAction(action.humanSummary, cropNamesUrdu)}</span>
               </div>
 
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => handleConfirm(action.id)}
-                  disabled={loading}
-                  className="flex items-center gap-1 bg-agri-900 hover:bg-agri-800 disabled:opacity-50 text-white text-xs font-semibold px-2 py-1 rounded transition-colors"
-                >
-                  <CheckCircle2 className="w-3 h-3" />
-                  {t('chat.confirm')}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleCancel(action.id)}
-                  disabled={loading}
-                  className="flex items-center gap-1 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 disabled:opacity-50 text-xs font-semibold px-2 py-1 rounded transition-colors"
-                >
-                  <XCircle className="w-3 h-3" />
+              <div className="flex shrink-0 items-center gap-2">
+                <button type="button" onClick={() => handleCancel(action.id)} disabled={loading} className="btn btn-outline btn-sm text-err-fg">
+                  <Icon name="xcircle" size={16} />
                   {t('chat.cancel')}
+                </button>
+                <button type="button" onClick={() => handleConfirm(action.id)} disabled={loading} className="btn btn-primary btn-sm min-h-10">
+                  <Icon name="checkcircle" size={16} />
+                  {t('chat.confirm')}
                 </button>
               </div>
             </div>
@@ -726,57 +682,44 @@ export default function AssistantChat({
       )}
 
       {/* Messages */}
-      <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 bg-[#F8F9F5] overscroll-contain">
+      <div ref={messagesContainerRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-paper p-4">
         {shownMessages.map((message, index) => {
           const isUser = message.role === 'user';
-
-          const Icon = isUser
-            ? User
-            : toolIcons[message.tool || 'help'] || Bot;
+          const icon: IconName = isUser ? 'user' : toolIcons[message.tool || 'help'] || 'sparkles';
 
           return (
-            <div
-              key={index}
-              className={`flex gap-2.5 ${
-                isUser ? 'flex-row-reverse' : ''
-              }`}
-            >
-              <div
-                className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center ${
-                  isUser
-                    ? 'bg-[#E5E7EB] text-charcoal'
-                    : 'bg-agri-900 text-white'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-              </div>
+            <div key={index} className={`flex gap-2.5 ${isUser ? 'flex-row-reverse' : ''}`}>
+              {!isUser && (
+                <span className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sage text-forest">
+                  <Icon name={icon} size={16} />
+                </span>
+              )}
 
-              <div className="max-w-[88%] space-y-2">
+              <div className={`space-y-2 ${isUser ? 'max-w-[80%]' : 'max-w-[90%] flex-1 sm:flex-none'}`}>
                 <div
-                  className={`rounded-2xl px-4 py-3 text-base leading-relaxed ${
+                  className={`px-4 py-3 ${
                     isUser
-                      ? 'bg-agri-900 text-white rounded-ee-none'
-                      : 'bg-white border border-[#E5E7EB] text-charcoal rounded-es-none shadow-sm'
+                      ? 'rounded-[18px] rounded-ee-md bg-forest text-paper'
+                      : 'rounded-[20px] rounded-es-md border border-line bg-sf text-ink shadow-card'
                   }`}
                 >
                   {renderMessage(message.text, isUser)}
                 </div>
 
-                {!isUser &&
-                  message.actions &&
-                  message.actions.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {message.actions.map((action) => (
-                        <Link
-                          key={`${action.href}-${action.label}`}
-                          href={action.href}
-                          className="text-xs font-semibold text-agri-900 bg-white border border-[#B7D4C8] hover:bg-[#E8F3EE] rounded-full px-2.5 py-1 transition-colors"
-                        >
-                          {i18n.nav(action.label, user.role)}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
+                {!isUser && message.actions && message.actions.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {message.actions.map((action, actionIndex) => (
+                      <Link
+                        key={`${action.href}-${action.label}`}
+                        href={action.href}
+                        className={`btn btn-sm ${actionIndex === 0 ? 'btn-primary min-h-10' : 'btn-outline'}`}
+                      >
+                        <Icon name="arrowright" size={16} />
+                        {i18n.nav(action.label, user.role)}
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -784,41 +727,35 @@ export default function AssistantChat({
 
         {isListening && (
           <div className="flex gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-rose-600 text-white flex items-center justify-center">
-              <Mic className="w-4 h-4 animate-pulse" />
-            </div>
-
-            <div className="bg-white border border-rose-200 rounded-2xl rounded-es-none px-4 py-2.5 text-sm text-charcoal">
-              <div className="font-semibold text-rose-700">
-                {voiceLanguage === 'ur-PK'
-                  ? t('chat.listeningUrdu')
-                  : t('chat.listeningEnglish')}
+            <span className="ac-pulse inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold text-ongold">
+              <Icon name="mic" size={16} />
+            </span>
+            <div className="rounded-[20px] rounded-es-md border-[1.5px] border-gold bg-sf px-4 py-2.5 text-sm">
+              <div className="font-bold text-goldtext">
+                {voiceLanguage === 'ur-PK' ? t('chat.listeningUrdu') : t('chat.listeningEnglish')}
               </div>
-
-              {interimTranscript && (
-                <div className="mt-1 text-[#636E72]">
-                  {interimTranscript}
-                </div>
-              )}
+              {interimTranscript && <div className="mt-1 text-muted">{interimTranscript}</div>}
             </div>
           </div>
         )}
 
         {loading && (
-          <div className="flex gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-agri-900 text-white flex items-center justify-center">
-              <Bot className="w-4 h-4" />
-            </div>
-
-            <div className="bg-white border border-[#E5E7EB] rounded-2xl rounded-es-none px-4 py-2.5 text-sm text-[#636E72] flex items-center gap-2">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              {t('chat.thinking')}
-            </div>
+          <div className="flex items-center gap-2.5 text-sm text-muted">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sage text-forest">
+              <Icon name="sparkles" size={16} />
+            </span>
+            <span className="inline-flex gap-1" aria-hidden="true">
+              <span className="h-2 w-2 animate-bounce rounded-full bg-muted [animation-delay:-0.2s]" />
+              <span className="h-2 w-2 animate-bounce rounded-full bg-muted [animation-delay:-0.1s]" />
+              <span className="h-2 w-2 animate-bounce rounded-full bg-muted" />
+            </span>
+            {t('chat.thinking')}
           </div>
         )}
 
         {error && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-700 text-sm p-3 rounded-lg">
+          <div role="alert" className="flex items-start gap-2 rounded-2xl bg-err-bg p-3 text-sm font-semibold text-err-fg">
+            <Icon name="alert" size={18} className="mt-0.5" />
             {error}
           </div>
         )}
@@ -827,63 +764,25 @@ export default function AssistantChat({
       </div>
 
       {/* Quick prompts */}
-      <div className="bg-white border-t border-[#E5E7EB] px-4 pt-3 pb-1">
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+      <div className="border-t border-line bg-sf px-3 pt-3">
+        <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-3">
           {quickPrompts.map((prompt) => (
             <button
               type="button"
               key={prompt}
               onClick={() => setInput(i18n.quickPrompt(prompt))}
-              className="flex items-center gap-1.5 bg-[#F8F9F5] hover:bg-[#E8F3EE] text-charcoal border border-[#E5E7EB] rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors"
+              className="ac-press inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-paper px-3.5 text-sm font-semibold hover:border-forest"
             >
-              <Sparkles className="w-3.5 h-3.5 text-agri-900" />
+              <Icon name="tag" size={15} className="text-forest" />
               {i18n.quickPrompt(prompt)}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Input */}
-      <form
-        onSubmit={handleSubmit}
-        className="p-4 bg-white border-t border-[#E5E7EB]"
-      >
-        {/* Voice language selector */}
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-[#636E72]">
-            {t('chat.voiceHint')}
-          </span>
-
-          <div className="flex items-center rounded-lg border border-[#E5E7EB] overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setVoiceLanguage('ur-PK')}
-              disabled={isListening}
-              className={`px-2.5 py-1 text-xs font-semibold transition-colors ${
-                voiceLanguage === 'ur-PK'
-                  ? 'bg-agri-900 text-white'
-                  : 'bg-white text-[#636E72] hover:bg-[#F8F9F5]'
-              }`}
-            >
-              {t('chat.voiceUrdu')}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setVoiceLanguage('en-US')}
-              disabled={isListening}
-              className={`px-2.5 py-1 text-xs font-semibold transition-colors ${
-                voiceLanguage === 'en-US'
-                  ? 'bg-agri-900 text-white'
-                  : 'bg-white text-[#636E72] hover:bg-[#F8F9F5]'
-              }`}
-            >
-              {t('chat.voiceEnglish')}
-            </button>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
+      {/* Voice and text input */}
+      <form onSubmit={handleSubmit} className="border-t border-line bg-sf p-3 sm:p-4">
+        <div className="mb-3 flex items-center gap-3">
           <button
             type="button"
             onClick={startVoiceRecognition}
@@ -897,50 +796,61 @@ export default function AssistantChat({
                     ? t('chat.micUrdu')
                     : t('chat.micEnglish')
             }
-            aria-label={
-              isListening ? t('chat.micStopAria') : t('chat.micStartAria')
-            }
-            className={`p-2.5 rounded-full border transition-all ${
-              isListening
-                ? 'bg-rose-600 border-rose-600 text-white shadow-sm'
-                : 'bg-[#F8F9F5] hover:bg-[#E8F3EE] text-agri-900 border-[#E5E7EB]'
-            } disabled:opacity-40 disabled:cursor-not-allowed`}
+            aria-label={isListening ? t('chat.micStopAria') : t('chat.micStartAria')}
+            className={`ac-press inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40 ${
+              isListening ? 'ac-pulse bg-err-fg text-white' : 'bg-gold text-ongold'
+            }`}
           >
-            {isListening ? (
-              <MicOff className="w-4 h-4" />
-            ) : (
-              <Mic className="w-4 h-4" />
-            )}
+            <Icon name={isListening ? 'pause' : 'mic'} size={26} stroke={2.3} />
           </button>
+          <div className="min-w-0 flex-1">
+            <div className="text-[15px] font-bold">{isListening ? t('chat.micStop') : t('chat.tapToSpeak')}</div>
+            <div className="text-[13px] text-muted">{t('chat.voiceHint')}</div>
+          </div>
+          {/* Language the microphone listens for */}
+          <div className="flex shrink-0 flex-col overflow-hidden rounded-xl border border-line sm:flex-row" role="group" aria-label={t('header.languageLabel')}>
+            <button
+              type="button"
+              onClick={() => setVoiceLanguage('ur-PK')}
+              disabled={isListening}
+              aria-pressed={voiceLanguage === 'ur-PK'}
+              className={`h-9 px-2.5 text-xs font-bold ${voiceLanguage === 'ur-PK' ? 'bg-forest text-paper' : 'bg-sf text-muted hover:bg-sage'}`}
+            >
+              {t('chat.voiceUrdu')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setVoiceLanguage('en-US')}
+              disabled={isListening}
+              aria-pressed={voiceLanguage === 'en-US'}
+              className={`h-9 px-2.5 text-xs font-bold ${voiceLanguage === 'en-US' ? 'bg-forest text-paper' : 'bg-sf text-muted hover:bg-sage'}`}
+            >
+              {t('chat.voiceEnglish')}
+            </button>
+          </div>
+        </div>
 
+        <div className="flex items-center gap-2">
           <input
             type="text"
             value={input}
             onChange={(event) => setInput(event.target.value)}
             placeholder={t('chat.placeholder')}
             disabled={loading}
-            className="flex-1 bg-[#F8F9F5] border border-[#E5E7EB] rounded-xl px-4 py-3 text-base text-charcoal placeholder:text-[#636E72] focus:outline-none focus:ring-2 focus:ring-agri-900/20 disabled:opacity-60"
+            className="field-input flex-1 bg-paper disabled:opacity-60"
           />
-
           <button
             type="submit"
             disabled={!input.trim() || loading || isListening}
-            className="p-2.5 rounded-full bg-agri-900 hover:bg-agri-800 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+            className="btn shrink-0 bg-forest px-4 text-paper disabled:opacity-50"
             aria-label={t('chat.send')}
           >
-            {loading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4 rtl:-scale-x-100" />
-            )}
+            <Icon name={loading ? 'refresh' : 'send'} size={20} className={loading ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">{t('chat.send')}</span>
           </button>
         </div>
 
-        {!speechSupported && (
-          <p className="text-xs text-amber-700 mt-2">
-            {t('chat.voiceUnavailable')}
-          </p>
-        )}
+        {!speechSupported && <p className="mt-2 text-[13px] text-warn-fg">{t('chat.voiceUnavailable')}</p>}
       </form>
     </div>
   );

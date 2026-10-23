@@ -5,9 +5,10 @@ import { requireCapability } from '@/lib/authz';
 import { respondToOffer } from '@/lib/actions/sourcing';
 import { getI18n } from '@/lib/i18n/server';
 import ActionForm from '@/components/ui/ActionForm';
+import Icon from '@/components/ui/Icon';
+import { initialsOf } from '@/lib/initials';
 import {
   Badge,
-  Card,
   CropThumb,
   EmptyState,
   PageHeader,
@@ -51,10 +52,13 @@ export default async function ArhtiRequestsPage() {
   const best = pendingOffers[0]?.pricePerKg;
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="mx-auto max-w-3xl">
       <PageHeader title={t('offers.title')} subtitle={t('offers.subtitle')} />
 
-      <h2 className="text-base font-bold text-charcoal mb-1">{t('offers.waiting')}</h2>
+      <h2 className="mb-3 flex items-center gap-2 text-lg font-bold">
+        {t('offers.waiting')}
+        {pendingOffers.length > 0 && <Badge tone="amber">{pendingOffers.length}</Badge>}
+      </h2>
       {pendingOffers.length === 0 ? (
         <EmptyState
           title={t('offers.emptyTitle')}
@@ -63,149 +67,180 @@ export default async function ArhtiRequestsPage() {
           actionLabel={t('offers.emptyAction')}
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {pendingOffers.map((offer) => {
             const total = offer.quantityKg * offer.pricePerKg;
+            const isBest = offer.pricePerKg === best;
             return (
-              <Card key={offer.id}>
+              <article key={offer.id} className={`card ac-up p-4 sm:p-5 ${isBest ? 'border-[1.5px] border-gold' : ''}`}>
                 <div className="flex items-start gap-3">
-                  <CropThumb imageUrl={offer.batch.crop.imageUrl} name={offer.batch.crop.name} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{offer.arhti.name}</span>
-                      {offer.pricePerKg === best && <Badge tone="green">{t('offers.bestRate')}</Badge>}
-                      <Badge>{crop(offer.batch.crop)}</Badge>
-                    </div>
-                    <div className="text-[11px] text-[#636E72] mt-0.5">
-                      {t('offers.wants', {
-                        place: offer.arhti.location ? place(offer.arhti.location) : t('offers.arhti'),
-                        qty: kg(offer.quantityKg),
-                        batch: offer.batch.batchNumber,
-                      })}
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 text-xs">
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('offers.rate')}</div>
-                        <div className="font-bold text-agri-900">{perKg(offer.pricePerKg)}</div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('offers.youReceive')}</div>
-                        <div className="font-semibold text-charcoal">{money(total)}</div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('offers.destination')}</div>
-                        <div className="font-semibold text-charcoal truncate">
-                          {place(offer.destinationMandi.city)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('offers.transport')}</div>
-                        <div className="font-semibold text-charcoal">
-                          {offer.transportResponsibility === 'ARHTI'
-                            ? t('offers.transportArhti')
-                            : offer.transportResponsibility === 'FARMER'
-                              ? t('offers.transportFarmer')
-                              : t('offers.transportShared')}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* The arhti's note is typed text and shown as written. */}
-                    {offer.note && (
-                      <p className="text-[11px] text-[#636E72] mt-2 bg-[#F8F9F5] border border-[#E5E7EB] rounded-lg p-2">
-                        {offer.note}
-                      </p>
-                    )}
-
-                    <div className="flex items-center gap-2 mt-3">
-                      <ActionForm
-                        action={respondToOffer}
-                        hidden={{ offerId: offer.id, decision: 'ACCEPT' }}
-                        submitLabel={t('offers.accept')}
-                        variant="inline"
-                      />
-                      <ActionForm
-                        action={respondToOffer}
-                        hidden={{ offerId: offer.id, decision: 'REJECT' }}
-                        submitLabel={t('offers.decline')}
-                        variant="secondary"
-                        className="inline-block"
-                      />
+                  <span className="h-11 w-11 shrink-0 rounded-xl bg-sage text-center text-sm font-extrabold leading-[44px] text-forest" dir="ltr">
+                    {initialsOf(offer.arhti.name)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[17px] font-bold">{offer.arhti.name}</div>
+                    <div className="flex items-center gap-1 text-[13px] text-muted">
+                      <Icon name="pin" size={14} />
+                      {offer.arhti.location ? place(offer.arhti.location) : t('offers.arhti')}
                     </div>
                   </div>
+                  {isBest && (
+                    <span className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full bg-gold px-2.5 text-[12.5px] font-extrabold text-ongold">
+                      <Icon name="star" size={14} />
+                      {t('offers.bestRate')}
+                    </span>
+                  )}
                 </div>
-              </Card>
+
+                <div className="mt-4 flex items-end justify-between gap-3 rounded-2xl bg-paper p-4">
+                  <div>
+                    <div className="text-[13px] font-semibold text-muted">{t('offers.rate')}</div>
+                    <div className="tabular text-[28px] font-extrabold leading-none">{perKg(offer.pricePerKg)}</div>
+                  </div>
+                  <div className="text-end">
+                    <div className="text-[13px] font-semibold text-muted">{t('offers.youReceive')}</div>
+                    <div className="tabular text-[22px] font-extrabold leading-tight text-goldtext">{money(total)}</div>
+                  </div>
+                </div>
+
+                <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <dt className="flex items-center gap-1 text-[13px] text-muted">
+                      <Icon name="scale" size={14} />
+                      {t('deals.quantity')}
+                    </dt>
+                    <dd className="font-bold">{kg(offer.quantityKg)}</dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="flex items-center gap-1 text-[13px] text-muted">
+                      <Icon name="flag" size={14} />
+                      {t('offers.destination')}
+                    </dt>
+                    <dd className="truncate font-bold">{place(offer.destinationMandi.city)}</dd>
+                  </div>
+                  <div>
+                    <dt className="flex items-center gap-1 text-[13px] text-muted">
+                      <Icon name="truck" size={14} />
+                      {t('offers.transport')}
+                    </dt>
+                    <dd className="font-bold">
+                      {offer.transportResponsibility === 'ARHTI'
+                        ? t('offers.transportArhti')
+                        : offer.transportResponsibility === 'FARMER'
+                          ? t('offers.transportFarmer')
+                          : t('offers.transportShared')}
+                    </dd>
+                  </div>
+                </dl>
+
+                {/* The arhti's note is typed text and shown as written. */}
+                {offer.note && (
+                  <p className="mt-3 flex gap-2 text-sm text-ink">
+                    <Icon name="message" size={16} className="mt-0.5 text-muted" />
+                    <span dir="auto">“{offer.note}”</span>
+                  </p>
+                )}
+                <div className="mt-2 flex items-center gap-2 text-[13px] text-muted">
+                  <CropThumb imageUrl={offer.batch.crop.imageUrl} name={offer.batch.crop.name} size="sm" />
+                  <span>
+                    {crop(offer.batch.crop)} ·{' '}
+                    {t('offers.wants', {
+                      place: offer.arhti.location ? place(offer.arhti.location) : t('offers.arhti'),
+                      qty: kg(offer.quantityKg),
+                      batch: offer.batch.batchNumber,
+                    })}
+                  </span>
+                </div>
+
+                <div className="mt-4 grid grid-cols-[1fr_1.6fr] gap-2">
+                  <ActionForm
+                    action={respondToOffer}
+                    hidden={{ offerId: offer.id, decision: 'REJECT' }}
+                    submitLabel={t('offers.decline')}
+                    variant="outline"
+                    icon="x"
+                    className="[&>button]:mt-0"
+                  />
+                  <ActionForm
+                    action={respondToOffer}
+                    hidden={{ offerId: offer.id, decision: 'ACCEPT' }}
+                    submitLabel={t('offers.acceptAmount', { amount: money(total) })}
+                    variant={isBest ? 'primary' : 'outline'}
+                    icon="check"
+                    className="[&>button]:mt-0"
+                  />
+                </div>
+              </article>
             );
           })}
         </div>
       )}
 
-      <details className="mt-6 rounded-xl border border-[#E5E7EB] bg-white p-3">
-        <summary className="cursor-pointer text-sm font-bold text-charcoal">{t('offers.demandTitle')}</summary>
-        <div className="pt-3">
-      {openDemand.length === 0 ? (
-        <Card>
-          <p className="text-xs text-[#636E72]">{t('offers.noDemand')}</p>
-        </Card>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {openDemand.map((req) => (
-            <Card key={req.id}>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-semibold text-charcoal">{crop(req.crop)}</span>
-                <Badge tone="green">{place(req.mandi.city)}</Badge>
-              </div>
-              <div className="text-[11px] text-[#636E72] mt-1">{req.arhti.name}</div>
-              <div className="text-xs text-charcoal mt-2">
-                {t('offers.demandWants', { min: kg(req.minQuantityKg), max: kg(req.maxQuantityKg) })}
-                {req.gradeWanted ? ` • ${grade(req.gradeWanted)}` : ''}
-              </div>
-              <div className="text-xs text-agri-900 font-semibold mt-1">
-                {req.targetPriceMin && req.targetPriceMax
-                  ? t('offers.rateRange', { min: perKg(req.targetPriceMin), max: perKg(req.targetPriceMax) })
-                  : t('offers.rateOnDiscussion')}
-              </div>
-              <div className="text-[10px] text-[#636E72] mt-1">
-                {t('offers.neededBy', { date: date(req.neededBy) })}
-                {req.transportOffered ? ` • ${t('offers.arhtiTransport')}` : ''}
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {answeredOffers.length > 0 && (
-        <>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-[#636E72] mt-8 mb-2">
-            {t('offers.history')}
-          </h2>
-          <Card padded={false}>
-            <div className="divide-y divide-[#E5E7EB]">
-              {answeredOffers.map((offer) => (
-                <div key={offer.id} className="flex items-center justify-between gap-3 px-4 py-3 text-xs">
-                  <div className="min-w-0">
-                    <div className="font-semibold text-charcoal truncate">
-                      {crop(offer.batch.crop)} • {offer.arhti.name}
-                    </div>
-                    <div className="text-[10px] text-[#636E72]">
-                      {t('offers.qtyAt', { qty: kg(offer.quantityKg), rate: perKg(offer.pricePerKg) })}
-                    </div>
+      <details className="card mt-6 overflow-hidden [&[open]>summary_.chev]:rotate-180">
+        <summary className="flex min-h-[64px] cursor-pointer list-none items-center gap-3 px-4">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sage text-forest">
+            <Icon name="list" size={20} />
+          </span>
+          <span className="flex-1 text-[15px] font-bold">{t('offers.demandTitle')}</span>
+          <Icon name="chevrondown" size={20} className="chev text-muted transition-transform" />
+        </summary>
+        <div className="border-t border-line p-4">
+          {openDemand.length === 0 ? (
+            <p className="text-sm text-muted">{t('offers.noDemand')}</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {openDemand.map((req) => (
+                <div key={req.id} className="rounded-2xl bg-paper p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[15px] font-bold">{crop(req.crop)}</span>
+                    <Badge tone="green" icon="pin">{place(req.mandi.city)}</Badge>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge tone={statusTone(offer.status)}>{status(offer.status)}</Badge>
-                    {offer.deal && (
-                      <Link href={`/deals/${offer.deal.id}`} className="text-agri-900 hover:underline">
-                        {t('offers.viewDeal')}
-                      </Link>
-                    )}
+                  <div className="mt-0.5 text-[13px] text-muted">{req.arhti.name}</div>
+                  <div className="mt-2 text-sm">
+                    {t('offers.demandWants', { min: kg(req.minQuantityKg), max: kg(req.maxQuantityKg) })}
+                    {req.gradeWanted ? ` • ${grade(req.gradeWanted)}` : ''}
+                  </div>
+                  <div className="mt-1 text-sm font-bold text-goldtext">
+                    {req.targetPriceMin && req.targetPriceMax
+                      ? t('offers.rateRange', { min: perKg(req.targetPriceMin), max: perKg(req.targetPriceMax) })
+                      : t('offers.rateOnDiscussion')}
+                  </div>
+                  <div className="mt-1 text-[13px] text-muted">
+                    {t('offers.neededBy', { date: date(req.neededBy) })}
+                    {req.transportOffered ? ` • ${t('offers.arhtiTransport')}` : ''}
                   </div>
                 </div>
               ))}
             </div>
-          </Card>
-        </>
-      )}
+          )}
+
+          {answeredOffers.length > 0 && (
+            <>
+              <h3 className="mb-2 mt-6 text-xs font-bold uppercase tracking-[.08em] text-muted">{t('offers.history')}</h3>
+              <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
+                {answeredOffers.map((offer) => (
+                  <div key={offer.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-bold">
+                        {crop(offer.batch.crop)} • {offer.arhti.name}
+                      </div>
+                      <div className="text-[13px] text-muted">
+                        {t('offers.qtyAt', { qty: kg(offer.quantityKg), rate: perKg(offer.pricePerKg) })}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Badge tone={statusTone(offer.status)}>{status(offer.status)}</Badge>
+                      {offer.deal && (
+                        <Link href={`/deals/${offer.deal.id}`} className="inline-flex min-h-11 items-center text-sm font-bold text-forest">
+                          {t('offers.viewDeal')}
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </details>
     </div>

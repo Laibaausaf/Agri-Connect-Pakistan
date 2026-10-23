@@ -33,7 +33,7 @@ export default async function AiAssistantPage() {
     .filter((a) => a.status === 'PENDING');
 
   return (
-    <div className="max-w-3xl mx-auto h-[calc(100vh-8rem)] flex flex-col">
+    <div className="mx-auto flex h-[calc(100dvh-14rem)] min-h-[520px] max-w-3xl flex-col lg:h-[calc(100vh-9rem)]">
       <AssistantChat
         user={{ id: user.id, name: user.name, role: user.role }}
         initialSessionId={latestSession?.id}

@@ -3,7 +3,7 @@
 import { useActionState } from 'react';
 import type { ReactNode } from 'react';
 import { useI18n } from '@/components/i18n/LanguageProvider';
-import Icon from '@/components/ui/Icon';
+import Icon, { type IconName } from '@/components/ui/Icon';
 
 export type ActionResult = { error?: string; success?: boolean } | null | undefined | void;
 
@@ -14,7 +14,9 @@ type Props = {
   submitLabelUrdu?: string;
   successMessage?: string;
   className?: string;
-  variant?: 'primary' | 'secondary' | 'danger' | 'inline';
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'inline';
+  /** Icon shown before the label. */
+  icon?: IconName;
   hidden?: Record<string, string | number>;
   disabled?: boolean;
   disabledReason?: string;
@@ -23,6 +25,7 @@ type Props = {
 const variants = {
   primary: 'btn-primary',
   secondary: 'btn-secondary',
+  outline: 'btn-outline',
   danger: 'btn-danger',
   inline: 'btn-secondary btn-sm',
 };
@@ -42,6 +45,7 @@ export default function ActionForm({
   hidden,
   disabled,
   disabledReason,
+  icon,
 }: Props) {
   const [state, formAction, pending] = useActionState(
     async (_prev: ActionResult, formData: FormData): Promise<ActionResult> => action(formData),
@@ -76,7 +80,7 @@ export default function ActionForm({
         title={disabled ? disabledReason : undefined}
         className={`btn ${isInline ? 'mt-2' : 'mt-4 w-full'} ${variants[variant]}`}
       >
-        {pending && <Icon name="refresh" size={18} className="animate-spin" />}
+        {pending ? <Icon name="refresh" size={18} className="animate-spin" /> : icon && <Icon name={icon} size={18} />}
         {label}
       </button>
     </form>

@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
 import { createCropBatch } from '@/lib/actions/crops';
-import { Card, PageHeader } from '@/components/ui/kit';
+import { PageHeader } from '@/components/ui/kit';
 import FarmerCropWizard from '@/components/crops/FarmerCropWizard';
 import { getI18n } from '@/lib/i18n/server';
 
@@ -19,16 +19,14 @@ export default async function NewCropBatchPage() {
   const priceByCrop: Record<string, number> = {};
   for (const price of prices) if (priceByCrop[price.cropId] === undefined) priceByCrop[price.cropId] = price.ratePerKg;
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="mx-auto max-w-6xl">
       <PageHeader title={t('cropNew.title')} subtitle={t('cropNew.subtitle')} />
-      <Card>
-        <FarmerCropWizard
+      <FarmerCropWizard
           action={createCropBatch}
           crops={crops}
           priceByCrop={priceByCrop}
           defaults={{ village: profile?.village ?? '', city: account?.location ?? 'Swabi', province: 'Khyber Pakhtunkhwa', today: new Date().toISOString().slice(0, 10) }}
         />
-      </Card>
     </div>
   );
 }

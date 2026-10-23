@@ -6,7 +6,7 @@ import { useI18n } from '@/components/i18n/LanguageProvider';
 import LanguageToggle from '@/components/layout/LanguageToggle';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import Icon from '@/components/ui/Icon';
-import { BrandGlow } from './Header';
+import BrandGlow from '@/components/ui/BrandGlow';
 
 type ConsumerHeaderProps = {
   name: string;

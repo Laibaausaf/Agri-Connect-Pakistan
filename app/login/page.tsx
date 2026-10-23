@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useI18n } from '@/components/i18n/LanguageProvider';
 import LanguageToggle from '@/components/layout/LanguageToggle';
 import ThemeToggle from '@/components/layout/ThemeToggle';
-import { BrandGlow } from '@/components/layout/Header';
+import BrandGlow from '@/components/ui/BrandGlow';
 import Icon, { type IconName } from '@/components/ui/Icon';
 import type { UiKey } from '@/lib/i18n/translations';
 

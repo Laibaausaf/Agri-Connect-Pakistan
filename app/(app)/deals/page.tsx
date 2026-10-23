@@ -6,12 +6,13 @@ import { getI18n } from '@/lib/i18n/server';
 import type { I18n } from '@/lib/i18n';
 import {
   Badge,
-  Card,
   CropThumb,
   EmptyState,
   PageHeader,
   statusTone,
 } from '@/components/ui/kit';
+import Icon from '@/components/ui/Icon';
+import { DEAL_STAGES, dealStageIndex } from '@/components/deals/stages';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +39,7 @@ export default async function DealsPage() {
   const closed = deals.filter((d) => d.status === 'COMPLETED' || d.status === 'CANCELLED');
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="mx-auto max-w-3xl">
       <PageHeader
         title={isFarmer ? t('deals.titleFarmer') : t('deals.titleArhti')}
         subtitle={isFarmer ? t('deals.subtitleFarmer') : t('deals.subtitleArhti')}
@@ -52,9 +53,9 @@ export default async function DealsPage() {
           actionLabel={isFarmer ? t('deals.emptyActionFarmer') : t('deals.emptyActionArhti')}
         />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           <section>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-[#636E72] mb-2">
+            <h2 className="mb-3 text-xs font-bold uppercase tracking-[.08em] text-muted">
               {t('deals.inProgress', { count: open.length })}
             </h2>
             <div className="space-y-3">
@@ -62,16 +63,14 @@ export default async function DealsPage() {
                 <DealRow key={deal.id} deal={deal} isFarmer={isFarmer} i18n={i18n} />
               ))}
               {open.length === 0 && (
-                <Card>
-                  <p className="text-xs text-[#636E72]">{t('deals.nothingInProgress')}</p>
-                </Card>
+                <div className="card p-4 text-sm text-muted">{t('deals.nothingInProgress')}</div>
               )}
             </div>
           </section>
 
           {closed.length > 0 && (
             <section>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-[#636E72] mb-2">
+              <h2 className="mb-3 text-xs font-bold uppercase tracking-[.08em] text-muted">
                 {t('deals.closed', { count: closed.length })}
               </h2>
               <div className="space-y-3">
@@ -101,48 +100,45 @@ type DealListItem = Prisma.FarmerArhtiDealGetPayload<{
 function DealRow({ deal, isFarmer, i18n }: { deal: DealListItem; isFarmer: boolean; i18n: I18n }) {
   const { t, crop, place, status, kg, perKg, money } = i18n;
   const quantity = deal.receivedQuantityKg ?? deal.agreedQuantityKg;
+  const stage = dealStageIndex(deal.status);
   return (
-    <Link href={`/deals/${deal.id}`} className="block">
-      <Card className="hover:border-[#B7D4C8] transition-colors">
-        <div className="flex items-start gap-3">
-          <CropThumb imageUrl={deal.crop.imageUrl} name={deal.crop.name} size="sm" />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-bold text-charcoal">{crop(deal.crop)}</span>
-              <Badge tone={statusTone(deal.status)}>{status(deal.status)}</Badge>
-            </div>
-            <div className="text-[11px] text-[#636E72] font-mono mt-0.5">{deal.dealNumber}</div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
-              <div>
-                <div className="text-[10px] text-[#636E72]">{isFarmer ? t('deals.arhti') : t('deals.farmer')}</div>
-                <div className="font-semibold text-charcoal truncate">
-                  {isFarmer ? deal.arhti.name : deal.farmer.name}
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] text-[#636E72]">{t('deals.quantity')}</div>
-                <div className="font-semibold text-charcoal">{kg(quantity)}</div>
-              </div>
-              <div>
-                <div className="text-[10px] text-[#636E72]">{t('deals.rate')}</div>
-                <div className="font-semibold text-agri-900">{perKg(deal.agreedPricePerKg)}</div>
-              </div>
-              <div>
-                <div className="text-[10px] text-[#636E72]">
-                  {isFarmer ? t('deals.youGet') : t('deals.destination')}
-                </div>
-                <div className="font-semibold text-charcoal truncate">
-                  {isFarmer
-                    ? deal.settlement
-                      ? money(deal.settlement.netPayable)
-                      : t('deals.afterWeighing')
-                    : place(deal.destinationMandi.city)}
-                </div>
-              </div>
-            </div>
+    <Link href={`/deals/${deal.id}`} className="card ac-press block overflow-hidden hover:border-forest">
+      <div className="flex items-start gap-3 p-4">
+        <CropThumb imageUrl={deal.crop.imageUrl} name={deal.crop.name} size="md" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <span className="text-[17px] font-bold">{crop(deal.crop)}</span>
+            <span className="tabular shrink-0 text-lg font-extrabold">{kg(quantity)}</span>
+          </div>
+          <div className="font-mono text-[13px] text-muted">{deal.dealNumber}</div>
+          <div className="mt-1 text-sm text-muted">
+            {isFarmer ? t('deals.arhti') : t('deals.farmer')}:{' '}
+            <span className="font-semibold text-ink">{isFarmer ? deal.arhti.name : deal.farmer.name}</span> ·{' '}
+            {t('deals.rate')}: <span className="font-semibold text-ink">{perKg(deal.agreedPricePerKg)}</span>
+          </div>
+          <div className="text-sm text-muted">
+            {isFarmer ? t('deals.youGet') : t('deals.destination')}:{' '}
+            <span className="font-bold text-ink">
+              {isFarmer
+                ? deal.settlement
+                  ? money(deal.settlement.netPayable)
+                  : t('deals.afterWeighing')
+                : place(deal.destinationMandi.city)}
+            </span>
           </div>
         </div>
-      </Card>
+      </div>
+      {stage >= 0 && (
+        <div className="flex gap-1.5 px-4 pb-3" aria-hidden="true">
+          {DEAL_STAGES.map((s, i) => (
+            <span key={s.status} className={`h-1.5 flex-1 rounded-full ${i <= stage ? 'bg-gold' : 'bg-sage'}`} />
+          ))}
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-2 border-t border-line bg-paper px-4 py-2.5">
+        <Badge tone={statusTone(deal.status)}>{status(deal.status)}</Badge>
+        <Icon name="chevronright" size={18} className="text-muted" />
+      </div>
     </Link>
   );
 }

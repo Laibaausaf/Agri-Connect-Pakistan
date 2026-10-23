@@ -3,8 +3,9 @@ import { redirect, notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import { sendMessage, markConversationRead } from '@/lib/actions/message';
-import { ArrowLeft, Send } from 'lucide-react';
 import { getI18n } from '@/lib/i18n/server';
+import Icon from '@/components/ui/Icon';
+import { initialsOf } from '@/lib/initials';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,56 +43,40 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
   });
 
   return (
-    <div className="max-w-3xl mx-auto h-[calc(100vh-8rem)] flex flex-col">
-      <div className="flex items-center gap-3 mb-4">
-        <Link
-          href="/messages"
-          className="inline-flex items-center gap-1 text-xs font-medium text-[#636E72] hover:text-agri-900"
-        >
-          <ArrowLeft className="w-3.5 h-3.5 rtl:-scale-x-100" /> {t('common.back')}
+    <div className="mx-auto flex h-[calc(100dvh-15rem)] min-h-[480px] max-w-3xl flex-col lg:h-[calc(100vh-10rem)]">
+      <div className="mb-3 flex items-center gap-3 border-b border-line pb-3">
+        <Link href="/messages" className="inline-flex min-h-12 items-center gap-1.5 text-[15px] font-bold">
+          <Icon name="arrowleft" size={20} />
+          {t('common.back')}
         </Link>
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-agri-900 text-white flex items-center justify-center text-[10px] font-bold">
-            {other.name
-              .split(' ')
-              .map((n) => n[0])
-              .slice(0, 2)
-              .join('')
-              .toUpperCase()}
-          </div>
-          <div>
-            <div className="text-sm font-bold text-charcoal">{other.name}</div>
-            <div className="text-[10px] text-[#636E72]">{role(other.role)}</div>
-          </div>
+        <span className="h-11 w-11 shrink-0 rounded-full bg-sage text-center text-sm font-extrabold leading-[44px] text-forest" dir="ltr">
+          {initialsOf(other.name)}
+        </span>
+        <div className="min-w-0">
+          <div className="truncate text-[17px] font-bold">{other.name}</div>
+          <div className="text-[13px] text-muted">{role(other.role)}</div>
         </div>
       </div>
 
-      <div className="flex-1 bg-white border border-[#E5E7EB] rounded-2xl shadow-sm overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {conversation.messages.length === 0 && (
-            <div className="text-center text-xs text-[#636E72] py-8">
-              {t('conversation.empty')}
-            </div>
-          )}
+      <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-paper p-4">
+          {conversation.messages.length === 0 && <div className="py-8 text-center text-sm text-muted">{t('conversation.empty')}</div>}
           {conversation.messages.map((m) => {
             const isMe = m.senderId === userId;
             return (
               <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-[80%] px-3 py-2 rounded-2xl text-xs ${
-                    isMe
-                      ? 'bg-agri-900 text-white rounded-ee-none'
-                      : 'bg-[#F2F4F7] text-charcoal rounded-es-none'
-                  }`}
-                >
-                  {m.text}
+                <div className="max-w-[82%]">
+                  {/* Message text is typed by people and shown as written. */}
                   <div
-                    className={`text-[9px] mt-1 ${isMe ? 'text-emerald-200' : 'text-[#636E72]'}`}
+                    dir="auto"
+                    className={`rounded-[18px] px-4 py-2.5 text-[15px] leading-relaxed ${
+                      isMe ? 'rounded-ee-md bg-forest text-paper' : 'rounded-es-md border border-line bg-sf text-ink'
+                    }`}
                   >
-                    {time(m.createdAt, {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    {m.text}
+                  </div>
+                  <div className={`mt-1 text-xs text-muted ${isMe ? 'text-end' : ''}`}>
+                    {time(m.createdAt, { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
               </div>
@@ -101,23 +86,13 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
 
         <form
           action={sendMessage as unknown as (formData: FormData) => Promise<void>}
-          className="p-3 border-t border-[#E5E7EB] bg-[#F8F9F5] flex items-center gap-2"
+          className="flex items-center gap-2 border-t border-line bg-sf p-3"
         >
           <input type="hidden" name="conversationId" value={conversation.id} />
-          <input
-            type="text"
-            name="text"
-            placeholder={t('conversation.placeholder')}
-            required
-            autoComplete="off"
-            className="flex-1 rounded-lg border border-[#E5E7EB] px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-agri-500 bg-white"
-          />
-          <button
-            type="submit"
-            className="bg-agri-900 hover:bg-agri-800 text-white p-2 rounded-lg transition-colors"
-            aria-label={t('conversation.send')}
-          >
-            <Send className="w-4 h-4 rtl:-scale-x-100" />
+          <input type="text" name="text" placeholder={t('conversation.placeholder')} required autoComplete="off" className="field-input flex-1 bg-paper" />
+          <button type="submit" className="btn btn-primary min-h-[52px] shrink-0 px-5" aria-label={t('conversation.send')}>
+            <Icon name="send" size={20} />
+            <span className="hidden sm:inline">{t('conversation.send')}</span>
           </button>
         </form>
       </div>

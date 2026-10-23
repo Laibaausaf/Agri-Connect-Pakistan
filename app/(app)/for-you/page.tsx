@@ -18,7 +18,7 @@ export default async function ForYouPage() {
   switch (user.role) {
     case UserRole.FARMER:
       return (
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <FarmerHome userId={user.id} name={user.name} />
         </div>
       );

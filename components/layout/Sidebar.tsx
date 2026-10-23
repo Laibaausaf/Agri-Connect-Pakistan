@@ -6,7 +6,7 @@ import { UserRole } from '@prisma/client';
 import { ROLE_NAV, ROLE_PRIMARY_ACTION, type NavBadges, type NavEntry } from '@/lib/navigation';
 import { useI18n } from '@/components/i18n/LanguageProvider';
 import Icon from '@/components/ui/Icon';
-import { initialsOf } from './Header';
+import { initialsOf } from '@/lib/initials';
 
 type SidebarProps = {
   role: UserRole;

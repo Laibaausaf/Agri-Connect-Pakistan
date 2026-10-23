@@ -6,7 +6,7 @@ import Icon, { type IconName } from '@/components/ui/Icon';
 import { CropThumb } from '@/components/ui/kit';
 import LanguageToggle from '@/components/layout/LanguageToggle';
 import ThemeToggle from '@/components/layout/ThemeToggle';
-import { BrandGlow } from '@/components/layout/Header';
+import BrandGlow from '@/components/ui/BrandGlow';
 
 export const dynamic = 'force-dynamic';
 
