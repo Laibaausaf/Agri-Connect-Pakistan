@@ -86,6 +86,17 @@ function checkFarmerBatchNeedsNoMandi() {
 }
 
 /**
+ * Actions that are deliberately not gated, with the reason. Each one may only
+ * do what the reason says (the check below enforces it), so adding real logic
+ * to one of them makes verify flag it again.
+ */
+const UNGATED_ACTIONS: Record<string, { reason: string; mayOnly: RegExp }> = {
+  // Ends the caller's own session and nothing else. Gating it on a session
+  // would stop a broken or half-expired session from being cleared.
+  'auth.ts:logout': { reason: 'only signs the caller out', mayOnly: /^\s*await signOut\(\{ redirectTo: '\/login' \}\);\s*$/ },
+};
+
+/**
  * Section 53's failure mode: hiding a feature in the UI while the action stays
  * callable. Every exported server action must gate on a capability or session.
  */
@@ -96,14 +107,23 @@ function checkEveryActionIsGated() {
     const src = readFileSync(join(dir, file), 'utf8');
     const exports = [...src.matchAll(/export async function (\w+)\s*\(/g)].map((m) => m[1]);
     const ungated: string[] = [];
+    const exempted: string[] = [];
     for (const name of exports) {
       const start = src.indexOf(`export async function ${name}`);
       const next = src.indexOf('\nexport ', start + 1);
       const body = src.slice(start, next === -1 ? src.length : next);
-      if (!/require(Capability|Auth)\(/.test(body)) ungated.push(name);
+      if (/require(Capability|Auth)\(/.test(body)) continue;
+      const exempt = UNGATED_ACTIONS[`${file}:${name}`];
+      // The function body between its braces must be exactly what the exemption allows.
+      const inner = body.slice(body.indexOf('{') + 1, body.lastIndexOf('}'));
+      if (exempt && exempt.mayOnly.test(inner)) {
+        exempted.push(`${name} (${exempt.reason})`);
+        continue;
+      }
+      ungated.push(name);
     }
     check(`lib/actions/${file} (${exports.length} actions)`, ungated.length === 0,
-      ungated.length ? `ungated: ${ungated.join(', ')}` : '');
+      ungated.length ? `ungated: ${ungated.join(', ')}` : exempted.length ? `allowed ungated: ${exempted.join(', ')}` : '');
   }
 }
 
