@@ -174,6 +174,23 @@ export async function drawFromRetailListing(tx: Tx, listingId: string, quantityK
   });
 }
 
+/** Puts the kilograms of a cancelled order back on the shelf. */
+export async function returnToRetailListing(tx: Tx, listingId: string, quantityKg: number) {
+  assertPositive(quantityKg);
+  const listing = await tx.retailListing.findUnique({ where: { id: listingId } });
+  if (!listing) throw new InventoryError('Retail listing not found');
+  const restored = kg(Math.min(listing.listedQuantityKg, listing.remainingKg + quantityKg));
+  return tx.retailListing.update({
+    where: { id: listingId },
+    data: {
+      remainingKg: restored,
+      // A listing that sold out because of this order is back on sale; a paused
+      // one stays paused.
+      status: listing.status === OfferListingStatus.SOLD_OUT && restored > 0 ? OfferListingStatus.ACTIVE : listing.status,
+    },
+  });
+}
+
 function stockStatusFor(remaining: number, total: number): StockStatus {
   if (remaining === 0) return StockStatus.SOLD_OUT;
   if (total > 0 && remaining / total <= 0.15) return StockStatus.LOW_STOCK;

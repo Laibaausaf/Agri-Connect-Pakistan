@@ -200,11 +200,12 @@ export async function respondToOffer(formData: FormData) {
   if (user.id !== responderShouldBe) throw new ForbiddenError('This offer is not addressed to you');
 
   if (decision === 'REJECT') {
-    await prisma.$transaction(async (tx) => {
-      await tx.farmerArhtiOffer.update({
-        where: { id: offer.id },
+    const answered = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.farmerArhtiOffer.updateMany({
+        where: { id: offer.id, status: OfferStatus.PENDING },
         data: { status: OfferStatus.REJECTED, respondedAt: new Date() },
       });
+      if (claimed.count === 0) return false;
       await tx.notification.create({
         data: {
           userId: offer.direction === OfferDirection.ARHTI_TO_FARMER ? offer.arhtiId : offer.farmerId,
@@ -214,7 +215,9 @@ export async function respondToOffer(formData: FormData) {
           link: '/deals',
         },
       });
+      return true;
     });
+    if (!answered) return { error: 'This offer has already been answered' };
     revalidatePath('/arhti-requests');
     revalidatePath('/sourcing');
     return { success: true };
@@ -222,6 +225,12 @@ export async function respondToOffer(formData: FormData) {
 
   try {
     const deal = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.farmerArhtiOffer.updateMany({
+        where: { id: offer.id, status: OfferStatus.PENDING },
+        data: { status: OfferStatus.ACCEPTED, respondedAt: new Date() },
+      });
+      if (claimed.count === 0) throw new OfferAlreadyAnswered();
+
       await drawFromBatch(tx, offer.batchId, offer.quantityKg);
 
       const created = await tx.farmerArhtiDeal.create({
@@ -241,11 +250,6 @@ export async function respondToOffer(formData: FormData) {
           transportResponsibility: offer.transportResponsibility,
           status: DealStatus.AGREED,
         },
-      });
-
-      await tx.farmerArhtiOffer.update({
-        where: { id: offer.id },
-        data: { status: OfferStatus.ACCEPTED, respondedAt: new Date() },
       });
 
       await recordChainEvent(tx, {
@@ -280,6 +284,9 @@ export async function respondToOffer(formData: FormData) {
     return { success: true, dealId: deal.id };
   } catch (err) {
     if (err instanceof InventoryError) return { error: err.message };
+    if (err instanceof OfferAlreadyAnswered) return { error: 'This offer has already been answered' };
     throw err;
   }
 }
+
+class OfferAlreadyAnswered extends Error {}

@@ -7,6 +7,7 @@ import { requireCapability, ForbiddenError } from '@/lib/authz';
 import {
   drawFromShopkeeperStock,
   drawFromRetailListing,
+  returnToRetailListing,
   InventoryError,
   kg,
 } from '@/lib/inventory';
@@ -192,6 +193,14 @@ export async function placeConsumerOrder(formData: FormData) {
   }
 }
 
+/** The only status each open order may move to (same steps as /retail-orders). */
+const NEXT_STATUS: Partial<Record<ConsumerOrderStatus, ConsumerOrderStatus[]>> = {
+  PLACED: [ConsumerOrderStatus.CONFIRMED, ConsumerOrderStatus.CANCELLED],
+  CONFIRMED: [ConsumerOrderStatus.PREPARING],
+  PREPARING: [ConsumerOrderStatus.OUT_FOR_DELIVERY],
+  OUT_FOR_DELIVERY: [ConsumerOrderStatus.DELIVERED],
+};
+
 export async function updateConsumerOrderStatus(formData: FormData) {
   const user = await requireCapability('shopkeeper.orders.fulfill');
 
@@ -199,20 +208,41 @@ export async function updateConsumerOrderStatus(formData: FormData) {
   if (!parsed.success) return { error: 'Invalid order update' };
   const { orderId, status } = parsed.data;
 
-  const order = await prisma.consumerOrder.findUnique({ where: { id: orderId } });
+  const order = await prisma.consumerOrder.findUnique({ where: { id: orderId }, include: { items: true } });
   if (!order) return { error: 'Order not found' };
   if (order.shopkeeperId !== user.id) throw new ForbiddenError('This order is not for your shop');
+  const next = status as ConsumerOrderStatus;
+  if (!NEXT_STATUS[order.status]?.includes(next)) return { error: 'Invalid order update' };
 
-  await prisma.$transaction(async (tx) => {
-    await tx.consumerOrder.update({
-      where: { id: orderId },
+  const updated = await prisma.$transaction(async (tx) => {
+    // Move the order only from the status we checked, so two clicks (or two
+    // tabs) cannot apply the same step twice.
+    const claimed = await tx.consumerOrder.updateMany({
+      where: { id: orderId, status: order.status },
       data: {
-        status: status as ConsumerOrderStatus,
-        deliveredAt: status === 'DELIVERED' ? new Date() : null,
+        status: next,
+        deliveredAt: next === ConsumerOrderStatus.DELIVERED ? new Date() : null,
       },
     });
+    if (claimed.count === 0) return false;
 
-    if (status === 'DELIVERED') {
+    if (next === ConsumerOrderStatus.CANCELLED) {
+      // The kilograms go back on the shelf. The payment record is left as it is.
+      for (const item of order.items) {
+        await returnToRetailListing(tx, item.listingId, item.quantityKg);
+      }
+      await tx.notification.create({
+        data: {
+          userId: order.consumerId,
+          type: NotificationType.INFO,
+          title: 'Order cancelled',
+          message: `Your order ${order.orderNumber} was cancelled by the shop.`,
+          link: '/orders',
+        },
+      });
+    }
+
+    if (next === ConsumerOrderStatus.DELIVERED) {
       await tx.notification.create({
         data: {
           userId: order.consumerId,
@@ -223,10 +253,14 @@ export async function updateConsumerOrderStatus(formData: FormData) {
         },
       });
     }
+    return true;
   });
+  if (!updated) return { error: 'Invalid order update' };
 
   revalidatePath('/retail-orders');
   revalidatePath('/orders');
+  revalidatePath('/shop');
+  revalidatePath('/storefront');
   return { success: true };
 }
 

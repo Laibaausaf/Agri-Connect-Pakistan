@@ -67,7 +67,16 @@ export async function schedulePickup(formData: FormData) {
     return { error: 'The arhti agreed to arrange transport for this deal' };
   }
 
-  await prisma.$transaction(async (tx) => {
+  const scheduled = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.farmerArhtiDeal.updateMany({
+      where: { id: deal.id, status: DealStatus.AGREED },
+      data: {
+        status: DealStatus.PICKUP_SCHEDULED,
+        transportCost: data.estimatedCost ?? deal.transportCost,
+      },
+    });
+    if (claimed.count === 0) return false;
+
     await tx.pickupRecord.create({
       data: {
         dealId: deal.id,
@@ -80,14 +89,6 @@ export async function schedulePickup(formData: FormData) {
         scheduledAt: data.scheduledAt,
         expectedArrivalAt: new Date(data.scheduledAt.getTime() + 5 * 60 * 60 * 1000),
         notes: data.notes || null,
-      },
-    });
-
-    await tx.farmerArhtiDeal.update({
-      where: { id: deal.id },
-      data: {
-        status: DealStatus.PICKUP_SCHEDULED,
-        transportCost: data.estimatedCost ?? deal.transportCost,
       },
     });
 
@@ -112,7 +113,9 @@ export async function schedulePickup(formData: FormData) {
         link: `/deals/${deal.id}`,
       },
     });
+    return true;
   });
+  if (!scheduled) return { error: 'Transport can only be arranged on a newly agreed deal' };
 
   revalidatePath(`/deals/${deal.id}`);
   revalidatePath('/deals');
@@ -135,7 +138,13 @@ export async function confirmPickup(formData: FormData) {
 
   const now = new Date();
 
-  await prisma.$transaction(async (tx) => {
+  const confirmed = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.farmerArhtiDeal.updateMany({
+      where: { id: deal.id, status: DealStatus.PICKUP_SCHEDULED },
+      data: { status: DealStatus.IN_TRANSIT },
+    });
+    if (claimed.count === 0) return false;
+
     await tx.pickupRecord.update({
       where: { id: deal.pickup!.id },
       data: { confirmedAt: now, confirmedByUserId: user.id },
@@ -152,11 +161,6 @@ export async function confirmPickup(formData: FormData) {
         etaMinutes: 240,
         statusNotes: 'Loaded at farm gate, moving towards mandi',
       },
-    });
-
-    await tx.farmerArhtiDeal.update({
-      where: { id: deal.id },
-      data: { status: DealStatus.IN_TRANSIT },
     });
 
     await recordChainEvent(tx, {
@@ -180,7 +184,9 @@ export async function confirmPickup(formData: FormData) {
         link: `/deals/${deal.id}`,
       },
     });
+    return true;
   });
+  if (!confirmed) return { error: 'This deal is not awaiting pickup confirmation' };
 
   revalidatePath(`/deals/${deal.id}`);
   revalidatePath('/deals');
@@ -228,9 +234,9 @@ export async function receiveProduce(formData: FormData) {
 
   const now = new Date();
 
-  await prisma.$transaction(async (tx) => {
-    await tx.farmerArhtiDeal.update({
-      where: { id: deal.id },
+  const weighed = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.farmerArhtiDeal.updateMany({
+      where: { id: deal.id, status: { in: [DealStatus.IN_TRANSIT, DealStatus.PICKED_UP] } },
       data: {
         receivedQuantityKg: received,
         weightDifferenceKg: difference,
@@ -240,6 +246,7 @@ export async function receiveProduce(formData: FormData) {
         status: DealStatus.PAYMENT_PENDING,
       },
     });
+    if (claimed.count === 0) return false;
 
     if (deal.pickup) {
       await tx.pickupRecord.update({
@@ -339,7 +346,9 @@ export async function receiveProduce(formData: FormData) {
         link: `/deals/${deal.id}`,
       },
     });
+    return true;
   });
+  if (!weighed) return { error: 'This deal is not in transit' };
 
   revalidatePath(`/deals/${deal.id}`);
   revalidatePath('/receiving');
@@ -367,7 +376,13 @@ export async function payFarmer(formData: FormData) {
 
   const now = new Date();
 
-  await prisma.$transaction(async (tx) => {
+  const paid = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.farmerArhtiDeal.updateMany({
+      where: { id: deal.id, status: DealStatus.PAYMENT_PENDING },
+      data: { status: DealStatus.COMPLETED },
+    });
+    if (claimed.count === 0) return false;
+
     await tx.paymentRecord.update({
       where: {
         transactionType_transactionId: {
@@ -379,11 +394,6 @@ export async function payFarmer(formData: FormData) {
     });
 
     await tx.settlement.update({ where: { id: settlement.id }, data: { status: 'paid' } });
-
-    await tx.farmerArhtiDeal.update({
-      where: { id: deal.id },
-      data: { status: DealStatus.COMPLETED },
-    });
 
     await tx.receipt.create({
       data: {
@@ -416,7 +426,9 @@ export async function payFarmer(formData: FormData) {
         link: '/records',
       },
     });
+    return true;
   });
+  if (!paid) return { error: 'This deal is not awaiting payment' };
 
   revalidatePath(`/deals/${deal.id}`);
   revalidatePath('/deals');

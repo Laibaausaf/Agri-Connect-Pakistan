@@ -89,6 +89,8 @@ export async function createAuction(formData: FormData) {
   }
 }
 
+class AuctionAlreadyClosed extends Error {}
+
 /**
  * Closing an auction hands the produce to the winning vendor: an ArhtiVendorSale
  * records the transaction and VendorInventory records the new ownership.
@@ -105,129 +107,150 @@ export async function closeAuction(formData: FormData) {
       inventoryLot: { include: { crop: true } },
       mandi: true,
       arhti: { include: { arhtiProfile: true } },
-      bids: { orderBy: { amountPerKg: 'desc' }, include: { bidder: true }, take: 1 },
     },
   });
   if (!auction) return { error: 'Auction not found' };
   if (auction.arhtiId !== user.id) throw new ForbiddenError('This auction is not yours');
   if (auction.status !== AuctionStatus.ACTIVE) return { error: 'This auction is already closed' };
 
-  const topBid = auction.bids[0];
+  const commissionRate = auction.arhti.arhtiProfile?.commissionRate ?? 0.02;
 
-  if (!topBid) {
-    await prisma.$transaction(async (tx) => {
-      await returnToArhtiLot(tx, auction.inventoryLotId, auction.quantityKg);
-      await tx.auction.update({
-        where: { id: auction.id },
+  let outcome: { sold: false } | { sold: true; amountPerKg: number; winnerName: string };
+  try {
+    outcome = await prisma.$transaction(async (tx) => {
+      // Claim the auction first. From here on no bid can be accepted (bids only
+      // land on an ACTIVE auction), and a second close finds nothing to claim.
+      const claimed = await tx.auction.updateMany({
+        where: { id: auction.id, status: AuctionStatus.ACTIVE },
         data: { status: AuctionStatus.EXPIRED },
       });
+      if (claimed.count === 0) throw new AuctionAlreadyClosed();
+
+      // Read the top bid only after the claim, so a bid that got in just before
+      // the close is the one that wins.
+      const topBid = await tx.bid.findFirst({
+        where: { auctionId: auction.id },
+        orderBy: { amountPerKg: 'desc' },
+        include: { bidder: true },
+      });
+
+      if (!topBid) {
+        await returnToArhtiLot(tx, auction.inventoryLotId, auction.quantityKg);
+        return { sold: false as const };
+      }
+
+      const gross = kg(auction.quantityKg * topBid.amountPerKg);
+      const commission = kg(gross * commissionRate);
+
+      const sale = await tx.arhtiVendorSale.create({
+        data: {
+          saleNumber: `AVS-${businessNumber('').slice(1)}`,
+          auctionId: auction.id,
+          arhtiId: auction.arhtiId,
+          vendorId: topBid.bidderId,
+          rootBatchId: auction.inventoryLot.batchId,
+          quantityKg: auction.quantityKg,
+          ratePerKg: topBid.amountPerKg,
+          grossAmount: gross,
+          commission,
+          mandiId: auction.mandiId,
+          // Payment is recorded as paid below, so the sale is complete.
+          status: SaleStatus.COMPLETED,
+        },
+      });
+
+      await tx.vendorInventory.create({
+        data: {
+          stockNumber: `VS-${shortCode(auction.inventoryLot.crop.name)}-${businessNumber('').slice(1)}`,
+          vendorId: topBid.bidderId,
+          saleId: sale.id,
+          rootBatchId: auction.inventoryLot.batchId,
+          cropId: auction.inventoryLot.cropId,
+          quantityKg: auction.quantityKg,
+          availableKg: auction.quantityKg,
+          grade: auction.grade,
+          costPerKg: topBid.amountPerKg,
+          sourceMandiCity: auction.mandi.city,
+          sourceFarmCity: auction.inventoryLot.sourceCity,
+          photos: auction.photos ?? [],
+          status: StockStatus.IN_STOCK,
+        },
+      });
+
+      await tx.paymentRecord.create({
+        data: {
+          transactionType: TransactionType.ARHTI_VENDOR,
+          transactionId: sale.id,
+          amount: gross,
+          payerId: topBid.bidderId,
+          recipientId: auction.arhtiId,
+          status: PaymentStatus.PAID,
+          paidAt: new Date(),
+          reference: `RAAST-${businessNumber('P')}`,
+        },
+      });
+
+      await tx.auction.update({
+        where: { id: auction.id },
+        data: {
+          status: AuctionStatus.SOLD,
+          winnerId: topBid.bidderId,
+          winningBidId: topBid.id,
+          currentHighestBid: topBid.amountPerKg,
+        },
+      });
+
+      await recordChainEvent(tx, {
+        batchId: auction.inventoryLot.batchId,
+        stage: SupplyChainStage.ARHTI_VENDOR_SALE,
+        actorId: auction.arhtiId,
+        actorRole: UserRole.ARHTI,
+        title: 'Auction won by vendor',
+        description: `${topBid.bidder.name} won ${auction.quantityKg.toLocaleString('en-PK')} kg ${auction.inventoryLot.crop.name} at Rs ${topBid.amountPerKg}/kg in ${auction.mandi.city}`,
+        quantityKg: auction.quantityKg,
+        pricePerKg: topBid.amountPerKg,
+        refType: 'ArhtiVendorSale',
+        refId: sale.id,
+      });
+
+      await tx.notification.createMany({
+        data: [
+          {
+            userId: topBid.bidderId,
+            type: NotificationType.AUCTION_WON,
+            title: 'You won the auction',
+            message: `${auction.quantityKg.toLocaleString('en-PK')} kg ${auction.inventoryLot.crop.name} at Rs ${topBid.amountPerKg}/kg is now in your warehouse.`,
+            link: '/stock',
+          },
+          {
+            userId: auction.arhtiId,
+            type: NotificationType.AUCTION_CLOSED,
+            title: 'Auction closed',
+            message: `Sold ${auction.quantityKg.toLocaleString('en-PK')} kg at Rs ${topBid.amountPerKg}/kg to ${topBid.bidder.name}.`,
+            link: '/sales',
+          },
+        ],
+      });
+
+      return { sold: true as const, amountPerKg: topBid.amountPerKg, winnerName: topBid.bidder.name };
     });
+  } catch (err) {
+    if (err instanceof AuctionAlreadyClosed) return { error: 'This auction is already closed' };
+    throw err;
+  }
+
+  if (!outcome.sold) {
     getIO()?.to(`auction:${auction.id}`).emit('auction:closed', { auctionId: auction.id, sold: false });
     revalidatePath('/auction-house');
     revalidatePath('/inventory');
     return { success: true, sold: false };
   }
 
-  const gross = kg(auction.quantityKg * topBid.amountPerKg);
-  const commissionRate = auction.arhti.arhtiProfile?.commissionRate ?? 0.02;
-  const commission = kg(gross * commissionRate);
-
-  await prisma.$transaction(async (tx) => {
-    const sale = await tx.arhtiVendorSale.create({
-      data: {
-        saleNumber: `AVS-${businessNumber('').slice(1)}`,
-        auctionId: auction.id,
-        arhtiId: auction.arhtiId,
-        vendorId: topBid.bidderId,
-        rootBatchId: auction.inventoryLot.batchId,
-        quantityKg: auction.quantityKg,
-        ratePerKg: topBid.amountPerKg,
-        grossAmount: gross,
-        commission,
-        mandiId: auction.mandiId,
-        status: SaleStatus.PENDING_PAYMENT,
-      },
-    });
-
-    await tx.vendorInventory.create({
-      data: {
-        stockNumber: `VS-${shortCode(auction.inventoryLot.crop.name)}-${businessNumber('').slice(1)}`,
-        vendorId: topBid.bidderId,
-        saleId: sale.id,
-        rootBatchId: auction.inventoryLot.batchId,
-        cropId: auction.inventoryLot.cropId,
-        quantityKg: auction.quantityKg,
-        availableKg: auction.quantityKg,
-        grade: auction.grade,
-        costPerKg: topBid.amountPerKg,
-        sourceMandiCity: auction.mandi.city,
-        sourceFarmCity: auction.inventoryLot.sourceCity,
-        photos: auction.photos ?? [],
-        status: StockStatus.IN_STOCK,
-      },
-    });
-
-    await tx.paymentRecord.create({
-      data: {
-        transactionType: TransactionType.ARHTI_VENDOR,
-        transactionId: sale.id,
-        amount: gross,
-        payerId: topBid.bidderId,
-        recipientId: auction.arhtiId,
-        status: PaymentStatus.PAID,
-        paidAt: new Date(),
-        reference: `RAAST-${businessNumber('P')}`,
-      },
-    });
-
-    await tx.auction.update({
-      where: { id: auction.id },
-      data: {
-        status: AuctionStatus.SOLD,
-        winnerId: topBid.bidderId,
-        winningBidId: topBid.id,
-        currentHighestBid: topBid.amountPerKg,
-      },
-    });
-
-    await recordChainEvent(tx, {
-      batchId: auction.inventoryLot.batchId,
-      stage: SupplyChainStage.ARHTI_VENDOR_SALE,
-      actorId: auction.arhtiId,
-      actorRole: UserRole.ARHTI,
-      title: 'Auction won by vendor',
-      description: `${topBid.bidder.name} won ${auction.quantityKg.toLocaleString('en-PK')} kg ${auction.inventoryLot.crop.name} at Rs ${topBid.amountPerKg}/kg in ${auction.mandi.city}`,
-      quantityKg: auction.quantityKg,
-      pricePerKg: topBid.amountPerKg,
-      refType: 'ArhtiVendorSale',
-      refId: sale.id,
-    });
-
-    await tx.notification.createMany({
-      data: [
-        {
-          userId: topBid.bidderId,
-          type: NotificationType.AUCTION_WON,
-          title: 'You won the auction',
-          message: `${auction.quantityKg.toLocaleString('en-PK')} kg ${auction.inventoryLot.crop.name} at Rs ${topBid.amountPerKg}/kg is now in your warehouse.`,
-          link: '/stock',
-        },
-        {
-          userId: auction.arhtiId,
-          type: NotificationType.AUCTION_CLOSED,
-          title: 'Auction closed',
-          message: `Sold ${auction.quantityKg.toLocaleString('en-PK')} kg at Rs ${topBid.amountPerKg}/kg to ${topBid.bidder.name}.`,
-          link: '/sales',
-        },
-      ],
-    });
-  });
-
   getIO()?.to(`auction:${auction.id}`).emit('auction:closed', {
     auctionId: auction.id,
     sold: true,
-    winningBid: topBid.amountPerKg,
-    winnerName: topBid.bidder.name,
+    winningBid: outcome.amountPerKg,
+    winnerName: outcome.winnerName,
   });
 
   revalidatePath('/auction-house');
@@ -248,10 +271,26 @@ export async function cancelAuction(formData: FormData) {
   if (auction.status !== AuctionStatus.ACTIVE) return { error: 'This auction is already closed' };
   if (auction.bidCount > 0) return { error: 'An auction with live bids cannot be cancelled' };
 
-  await prisma.$transaction(async (tx) => {
+  // Cancel only if it is still open with no bids at the moment of writing.
+  const cancelled = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.auction.updateMany({
+      where: { id: auction.id, status: AuctionStatus.ACTIVE, bidCount: 0 },
+      data: { status: AuctionStatus.CANCELLED },
+    });
+    if (claimed.count === 0) return false;
     await returnToArhtiLot(tx, auction.inventoryLotId, auction.quantityKg);
-    await tx.auction.update({ where: { id: auction.id }, data: { status: AuctionStatus.CANCELLED } });
+    return true;
   });
+  if (!cancelled) {
+    const fresh = await prisma.auction.findUnique({ where: { id: auction.id } });
+    return {
+      error:
+        fresh?.status === AuctionStatus.ACTIVE
+          ? 'An auction with live bids cannot be cancelled'
+          : 'This auction is already closed',
+    };
+  }
+  getIO()?.to(`auction:${auction.id}`).emit('auction:closed', { auctionId: auction.id, sold: false });
 
   revalidatePath('/auction-house');
   revalidatePath('/inventory');

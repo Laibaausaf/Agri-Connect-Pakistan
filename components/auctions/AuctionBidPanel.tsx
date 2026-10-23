@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from 'react';
 import { Prisma, UserRole } from '@prisma/client';
-import { placeBid } from '@/lib/actions/bid';
+import { getAuctionLiveState, placeBid } from '@/lib/actions/bid';
 import { useSocket } from '@/hooks/useSocket';
 import { useI18n } from '@/components/i18n/LanguageProvider';
 import {
@@ -47,6 +47,9 @@ type BidState =
       bid?: PlacedBid;
     }
   | null;
+
+/** How often the page re-checks the auction while the live connection is down. */
+const POLL_MS = 4000;
 
 function formatTimeLeft(ms: number, hoursLabel: (hours: number, minutes: string) => string) {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
@@ -130,8 +133,8 @@ export default function AuctionBidPanel({
     }) => {
       if (payload.auctionId !== auction.id) return;
 
-      setCurrentHighestBid(payload.currentHighestBid);
-      setBidCount(payload.bidCount);
+      setCurrentHighestBid((prev) => Math.max(prev, payload.currentHighestBid));
+      setBidCount((prev) => Math.max(prev, payload.bidCount));
       setLatestBidderName(payload.latestBidderName);
 
       setBids((prev) => {
@@ -150,24 +153,64 @@ export default function AuctionBidPanel({
       });
     };
 
-    socket.emit('join-auction', auction.id);
+    const onClosed = (payload: { auctionId: string; sold: boolean; winningBid?: number }) => {
+      if (payload.auctionId !== auction.id) return;
+      if (payload.winningBid) setCurrentHighestBid((prev) => Math.max(prev, payload.winningBid!));
+      setIsEnded(true);
+    };
+
+    // Rooms do not survive a reconnect, so join again every time we connect.
+    const join = () => socket.emit('join-auction', auction.id);
+    socket.on('connect', join);
+    if (socket.connected) join();
     socket.on('auction:update', onUpdate);
+    socket.on('auction:closed', onClosed);
 
     return () => {
       socket.emit('leave-auction', auction.id);
+      socket.off('connect', join);
       socket.off('auction:update', onUpdate);
+      socket.off('auction:closed', onClosed);
     };
   }, [socket, auction.id]);
+
+  // Fallback while the live connection is down (for example on hosting without
+  // WebSockets): re-check the auction every few seconds. Stops as soon as the
+  // socket connects or the auction ends.
+  useEffect(() => {
+    if (connected || isEnded) return;
+    let stopped = false;
+    const check = async () => {
+      const live = await getAuctionLiveState(auction.id).catch(() => null);
+      if (stopped || !live) return;
+      if (live.currentHighestBid != null) {
+        setCurrentHighestBid((prev) => Math.max(prev, live.currentHighestBid!));
+      }
+      setBidCount((prev) => Math.max(prev, live.bidCount));
+      setBids((prev) => {
+        const known = new Set(prev.map((b) => b.id));
+        const added = live.bids.filter((b) => !known.has(b.id));
+        if (added.length === 0) return prev;
+        return [...prev, ...(added as unknown as BidWithBidder[])].sort((a, b) => b.amountPerKg - a.amountPerKg);
+      });
+      if (live.status !== 'ACTIVE') setIsEnded(true);
+    };
+    const timer = setInterval(check, POLL_MS);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [connected, isEnded, auction.id]);
 
   useEffect(() => {
     if (state?.success && amountRef.current) {
       amountRef.current.value = '';
     }
     if (state?.currentHighestBid) {
-      setCurrentHighestBid(state.currentHighestBid);
+      setCurrentHighestBid((prev) => Math.max(prev, state.currentHighestBid!));
     }
     if (state?.bidCount) {
-      setBidCount(state.bidCount);
+      setBidCount((prev) => Math.max(prev, state.bidCount!));
     }
     if (state?.bid) {
       setBids((prev) => {
