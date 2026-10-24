@@ -87,7 +87,7 @@ export default async function WholesaleMarketPage({
         action={
           <Link
             href="/shop-stock"
-            className="text-[11px] font-semibold text-agri-900 hover:underline whitespace-nowrap"
+            className="btn btn-outline btn-sm whitespace-nowrap"
           >
             {t('wmarket.myStock')}
           </Link>
@@ -109,10 +109,10 @@ export default async function WholesaleMarketPage({
       <div className="flex items-center gap-2 flex-wrap mb-4">
         <Link
           href="/wholesale"
-          className={`text-[11px] font-semibold px-3 py-1.5 rounded-full border ${
+          className={`text-[13px] font-semibold px-3 py-1.5 rounded-full border ${
             cropFilter
-              ? 'bg-white text-[#636E72] border-[#E5E7EB]'
-              : 'bg-agri-900 text-white border-agri-900'
+              ? 'bg-sf text-muted border-line'
+              : 'bg-forest text-paper border-forest'
           }`}
         >
           {t('common.allCrops')}
@@ -121,10 +121,10 @@ export default async function WholesaleMarketPage({
           <Link
             key={c.id}
             href={`/wholesale?crop=${c.id}`}
-            className={`text-[11px] font-semibold px-3 py-1.5 rounded-full border ${
+            className={`text-[13px] font-semibold px-3 py-1.5 rounded-full border ${
               cropFilter === c.id
-                ? 'bg-agri-900 text-white border-agri-900'
-                : 'bg-white text-[#636E72] border-[#E5E7EB]'
+                ? 'bg-forest text-paper border-forest'
+                : 'bg-sf text-muted border-line'
             }`}
           >
             {crop(c)}
@@ -153,11 +153,11 @@ export default async function WholesaleMarketPage({
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{crop(offer.crop)}</span>
+                      <span className="text-[17px] font-bold text-ink">{crop(offer.crop)}</span>
                       <Badge tone="neutral">{grade(offer.grade)}</Badge>
                       {deliversHere && <Badge tone="green">{t('wmarket.deliversTo', { city: place(myCity) })}</Badge>}
                     </div>
-                    <div className="text-[11px] text-[#636E72] mt-0.5">
+                    <div className="text-[13px] text-muted mt-0.5">
                       {offer.vendor.vendorProfile?.businessName ?? offer.vendor.name}
                       {offer.vendor.vendorProfile?.warehouseCity
                         ? ` · ${place(offer.vendor.vendorProfile.warehouseCity)}`
@@ -166,27 +166,27 @@ export default async function WholesaleMarketPage({
                         ? ` · ★ ${offer.vendor.vendorProfile.rating.toFixed(1)}`
                         : ''}
                     </div>
-                    <div className="text-[11px] text-[#636E72]">
+                    <div className="text-[13px] text-muted">
                       {t('wmarket.origin', { farm: place(offer.stock.sourceFarmCity), mandi: place(offer.stock.sourceMandiCity) })}
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-sm">
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('wmarket.rate')}</div>
-                        <div className="font-semibold text-agri-900">
+                        <div className="text-[12.5px] text-muted">{t('wmarket.rate')}</div>
+                        <div className="font-semibold text-forest">
                           {perKg(offer.pricePerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('wmarket.available')}</div>
-                        <div className="font-semibold text-charcoal">{kg(offer.remainingKg)}</div>
+                        <div className="text-[12.5px] text-muted">{t('wmarket.available')}</div>
+                        <div className="font-semibold text-ink">{kg(offer.remainingKg)}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('wmarket.minOrder')}</div>
-                        <div className="font-semibold text-charcoal">{kg(offer.minOrderKg)}</div>
+                        <div className="text-[12.5px] text-muted">{t('wmarket.minOrder')}</div>
+                        <div className="font-semibold text-ink">{kg(offer.minOrderKg)}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('wmarket.delivery')}</div>
-                        <div className="font-semibold text-charcoal">
+                        <div className="text-[12.5px] text-muted">{t('wmarket.delivery')}</div>
+                        <div className="font-semibold text-ink">
                           {t('wmarket.hours', { count: offer.deliveryEtaHours })}
                         </div>
                       </div>
@@ -194,8 +194,8 @@ export default async function WholesaleMarketPage({
                   </div>
                 </div>
 
-                <details className="mt-3 pt-3 border-t border-[#E5E7EB]">
-                  <summary className="text-[11px] font-semibold text-agri-900 cursor-pointer">
+                <details className="mt-3 pt-3 border-t border-line">
+                  <summary className="flex min-h-12 cursor-pointer items-center text-[15px] font-bold">
                     {t('wmarket.order')}
                   </summary>
                   <ActionForm

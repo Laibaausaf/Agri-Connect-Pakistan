@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import Icon from '@/components/ui/Icon';
 import { AuctionStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireCapability } from '@/lib/authz';
@@ -41,12 +41,12 @@ export default async function AuctionDetailPage({ params }: { params: Promise<{ 
     auction.endTime.getTime() > Date.now();
 
   return (
-    <div className="max-w-6xl mx-auto px-2 sm:px-4 py-6 space-y-4">
+    <div className="mx-auto max-w-6xl space-y-4">
       <Link
         href={can(user.role, 'vendor.auction.bid') ? '/auctions' : '/auction-house'}
-        className="inline-flex items-center gap-1 text-xs font-medium text-[#636E72] hover:text-agri-900"
+        className="inline-flex min-h-12 items-center gap-1.5 text-[15px] font-bold"
       >
-        <ArrowLeft className="w-3.5 h-3.5 rtl:-scale-x-100" /> {t('auctions.back')}
+        <Icon name="arrowleft" size={20} /> {t('auctions.back')}
       </Link>
 
       <AuctionBidPanel auction={auction} currentUser={user} canBid={canBid} commissionRate={commissionRate} />

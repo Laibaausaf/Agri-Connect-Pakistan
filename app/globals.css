@@ -274,29 +274,3 @@ html[lang='ur'] .font-mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   line-height: 1.6;
 }
-
-/*
- * TEMPORARY (redesign phases 1-3): pages not yet redesigned still use the old
- * hard-coded colours. These rules map them onto the dark tokens so those pages
- * stay readable in dark mode. Remove each rule once no page uses the class.
- */
-:root[data-theme='dark'] .bg-white { background-color: var(--sf); }
-:root[data-theme='dark'] .bg-\[\#F8F9F5\] { background-color: var(--bg); }
-:root[data-theme='dark'] .bg-\[\#F2F4F7\],
-:root[data-theme='dark'] .bg-\[\#E8F3EE\] { background-color: var(--sg); }
-:root[data-theme='dark'] .text-charcoal { color: var(--ink); }
-:root[data-theme='dark'] .text-\[\#636E72\] { color: var(--mu); }
-:root[data-theme='dark'] .text-agri-900 { color: var(--fo); }
-:root[data-theme='dark'] .border-\[\#E5E7EB\],
-:root[data-theme='dark'] .border-\[\#B7D4C8\] { border-color: var(--ln); }
-:root[data-theme='dark'] .bg-agri-900 { background-color: #17603C; }
-:root[data-theme='dark'] .hover\:bg-agri-800:hover { background-color: #1B6942; }
-:root[data-theme='dark'] .bg-red-50 { background-color: var(--erb); }
-:root[data-theme='dark'] .text-red-700 { color: var(--erf); }
-:root[data-theme='dark'] .bg-amber-50 { background-color: var(--wab); }
-:root[data-theme='dark'] .text-amber-700 { color: var(--waf); }
-:root[data-theme='dark'] .border-amber-200 { border-color: var(--ln); }
-:root[data-theme='dark'] .hover\:bg-\[\#F8F9F5\]:hover { background-color: var(--sg); }
-:root[data-theme='dark'] input:not(.field-input),
-:root[data-theme='dark'] select:not(.field-input),
-:root[data-theme='dark'] textarea:not(.field-input) { background-color: var(--sf); color: var(--ink); }

@@ -5,7 +5,7 @@ import { requireCapability } from '@/lib/authz';
 import { distanceKm } from '@/lib/geo';
 import { getI18n } from '@/lib/i18n/server';
 import { Badge, Card, CropThumb, EmptyState } from '@/components/ui/kit';
-import { Clock, MapPin, Star } from 'lucide-react';
+import Icon from '@/components/ui/Icon';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,10 +75,10 @@ export default async function NearbyShopsPage() {
   return (
     <div>
       <div className="mb-4">
-        <h1 className="text-lg font-bold text-charcoal">
+        <h1 className="text-lg font-bold text-ink">
           {t('nearby.title')}
         </h1>
-        <p className="text-xs text-[#636E72] mt-0.5">
+        <p className="text-sm text-muted mt-0.5">
           {me?.consumerProfile?.preferredCity
             ? t('nearby.around', { city: place(me.consumerProfile.preferredCity) })
             : t('nearby.aroundYou')}
@@ -108,18 +108,18 @@ export default async function NearbyShopsPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{profile.shopName}</span>
+                      <span className="text-[17px] font-bold text-ink">{profile.shopName}</span>
                       {withinRange && <Badge tone="green">{t('nearby.deliversToYou')}</Badge>}
                       {items.length === 0 && <Badge tone="neutral">{t('nearby.restocking')}</Badge>}
                     </div>
-                    <div className="text-[11px] text-[#636E72] mt-0.5 flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
+                    <div className="text-[13px] text-muted mt-0.5 flex items-center gap-1">
+                      <Icon name="pin" size={12} />
                       {profile.shopAddress ?? (profile.city ? place(profile.city) : t('nearby.noAddress'))} ·{' '}
                       {distance(km)}
                     </div>
-                    <div className="text-[11px] text-[#636E72] flex items-center gap-3 mt-0.5">
+                    <div className="text-[13px] text-muted flex items-center gap-3 mt-0.5">
                       <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />{t('cshop.minutes', { count: profile.avgDeliveryMinutes })}
+                        <Icon name="clock" size={12} />{t('cshop.minutes', { count: profile.avgDeliveryMinutes })}
                       </span>
                       {profile.opensAt && profile.closesAt && (
                         <span>
@@ -128,13 +128,13 @@ export default async function NearbyShopsPage() {
                       )}
                       {profile.ratingCount > 0 && (
                         <span className="flex items-center gap-1">
-                          <Star className="w-3 h-3" />
+                          <Icon name="star" size={12} />
                           {profile.rating.toFixed(1)} ({profile.ratingCount})
                         </span>
                       )}
                     </div>
                     {cheapest !== null && (
-                      <div className="text-[11px] text-agri-900 font-semibold mt-1">
+                      <div className="text-[13px] text-forest font-semibold mt-1">
                         {t('nearby.from', { rate: perKg(cheapest) })}
                       </div>
                     )}
@@ -142,7 +142,7 @@ export default async function NearbyShopsPage() {
                 </div>
 
                 {items.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-[#E5E7EB]">
+                  <div className="mt-3 pt-3 border-t border-line">
                     <div className="flex gap-2 overflow-x-auto">
                       {items.map((item) => (
                         <div key={item.id} className="w-24 shrink-0">
@@ -151,10 +151,10 @@ export default async function NearbyShopsPage() {
                             name={item.crop.name}
                             size="lg"
                           />
-                          <div className="text-[10px] font-semibold text-charcoal mt-1 truncate">
+                          <div className="text-[12.5px] font-semibold text-ink mt-1 truncate">
                             {crop(item.crop)}
                           </div>
-                          <div className="text-[10px] text-agri-900 font-bold">
+                          <div className="text-[12.5px] text-forest font-bold">
                             {perKg(item.pricePerKg)}
                           </div>
                         </div>
@@ -162,7 +162,7 @@ export default async function NearbyShopsPage() {
                     </div>
                     <Link
                       href="/shop"
-                      className="inline-flex mt-3 text-[11px] font-semibold text-agri-900 hover:underline"
+                      className="inline-flex mt-3 text-[13px] font-semibold text-forest hover:underline"
                     >
                       {t('nearby.orderHere')}
                     </Link>

@@ -39,26 +39,26 @@ function CropTable({
 
   return (
     <Card>
-      <h2 className="text-xs font-bold text-charcoal mb-3">{title}</h2>
+      <h2 className="font-display h-card mb-3 font-semibold">{title}</h2>
       {sorted.length === 0 ? (
-        <p className="text-[11px] text-[#636E72] py-4 text-center">{t('insights.nothingTraded')}</p>
+        <p className="text-[13px] text-muted py-4 text-center">{t('insights.nothingTraded')}</p>
       ) : (
         <div className="space-y-2.5">
           {sorted.map((row) => (
             <div key={row.crop}>
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="font-semibold text-charcoal">{cropLabel(row.crop)}</span>
-                <span className="text-[#636E72]">
-                  {kg(row.kg)} · <span className="font-semibold text-charcoal">{money(row.value)}</span>
+              <div className="flex items-center justify-between text-[13px]">
+                <span className="font-semibold text-ink">{cropLabel(row.crop)}</span>
+                <span className="text-muted">
+                  {kg(row.kg)} · <span className="font-semibold text-ink">{money(row.value)}</span>
                 </span>
               </div>
-              <div className="h-1.5 rounded-full bg-[#F2F4F7] mt-1">
+              <div className="mt-1 h-2 rounded-full bg-sage">
                 <div
-                  className="h-1.5 rounded-full bg-agri-900"
+                  className="ac-grow h-2 rounded-full bg-forest"
                   style={{ width: `${max > 0 ? Math.max(4, (row.value / max) * 100) : 0}%` }}
                 />
               </div>
-              <div className="text-[10px] text-[#636E72] mt-0.5">
+              <div className="text-[12.5px] text-muted mt-0.5">
                 {t('insights.rowRate', { rate: perKg(rate(row.value, row.kg)), label: valueLabel })}
                 {showMargin && row.cost !== undefined && row.kg > 0
                   ? ` · ${t('insights.rowMargin', { rate: perKg(rate(row.value - row.cost, row.kg)) })}`
@@ -140,25 +140,25 @@ async function ArhtiInsights({ userId, i18n, cropLabel }: { userId: string; i18n
           cropLabel={cropLabel}
         />
         <Card>
-          <h2 className="text-xs font-bold text-charcoal mb-3">{t('insights.auctionPerf')}</h2>
-          <div className="space-y-2 text-[11px]">
-            <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">{t('insights.lotsSold')}</span>
-              <span className="font-semibold text-charcoal">{sold}</span>
+          <h2 className="font-display h-card mb-3 font-semibold">{t('insights.auctionPerf')}</h2>
+          <div className="space-y-2 text-[13px]">
+            <div className="flex justify-between py-1.5 border-b border-line">
+              <span className="text-muted">{t('insights.lotsSold')}</span>
+              <span className="font-semibold text-ink">{sold}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">{t('insights.expired')}</span>
-              <span className="font-semibold text-charcoal">{expired}</span>
+            <div className="flex justify-between py-1.5 border-b border-line">
+              <span className="text-muted">{t('insights.expired')}</span>
+              <span className="font-semibold text-ink">{expired}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">{t('insights.aboveReserve')}</span>
-              <span className="font-semibold text-agri-900">
+            <div className="flex justify-between py-1.5 border-b border-line">
+              <span className="text-muted">{t('insights.aboveReserve')}</span>
+              <span className="font-semibold text-forest">
                 {t('insights.ofTotal', { count: aboveReserve, total: sales.length })}
               </span>
             </div>
             <div className="flex justify-between py-1.5">
-              <span className="text-[#636E72]">{t('insights.shrinkage')}</span>
-              <span className="font-semibold text-charcoal">
+              <span className="text-muted">{t('insights.shrinkage')}</span>
+              <span className="font-semibold text-ink">
                 {kg(Math.max(0, boughtKg - soldKg))}
               </span>
             </div>
@@ -242,27 +242,27 @@ async function VendorInsights({ userId, i18n, cropLabel }: { userId: string; i18
           cropLabel={cropLabel}
         />
         <Card>
-          <h2 className="text-xs font-bold text-charcoal mb-3">{t('insights.moneyWent')}</h2>
-          <div className="space-y-2 text-[11px]">
-            <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">{t('insights.avgMandiCost')}</span>
-              <span className="font-semibold text-charcoal">
+          <h2 className="font-display h-card mb-3 font-semibold">{t('insights.moneyWent')}</h2>
+          <div className="space-y-2 text-[13px]">
+            <div className="flex justify-between py-1.5 border-b border-line">
+              <span className="text-muted">{t('insights.avgMandiCost')}</span>
+              <span className="font-semibold text-ink">
                 {perKg(rate(purchases._sum.grossAmount ?? 0, boughtKg))}
               </span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">{t('insights.avgWholesale')}</span>
-              <span className="font-semibold text-charcoal">{perKg(rate(soldValue, soldKg))}</span>
+            <div className="flex justify-between py-1.5 border-b border-line">
+              <span className="text-muted">{t('insights.avgWholesale')}</span>
+              <span className="font-semibold text-ink">{perKg(rate(soldValue, soldKg))}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">{t('insights.markup')}</span>
-              <span className="font-semibold text-agri-900">
+            <div className="flex justify-between py-1.5 border-b border-line">
+              <span className="text-muted">{t('insights.markup')}</span>
+              <span className="font-semibold text-forest">
                 {cogs > 0 ? `${Math.round(((soldValue - cogs) / cogs) * 100)}%` : '—'}
               </span>
             </div>
             <div className="flex justify-between py-1.5">
-              <span className="text-[#636E72]">{t('insights.capitalFloor')}</span>
-              <span className="font-semibold text-charcoal">{kg(heldKg)}</span>
+              <span className="text-muted">{t('insights.capitalFloor')}</span>
+              <span className="font-semibold text-ink">{kg(heldKg)}</span>
             </div>
           </div>
         </Card>
@@ -346,27 +346,27 @@ async function ShopkeeperInsights({ userId, i18n, cropLabel }: { userId: string;
           cropLabel={cropLabel}
         />
         <Card>
-          <h2 className="text-xs font-bold text-charcoal mb-3">{t('insights.shopHealth')}</h2>
-          <div className="space-y-2 text-[11px]">
-            <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">{t('insights.avgWholesaleCost')}</span>
-              <span className="font-semibold text-charcoal">
+          <h2 className="font-display h-card mb-3 font-semibold">{t('insights.shopHealth')}</h2>
+          <div className="space-y-2 text-[13px]">
+            <div className="flex justify-between py-1.5 border-b border-line">
+              <span className="text-muted">{t('insights.avgWholesaleCost')}</span>
+              <span className="font-semibold text-ink">
                 {perKg(rate(purchases._sum.grossAmount ?? 0, purchases._sum.quantityKg ?? 0))}
               </span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">{t('insights.avgShelf')}</span>
-              <span className="font-semibold text-charcoal">{perKg(rate(revenue, soldKg))}</span>
+            <div className="flex justify-between py-1.5 border-b border-line">
+              <span className="text-muted">{t('insights.avgShelf')}</span>
+              <span className="font-semibold text-ink">{perKg(rate(revenue, soldKg))}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-[#E5E7EB]">
-              <span className="text-[#636E72]">{t('insights.markup')}</span>
-              <span className="font-semibold text-agri-900">
+            <div className="flex justify-between py-1.5 border-b border-line">
+              <span className="text-muted">{t('insights.markup')}</span>
+              <span className="font-semibold text-forest">
                 {cogs > 0 ? `${Math.round(((revenue - cogs) / cogs) * 100)}%` : '—'}
               </span>
             </div>
             <div className="flex justify-between py-1.5">
-              <span className="text-[#636E72]">{t('insights.unsold')}</span>
-              <span className="font-semibold text-charcoal">{kg(listings._sum.availableKg ?? 0)}</span>
+              <span className="text-muted">{t('insights.unsold')}</span>
+              <span className="font-semibold text-ink">{kg(listings._sum.availableKg ?? 0)}</span>
             </div>
           </div>
         </Card>
@@ -429,20 +429,20 @@ async function AdminInsights({ i18n, cropLabel }: { i18n: I18n; cropLabel: CropL
       </div>
 
       <Card className="mb-4">
-        <h2 className="text-xs font-bold text-charcoal mb-1">{t('insights.avgRate')}</h2>
-        <p className="text-[11px] text-[#636E72] mb-3">{t('insights.networkAvg')}</p>
+        <h2 className="text-sm font-bold text-ink mb-1">{t('insights.avgRate')}</h2>
+        <p className="text-[13px] text-muted mb-3">{t('insights.networkAvg')}</p>
         <div className="space-y-2.5">
           {stages.map((stage) => (
             <div key={stage.label}>
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="font-semibold text-charcoal">{stage.label}</span>
-                <span className="text-[#636E72]">
-                  {stage.who} <span className="font-semibold text-charcoal">{perKg(stage.rate)}</span>
+              <div className="flex items-center justify-between text-[13px]">
+                <span className="font-semibold text-ink">{stage.label}</span>
+                <span className="text-muted">
+                  {stage.who} <span className="font-semibold text-ink">{perKg(stage.rate)}</span>
                 </span>
               </div>
-              <div className="h-1.5 rounded-full bg-[#F2F4F7] mt-1">
+              <div className="mt-1 h-2 rounded-full bg-sage">
                 <div
-                  className="h-1.5 rounded-full bg-agri-900"
+                  className="ac-grow h-2 rounded-full bg-forest"
                   style={{ width: `${retailRate > 0 ? Math.max(4, (stage.rate / retailRate) * 100) : 0}%` }}
                 />
               </div>
@@ -507,22 +507,22 @@ export default async function InsightsPage() {
       {user.role === UserRole.ADMIN && <AdminInsights i18n={i18n} cropLabel={cropLabel} />}
 
       <Card className="mt-4">
-        <h2 className="text-xs font-bold text-charcoal mb-3">{t('insights.published')}</h2>
-        <div className="divide-y divide-[#E5E7EB]">
+        <h2 className="font-display h-card mb-3 font-semibold">{t('insights.published')}</h2>
+        <div className="divide-y divide-line">
           {prices.length === 0 && (
-            <p className="text-[11px] text-[#636E72] py-4 text-center">{t('insights.noPrices')}</p>
+            <p className="text-[13px] text-muted py-4 text-center">{t('insights.noPrices')}</p>
           )}
           {prices.map((price) => (
             <div key={price.id} className="py-2 flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-xs font-semibold text-charcoal">{crop(price.crop)}</div>
-                <div className="text-[10px] text-[#636E72]">
+                <div className="text-sm font-semibold text-ink">{crop(price.crop)}</div>
+                <div className="text-[12.5px] text-muted">
                   {place(`${price.mandi.name}, ${price.mandi.city}`)}
                   {price.dailyArrivalTonnes ? ` · ${t('insights.arrivals', { tonnes: price.dailyArrivalTonnes })}` : ''}
                 </div>
               </div>
               <div className="text-end">
-                <div className="text-xs font-bold text-charcoal">{perKg(price.ratePerKg)}</div>
+                <div className="text-sm font-bold text-ink">{perKg(price.ratePerKg)}</div>
                 <Badge tone={price.changePercent >= 0 ? 'green' : 'red'}>
                   {price.changePercent >= 0 ? '▲' : '▼'} {Math.abs(price.changePercent).toFixed(1)}%
                 </Badge>

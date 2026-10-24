@@ -85,7 +85,7 @@ export default async function WholesaleShopPage() {
         action={
           <Link
             href="/wholesale-shop/new"
-            className="bg-agri-900 hover:bg-agri-800 text-white text-[11px] font-semibold px-3 py-2 rounded-xl whitespace-nowrap"
+            className="bg-forest hover:opacity-90 text-white text-[13px] font-semibold px-3 py-2 rounded-xl whitespace-nowrap"
           >
             {t('wshop.list')}
           </Link>
@@ -126,14 +126,14 @@ export default async function WholesaleShopPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{crop(offer.crop)}</span>
+                      <span className="text-[17px] font-bold text-ink">{crop(offer.crop)}</span>
                       <Badge tone="neutral">{grade(offer.grade)}</Badge>
                       <Badge tone={isActive ? 'green' : 'amber'}>{status(offer.status)}</Badge>
                     </div>
-                    <div className="text-[11px] text-[#636E72] font-mono mt-0.5">
+                    <div className="text-[13px] text-muted font-mono mt-0.5">
                       {offer.offerNumber} · {offer.stock.stockNumber}
                     </div>
-                    <div className="text-[11px] text-[#636E72]">
+                    <div className="text-[13px] text-muted">
                       {t('wshop.route', {
                         farm: place(offer.stock.sourceFarmCity),
                         mandi: place(offer.stock.sourceMandiCity),
@@ -141,65 +141,65 @@ export default async function WholesaleShopPage() {
                         cities: place(cities(offer.deliveryCities).join(', ')) || t('wshop.anyCity'),
                       })}
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-sm">
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('wshop.yourPrice')}</div>
-                        <div className="font-semibold text-agri-900">
+                        <div className="text-[12.5px] text-muted">{t('wshop.yourPrice')}</div>
+                        <div className="font-semibold text-forest">
                           {perKg(offer.pricePerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('wshop.mandiCost')}</div>
-                        <div className="font-semibold text-charcoal">
+                        <div className="text-[12.5px] text-muted">{t('wshop.mandiCost')}</div>
+                        <div className="font-semibold text-ink">
                           {perKg(offer.stock.costPerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('wshop.margin')}</div>
-                        <div className="font-semibold text-charcoal">
+                        <div className="text-[12.5px] text-muted">{t('wshop.margin')}</div>
+                        <div className="font-semibold text-ink">
                           +{perKg(marginPerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('wshop.remaining')}</div>
-                        <div className="font-semibold text-charcoal">
+                        <div className="text-[12.5px] text-muted">{t('wshop.remaining')}</div>
+                        <div className="font-semibold text-ink">
                           {kg(offer.remainingKg)}
-                          <span className="text-[10px] font-normal text-[#636E72]">
+                          <span className="text-[12.5px] font-normal text-muted">
                             {' '}
                             {t('wshop.of', { qty: kg(offer.offeredQuantityKg) })}
                           </span>
                         </div>
                       </div>
                     </div>
-                    <div className="mt-2 h-1.5 rounded-full bg-[#F2F4F7] overflow-hidden">
+                    <div className="mt-2 h-1.5 rounded-full bg-sage overflow-hidden">
                       <div
-                        className="h-full bg-agri-900"
+                        className="h-full bg-forest"
                         style={{
                           width: `${Math.min(100, Math.round((sold / offer.offeredQuantityKg) * 100))}%`,
                         }}
                       />
                     </div>
-                    <div className="text-[10px] text-[#636E72] mt-1">
+                    <div className="text-[12.5px] text-muted mt-1">
                       {t('wshop.soldMin', { sold: kg(sold), min: kg(offer.minOrderKg) })}
                     </div>
                   </div>
                 </div>
 
                 {offer.sales.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-[#E5E7EB] space-y-1.5">
+                  <div className="mt-3 pt-3 border-t border-line space-y-1.5">
                     {offer.sales.map((sale) => (
                       <div
                         key={sale.id}
-                        className="flex items-center justify-between gap-2 text-[11px]"
+                        className="flex items-center justify-between gap-2 text-[13px]"
                       >
-                        <span className="text-[#636E72] truncate">
+                        <span className="text-muted truncate">
                           {sale.shopkeeper.shopkeeperProfile?.shopName ?? sale.shopkeeper.name}
                           {sale.shopkeeper.shopkeeperProfile?.city
                             ? `, ${place(sale.shopkeeper.shopkeeperProfile.city)}`
                             : ''}{' '}
                           · {kg(sale.quantityKg)}
                         </span>
-                        <span className="font-semibold text-charcoal whitespace-nowrap">
+                        <span className="font-semibold text-ink whitespace-nowrap">
                           {money(sale.grossAmount)}
                         </span>
                       </div>
@@ -207,7 +207,7 @@ export default async function WholesaleShopPage() {
                   </div>
                 )}
 
-                <div className="mt-3 pt-3 border-t border-[#E5E7EB]">
+                <div className="mt-3 pt-3 border-t border-line">
                   <ActionForm
                     action={setVendorOfferStatus}
                     submitLabel={isActive ? t('wshop.takeOff') : t('wshop.putBack')}
@@ -221,24 +221,24 @@ export default async function WholesaleShopPage() {
 
           {closed.length > 0 && (
             <div className="pt-2">
-              <h2 className="text-[11px] font-bold uppercase tracking-wider text-[#636E72] mb-2">
+              <h2 className="text-[13px] font-bold uppercase tracking-[.08em] text-muted mb-2">
                 {t('wshop.cleared')}
               </h2>
               <Card padded={false}>
-                <div className="divide-y divide-[#E5E7EB]">
+                <div className="divide-y divide-line">
                   {closed.map((offer) => (
                     <div
                       key={offer.id}
-                      className="p-3 flex items-center justify-between gap-3 text-[11px]"
+                      className="p-3 flex items-center justify-between gap-3 text-[13px]"
                     >
                       <div className="min-w-0">
-                        <div className="font-semibold text-charcoal">
+                        <div className="font-semibold text-ink">
                           {crop(offer.crop)} · {kg(offer.offeredQuantityKg)}
                         </div>
-                        <div className="text-[#636E72] font-mono">{offer.offerNumber}</div>
+                        <div className="text-muted font-mono">{offer.offerNumber}</div>
                       </div>
                       <div className="text-end whitespace-nowrap">
-                        <div className="font-semibold text-charcoal">
+                        <div className="font-semibold text-ink">
                           {perKg(offer.pricePerKg)}
                         </div>
                         <Badge tone="neutral">{status(offer.status)}</Badge>

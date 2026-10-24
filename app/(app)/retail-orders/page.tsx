@@ -91,45 +91,45 @@ export default async function RetailOrdersPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{order.consumer.name}</span>
+                      <span className="text-[17px] font-bold text-ink">{order.consumer.name}</span>
                       <Badge tone={order.status === ConsumerOrderStatus.PLACED ? 'amber' : 'green'}>
                         {status(order.status)}
                       </Badge>
                     </div>
-                    <div className="text-[11px] text-[#636E72] font-mono mt-0.5">
+                    <div className="text-[13px] text-muted font-mono mt-0.5">
                       {order.orderNumber}
                     </div>
-                    <div className="text-[11px] text-[#636E72]">
+                    <div className="text-[13px] text-muted">
                       {order.consumer.phone} ·{' '}
                       {order.deliveryAddress ?? t('rorders.noAddress')}
                     </div>
                   </div>
                   <div className="text-end whitespace-nowrap">
-                    <div className="text-sm font-bold text-agri-900">{money(order.totalAmount)}</div>
-                    <div className="text-[10px] text-[#636E72]">
+                    <div className="text-sm font-bold text-forest">{money(order.totalAmount)}</div>
+                    <div className="text-[12.5px] text-muted">
                       {order.deliveryFee > 0 ? t('rorders.inclDelivery', { amount: money(order.deliveryFee) }) : t('rorders.freeDelivery')}
                     </div>
-                    <div className="text-[10px] text-[#636E72]">{t('rorders.eta', { count: order.etaMinutes })}</div>
+                    <div className="text-[12.5px] text-muted">{t('rorders.eta', { count: order.etaMinutes })}</div>
                   </div>
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-[#E5E7EB] space-y-1.5">
+                <div className="mt-3 pt-3 border-t border-line space-y-1.5">
                   {order.items.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between gap-2 text-[11px]"
+                      className="flex items-center justify-between gap-2 text-[13px]"
                     >
-                      <span className="text-charcoal truncate">
+                      <span className="text-ink truncate">
                         {t('rorders.itemLine', { title: item.listing.title, qty: kg(item.quantityKg), rate: perKg(item.pricePerKg) })}
                       </span>
-                      <span className="font-semibold text-charcoal whitespace-nowrap">
+                      <span className="font-semibold text-ink whitespace-nowrap">
                         {money(item.lineTotal)}
                       </span>
                     </div>
                   ))}
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-[#E5E7EB] flex items-center gap-2 flex-wrap">
+                <div className="mt-3 pt-3 border-t border-line flex items-center gap-2 flex-wrap">
                   {next && (
                     <ActionForm
                       action={updateConsumerOrderStatus}
@@ -153,25 +153,25 @@ export default async function RetailOrdersPage() {
 
           {done.length > 0 && (
             <div className="pt-2">
-              <h2 className="text-[11px] font-bold uppercase tracking-wider text-[#636E72] mb-2">
+              <h2 className="text-[13px] font-bold uppercase tracking-[.08em] text-muted mb-2">
                 {t('rorders.closed')}
               </h2>
               <Card padded={false}>
-                <div className="divide-y divide-[#E5E7EB]">
+                <div className="divide-y divide-line">
                   {done.map((order) => (
                     <div
                       key={order.id}
-                      className="p-3 flex items-center justify-between gap-3 text-[11px]"
+                      className="p-3 flex items-center justify-between gap-3 text-[13px]"
                     >
                       <div className="min-w-0">
-                        <div className="font-semibold text-charcoal truncate">
+                        <div className="font-semibold text-ink truncate">
                           {order.consumer.name} ·{' '}
                           {order.items.map((i) => crop(i.listing.crop)).join(t('common.listSep'))}
                         </div>
-                        <div className="text-[#636E72] font-mono">{order.orderNumber}</div>
+                        <div className="text-muted font-mono">{order.orderNumber}</div>
                       </div>
                       <div className="text-end whitespace-nowrap">
-                        <div className="font-semibold text-charcoal">{money(order.totalAmount)}</div>
+                        <div className="font-semibold text-ink">{money(order.totalAmount)}</div>
                         <Badge tone={order.status === ConsumerOrderStatus.DELIVERED ? 'green' : 'red'}>
                           {status(order.status)}
                         </Badge>

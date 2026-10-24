@@ -5,15 +5,30 @@ import { requireCapability } from '@/lib/authz';
 import { getI18n } from '@/lib/i18n/server';
 import { getArhtiEarnings } from '@/lib/earnings';
 import ArhtiEarnings from '@/components/dashboards/ArhtiEarnings';
-import {
-  Badge,
-  Card,
-  CropThumb,
-  EmptyState,
-  PageHeader,
-  StatCard,
-  statusTone,
-} from '@/components/ui/kit';
+import { Badge, CropThumb, EmptyState, PageHeader, statusTone } from '@/components/ui/kit';
+import Icon from '@/components/ui/Icon';
+
+/** Small summary figure on a sage tile. */
+function Tile({ value, label, gold = false }: { value: string; label: string; gold?: boolean }) {
+  return (
+    <div className="rounded-2xl bg-sage px-4 py-3">
+      <div className={`tabular text-xl font-extrabold leading-tight ${gold ? 'text-goldtext' : ''}`}>{value}</div>
+      <div className="text-[12.5px] font-semibold text-muted">{label}</div>
+    </div>
+  );
+}
+
+/** One figure in a card's figure row. */
+function Figure({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: 'ok' | 'err' | 'gold' }) {
+  const color = tone === 'ok' ? 'text-ok-fg' : tone === 'err' ? 'text-err-fg' : tone === 'gold' ? 'text-goldtext' : '';
+  return (
+    <div className="p-3 sm:p-4">
+      <dt className="text-[12.5px] text-muted">{label}</dt>
+      <dd className={`tabular text-base font-extrabold ${color}`}>{value}</dd>
+      {hint && <dd className="text-[12.5px] text-muted">{hint}</dd>}
+    </div>
+  );
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -55,91 +70,57 @@ async function ArhtiSales({ userId }: { userId: string }) {
   const volume = sales.reduce((sum, s) => sum + s.quantityKg, 0);
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <PageHeader
-        title={t('sales.arhtiTitle')}
-        subtitle={t('sales.arhtiSubtitle')}
-      />
-
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <StatCard label={t('sales.statSales')} value={String(sales.length)} />
-        <StatCard label={t('sales.statVolume')} value={kg(volume)} />
-        <StatCard label={t('sales.statRevenue')} value={money(Math.round(revenue))} tone="accent" />
+    <div className="mx-auto max-w-4xl space-y-6">
+      <PageHeader title={t('sales.arhtiTitle')} subtitle={t('sales.arhtiSubtitle')} />
+      <ArhtiEarnings earnings={earnings} i18n={i18n} />
+      <div className="grid grid-cols-3 gap-2">
+        <Tile value={String(sales.length)} label={t('sales.statSales')} />
+        <Tile value={kg(volume)} label={t('sales.statVolume')} />
+        <Tile value={money(Math.round(revenue))} label={t('sales.statRevenue')} gold />
       </div>
 
-      <ArhtiEarnings earnings={earnings} i18n={i18n} />
-
       {sales.length === 0 ? (
-        <EmptyState
-          title={t('sales.arhtiEmptyTitle')}
-          message={t('sales.arhtiEmptyMessage')}
-          actionHref="/auction-house"
-          actionLabel={t('sales.arhtiEmptyAction')}
-        />
+        <EmptyState title={t('sales.arhtiEmptyTitle')} message={t('sales.arhtiEmptyMessage')} actionHref="/auction-house" actionLabel={t('sales.arhtiEmptyAction')} />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {sales.map((sale) => {
             const lot = sale.auction.inventoryLot;
             const margin = sale.ratePerKg - lot.purchasePricePerKg;
             return (
-              <Card key={sale.id}>
-                <div className="flex items-start gap-3">
+              <article key={sale.id} className="card overflow-hidden">
+                <div className="flex items-start gap-3 p-4">
                   <CropThumb imageUrl={lot.crop.imageUrl} name={lot.crop.name} size="md" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{crop(lot.crop)}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[17px] font-extrabold">
+                        {crop(lot.crop)} · {grade(sale.auction.grade)}
+                      </span>
                       <Badge tone={statusTone(sale.status)}>{status(sale.status)}</Badge>
-                      <Badge tone="neutral">{grade(sale.auction.grade)}</Badge>
                     </div>
-                    <div className="text-[11px] text-[#636E72] mt-0.5">
-                      {t('sales.boughtSold', {
-                        farmer: lot.sourceFarmerName,
-                        city: place(lot.sourceCity),
-                        vendor: sale.vendor.vendorProfile?.businessName ?? sale.vendor.name,
-                      })}
+                    <div className="text-[13px] text-muted">
+                      {t('sales.boughtSold', { farmer: lot.sourceFarmerName, city: place(lot.sourceCity), vendor: sale.vendor.vendorProfile?.businessName ?? sale.vendor.name })}
                     </div>
-                    <div className="text-[10px] text-[#636E72] font-mono">
+                    <div className="font-mono text-[12.5px] text-muted">
                       {sale.saleNumber} · {sale.auction.auctionNumber} · {lot.lotNumber}
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('sales.quantity')}</div>
-                        <div className="font-semibold text-charcoal">{kg(sale.quantityKg)}</div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('sales.boughtAt')}</div>
-                        <div className="font-semibold text-charcoal">
-                          {perKg(lot.purchasePricePerKg)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('sales.soldAt')}</div>
-                        <div className="font-semibold text-agri-900">
-                          {perKg(sale.ratePerKg)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('sales.margin')}</div>
-                        <div
-                          className={`font-semibold ${margin >= 0 ? 'text-agri-900' : 'text-red-700'}`}
-                        >
-                          {margin >= 0 ? '+' : ''}
-                          {perKg(margin)}
-                        </div>
-                        <div className="text-[10px] text-[#636E72]">
-                          {t('sales.total', { amount: money(Math.round(margin * sale.quantityKg)) })}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-[11px] text-[#636E72] mt-2">
-                      {t('sales.vendorCommission', {
-                        commission: money(sale.commission),
-                        paid: money(sale.grossAmount + sale.commission),
-                      })}
                     </div>
                   </div>
                 </div>
-              </Card>
+                <dl className="grid grid-cols-2 divide-line border-t border-line sm:grid-cols-4 sm:divide-x rtl:divide-x-reverse">
+                  <Figure label={t('sales.quantity')} value={kg(sale.quantityKg)} />
+                  <Figure label={t('sales.boughtAt')} value={perKg(lot.purchasePricePerKg)} />
+                  <Figure label={t('sales.soldAt')} value={perKg(sale.ratePerKg)} tone="gold" />
+                  <Figure
+                    label={t('sales.margin')}
+                    value={`${margin >= 0 ? '+' : ''}${perKg(margin)}`}
+                    hint={t('sales.total', { amount: money(Math.round(margin * sale.quantityKg)) })}
+                    tone={margin >= 0 ? 'ok' : 'err'}
+                  />
+                </dl>
+                <p className="flex items-start gap-2 border-t border-line bg-paper px-4 py-3 text-[13px] text-muted">
+                  <Icon name="info" size={16} className="mt-0.5" />
+                  {t('sales.vendorCommission', { commission: money(sale.commission), paid: money(sale.grossAmount + sale.commission) })}
+                </p>
+              </article>
             );
           })}
         </div>
@@ -179,93 +160,58 @@ async function VendorSales({ userId }: { userId: string }) {
   ).length;
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="mx-auto max-w-4xl space-y-6">
       <PageHeader
         title={t('sales.vendorTitle')}
         subtitle={t('sales.vendorSubtitle')}
         action={
-          <Link
-            href="/wholesale-shop"
-            className="text-[11px] font-semibold text-agri-900 hover:underline whitespace-nowrap"
-          >
+          <Link href="/wholesale-shop" className="btn btn-outline btn-sm">
+            <Icon name="store" size={16} />
             {t('sales.myShop')}
           </Link>
         }
       />
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <StatCard label={t('sales.statOrders')} value={String(sales.length)} />
-        <StatCard label={t('sales.statOpen')} value={String(openOrders)} tone={openOrders ? 'accent' : 'default'} />
-        <StatCard label={t('sales.statVolume')} value={kg(volume)} />
-        <StatCard label={t('sales.statRevenue')} value={money(Math.round(revenue))} />
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <Tile value={String(sales.length)} label={t('sales.statOrders')} />
+        <Tile value={String(openOrders)} label={t('sales.statOpen')} gold={openOrders > 0} />
+        <Tile value={kg(volume)} label={t('sales.statVolume')} />
+        <Tile value={money(Math.round(revenue))} label={t('sales.statRevenue')} />
       </div>
 
       {sales.length === 0 ? (
-        <EmptyState
-          title={t('sales.vendorEmptyTitle')}
-          message={t('sales.vendorEmptyMessage')}
-          actionHref="/wholesale-shop/new"
-          actionLabel={t('sales.vendorEmptyAction')}
-        />
+        <EmptyState title={t('sales.vendorEmptyTitle')} message={t('sales.vendorEmptyMessage')} actionHref="/wholesale-shop/new" actionLabel={t('sales.vendorEmptyAction')} />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {sales.map((sale) => {
             const margin = sale.ratePerKg - sale.offer.stock.costPerKg;
             const shop = sale.shopkeeper.shopkeeperProfile;
             return (
-              <Card key={sale.id}>
-                <div className="flex items-start gap-3">
-                  <CropThumb
-                    imageUrl={sale.offer.crop.imageUrl}
-                    name={sale.offer.crop.name}
-                    size="md"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">
-                        {crop(sale.offer.crop)}
+              <article key={sale.id} className="card overflow-hidden">
+                <div className="flex items-start gap-3 p-4">
+                  <CropThumb imageUrl={sale.offer.crop.imageUrl} name={sale.offer.crop.name} size="md" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[17px] font-extrabold">
+                        {crop(sale.offer.crop)} · {grade(sale.offer.grade)}
                       </span>
                       <Badge tone={statusTone(sale.status)}>{status(sale.status)}</Badge>
-                      <Badge tone="neutral">{grade(sale.offer.grade)}</Badge>
                     </div>
-                    <div className="text-[11px] text-[#636E72] mt-0.5">
+                    <div className="text-[13px] text-muted">
                       {shop?.shopName ?? sale.shopkeeper.name}
-                      {shop?.city ? `, ${place(shop.city)}` : ''} ·{' '}
-                      {place(sale.deliveryCity ?? sale.shopkeeper.location) || '—'}
+                      {shop?.city ? `, ${place(shop.city)}` : ''} · {place(sale.deliveryCity ?? sale.shopkeeper.location) || '—'}
                     </div>
-                    <div className="text-[10px] text-[#636E72] font-mono">
+                    <div className="font-mono text-[12.5px] text-muted">
                       {sale.saleNumber} · {sale.offer.offerNumber}
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('sales.quantity')}</div>
-                        <div className="font-semibold text-charcoal">{kg(sale.quantityKg)}</div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('sales.mandiCost')}</div>
-                        <div className="font-semibold text-charcoal">
-                          {perKg(sale.offer.stock.costPerKg)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('sales.soldAt')}</div>
-                        <div className="font-semibold text-agri-900">
-                          {perKg(sale.ratePerKg)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('sales.orderValue')}</div>
-                        <div className="font-semibold text-charcoal">
-                          {money(sale.grossAmount)}
-                        </div>
-                        <div className="text-[10px] text-[#636E72]">
-                          {t('sales.marginPerKg', { rate: `${margin >= 0 ? '+' : ''}${perKg(margin)}` })}
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>
-              </Card>
+                <dl className="grid grid-cols-2 border-t border-line sm:grid-cols-4">
+                  <Figure label={t('sales.quantity')} value={kg(sale.quantityKg)} />
+                  <Figure label={t('sales.mandiCost')} value={perKg(sale.offer.stock.costPerKg)} />
+                  <Figure label={t('sales.soldAt')} value={perKg(sale.ratePerKg)} tone="gold" />
+                  <Figure label={t('sales.orderValue')} value={money(sale.grossAmount)} hint={t('sales.marginPerKg', { rate: `${margin >= 0 ? '+' : ''}${perKg(margin)}` })} />
+                </dl>
+              </article>
             );
           })}
         </div>

@@ -24,19 +24,19 @@ export default async function ForYouPage() {
       );
     case UserRole.ARHTI:
       return (
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <ArhtiHome userId={user.id} name={user.name} />
         </div>
       );
     case UserRole.VENDOR:
       return (
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <VendorHome userId={user.id} name={user.name} />
         </div>
       );
     case UserRole.SHOPKEEPER:
       return (
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <ShopkeeperHome userId={user.id} name={user.name} />
         </div>
       );

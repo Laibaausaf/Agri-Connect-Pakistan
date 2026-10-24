@@ -141,7 +141,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="field-input h-14 rounded-2xl bg-paper lg:bg-sf"
+                className="field-input h-14 rounded-2xl bg-paper font-normal lg:bg-sf"
                 dir="ltr"
                 autoComplete="username"
                 required
@@ -157,7 +157,7 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="field-input h-14 rounded-2xl bg-paper pe-28 lg:bg-sf"
+                  className="field-input h-14 rounded-2xl bg-paper pe-28 font-normal lg:bg-sf"
                   autoComplete="current-password"
                   required
                 />

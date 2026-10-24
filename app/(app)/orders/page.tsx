@@ -6,7 +6,7 @@ import { rateShop } from '@/lib/actions/retail';
 import ActionForm, { Field, inputClass } from '@/components/ui/ActionForm';
 import { getI18n } from '@/lib/i18n/server';
 import { Badge, Card, CropThumb, EmptyState } from '@/components/ui/kit';
-import { Clock, MapPin, Sprout, Star } from 'lucide-react';
+import Icon from '@/components/ui/Icon';
 
 export const dynamic = 'force-dynamic';
 
@@ -80,10 +80,10 @@ export default async function ConsumerOrdersPage() {
   return (
     <div>
       <div className="mb-4">
-        <h1 className="text-lg font-bold text-charcoal">
+        <h1 className="text-lg font-bold text-ink">
           {t('corders.title')}
         </h1>
-        <p className="text-xs text-[#636E72] mt-0.5">
+        <p className="text-sm text-muted mt-0.5">
           {t('corders.subtitle')}
         </p>
       </div>
@@ -108,7 +108,7 @@ export default async function ConsumerOrdersPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">
+                      <span className="text-[17px] font-bold text-ink">
                         {shop?.shopName ?? order.shopkeeper.name}
                       </span>
                       <Badge
@@ -123,19 +123,19 @@ export default async function ConsumerOrdersPage() {
                         {t(STEP_LABEL[order.status])}
                       </Badge>
                     </div>
-                    <div className="text-[11px] text-[#636E72] font-mono mt-0.5">
+                    <div className="text-[13px] text-muted font-mono mt-0.5">
                       {order.orderNumber}
                     </div>
-                    <div className="text-[11px] text-[#636E72] flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
+                    <div className="text-[13px] text-muted flex items-center gap-1">
+                      <Icon name="clock" size={12} />
                       {order.deliveredAt
                         ? t('corders.delivered', { when: dateTime(order.deliveredAt, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) })
                         : t('corders.eta', { count: order.etaMinutes, time: time(order.placedAt, { hour: '2-digit', minute: '2-digit' }) })}
                     </div>
                   </div>
                   <div className="text-end whitespace-nowrap">
-                    <div className="text-sm font-bold text-agri-900">{money(order.totalAmount)}</div>
-                    <div className="text-[10px] text-[#636E72]">
+                    <div className="text-sm font-bold text-forest">{money(order.totalAmount)}</div>
+                    <div className="text-[12.5px] text-muted">
                       {order.deliveryFee > 0
                         ? t('rorders.inclDelivery', { amount: money(order.deliveryFee) })
                         : t('rorders.freeDelivery')}
@@ -149,12 +149,12 @@ export default async function ConsumerOrdersPage() {
                       <div key={step} className="flex-1">
                         <div
                           className={`h-1.5 rounded-full ${
-                            idx <= stepIdx ? 'bg-agri-900' : 'bg-[#F2F4F7]'
+                            idx <= stepIdx ? 'bg-forest' : 'bg-sage'
                           }`}
                         />
                         <div
-                          className={`text-[9px] mt-1 ${
-                            idx <= stepIdx ? 'text-agri-900 font-semibold' : 'text-[#636E72]'
+                          className={`text-sm mt-1 ${
+                            idx <= stepIdx ? 'text-forest font-semibold' : 'text-muted'
                           }`}
                         >
                           {t(STEP_LABEL[step])}
@@ -164,7 +164,7 @@ export default async function ConsumerOrdersPage() {
                   </div>
                 )}
 
-                <div className="mt-3 pt-3 border-t border-[#E5E7EB] space-y-2">
+                <div className="mt-3 pt-3 border-t border-line space-y-2">
                   {order.items.map((item) => {
                     const farmCity = item.listing.stock.sale.offer.stock.sourceFarmCity;
                     return (
@@ -175,18 +175,18 @@ export default async function ConsumerOrdersPage() {
                           size="sm"
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="text-xs font-semibold text-charcoal truncate">
+                          <div className="text-sm font-semibold text-ink truncate">
                             {item.listing.title}
                           </div>
-                          <div className="text-[10px] text-[#636E72]">
+                          <div className="text-[12.5px] text-muted">
                             {t('corders.itemLine', { qty: kg(item.quantityKg), rate: perKg(item.pricePerKg) })}
                           </div>
-                          <div className="text-[10px] text-agri-900 flex items-center gap-1">
-                            <Sprout className="w-3 h-3" />
+                          <div className="text-[12.5px] text-forest flex items-center gap-1">
+                            <Icon name="sprout" size={12} />
                             {t('corders.grownIn', { city: place(farmCity) })}
                           </div>
                         </div>
-                        <div className="text-xs font-semibold text-charcoal whitespace-nowrap">
+                        <div className="text-sm font-semibold text-ink whitespace-nowrap">
                           {money(item.lineTotal)}
                         </div>
                       </div>
@@ -195,22 +195,22 @@ export default async function ConsumerOrdersPage() {
                 </div>
 
                 {order.deliveryAddress && (
-                  <div className="mt-3 text-[11px] text-[#636E72] flex items-start gap-1">
-                    <MapPin className="w-3 h-3 mt-0.5 shrink-0" />
+                  <div className="mt-3 text-[13px] text-muted flex items-start gap-1">
+                    <Icon name="pin" size={12} className="mt-0.5 shrink-0" />
                     {order.deliveryAddress}
                   </div>
                 )}
 
                 {myRating !== undefined && (
-                  <div className="mt-3 pt-3 border-t border-[#E5E7EB] text-[11px] text-[#636E72] flex items-center gap-1">
-                    <Star className="w-3 h-3" />
+                  <div className="mt-3 pt-3 border-t border-line text-[13px] text-muted flex items-center gap-1">
+                    <Icon name="star" size={12} />
                     {t('corders.youRated', { rating: myRating })}
                   </div>
                 )}
 
                 {canRate && (
-                  <details className="mt-3 pt-3 border-t border-[#E5E7EB]">
-                    <summary className="text-[11px] font-semibold text-agri-900 cursor-pointer">
+                  <details className="mt-3 pt-3 border-t border-line">
+                    <summary className="flex min-h-12 cursor-pointer items-center text-[15px] font-bold">
                       {t('corders.rate')}
                     </summary>
                     <ActionForm
@@ -243,7 +243,7 @@ export default async function ConsumerOrdersPage() {
                 )}
 
                 {order.status === ConsumerOrderStatus.OUT_FOR_DELIVERY && (
-                  <div className="mt-3 text-[11px] text-[#636E72]">
+                  <div className="mt-3 text-[13px] text-muted">
                     {t('corders.rider', { phone: order.shopkeeper.phone ?? '' })}
                   </div>
                 )}
@@ -254,7 +254,7 @@ export default async function ConsumerOrdersPage() {
       )}
 
       <div className="mt-6 text-center">
-        <Link href="/shop" className="text-[11px] font-semibold text-agri-900 hover:underline">
+        <Link href="/shop" className="inline-flex min-h-11 items-center text-sm font-bold hover:underline">
           {t('corders.browse')}
         </Link>
       </div>

@@ -94,7 +94,7 @@ export default async function AdminTracePage({
         action={
           <Link
             href="/admin"
-            className="text-[11px] font-semibold text-agri-900 hover:underline whitespace-nowrap"
+            className="btn btn-outline btn-sm whitespace-nowrap"
           >
             {t('trace.back')}
           </Link>
@@ -103,20 +103,20 @@ export default async function AdminTracePage({
 
       <Card className="mb-4">
         <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-          <h2 className="text-xs font-bold text-charcoal">{t('trace.pick')}</h2>
+          <h2 className="text-[17px] font-bold text-ink">{t('trace.pick')}</h2>
           <form action="/admin/trace" className="flex items-center gap-2">
             <input
               type="text"
               name="q"
               defaultValue={q ?? ''}
               placeholder={t('trace.searchPlaceholder')}
-              className="rounded-xl border border-[#E5E7EB] px-3 py-1.5 text-[11px] focus:outline-none focus:ring-2 focus:ring-agri-700"
+              className="rounded-xl border border-line px-3 py-1.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-gold"
             />
-            <button type="submit" className="text-[11px] font-semibold text-agri-900 hover:underline">
+            <button type="submit" className="inline-flex min-h-11 items-center text-sm font-bold hover:underline">
               {t('admin.search')}
             </button>
             {q && (
-              <Link href="/admin/trace" className="text-[11px] text-[#636E72] hover:underline">
+              <Link href="/admin/trace" className="text-[13px] text-muted hover:underline">
                 {t('admin.clear')}
               </Link>
             )}
@@ -124,7 +124,7 @@ export default async function AdminTracePage({
         </div>
 
         {batches.length === 0 ? (
-          <div className="py-6 text-center text-[11px] text-[#636E72]">
+          <div className="py-6 text-center text-[13px] text-muted">
             {t('trace.noMatch')}
           </div>
         ) : (
@@ -137,21 +137,21 @@ export default async function AdminTracePage({
                   href={`/admin/trace?batch=${b.id}${keep}`}
                   className={`shrink-0 w-52 rounded-xl border p-3 transition-colors ${
                     active
-                      ? 'border-agri-900 bg-[#E8F3EE]'
-                      : 'border-[#E5E7EB] bg-white hover:bg-[#F8F9F5]'
+                      ? 'border-forest bg-sage'
+                      : 'border-line bg-sf hover:bg-paper'
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     <CropThumb imageUrl={b.crop.imageUrl} name={b.crop.name} size="sm" />
                     <div className="min-w-0">
-                      <div className="text-xs font-semibold text-charcoal truncate">{crop(b.crop)}</div>
-                      <div className="text-[10px] text-[#636E72] truncate">{b.batchNumber}</div>
+                      <div className="text-sm font-semibold text-ink truncate">{crop(b.crop)}</div>
+                      <div className="text-[12.5px] text-muted truncate">{b.batchNumber}</div>
                     </div>
                   </div>
-                  <div className="text-[10px] text-[#636E72] mt-2">
+                  <div className="text-[12.5px] text-muted mt-2">
                     {b.farmer.name} · {place(b.originCity)}
                   </div>
-                  <div className="text-[10px] text-[#636E72]">
+                  <div className="text-[12.5px] text-muted">
                     {t('trace.batchLine', { qty: kg(b.quantityKg), count: b._count.chainEvents })}
                   </div>
                 </Link>
@@ -173,35 +173,35 @@ export default async function AdminTracePage({
               <CropThumb imageUrl={trace.crop.imageUrl} name={trace.crop.name} size="lg" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-sm font-bold text-charcoal">
+                  <h2 className="text-[17px] font-bold text-ink">
                     {crop(trace.crop)}
                     {trace.variety ? ` · ${trace.variety}` : ''}
                   </h2>
                   <Badge tone="neutral">{isUrdu ? grade(trace.grade) : t('trace.grade', { grade: trace.grade })}</Badge>
                   <Badge tone="green">{trace.batchNumber}</Badge>
                 </div>
-                <div className="text-[11px] text-[#636E72] mt-1">
+                <div className="text-[13px] text-muted mt-1">
                   {t('trace.grownBy', { name: trace.farmer.name })}
                   {trace.farmer.farmerProfile?.businessName
                     ? ` · ${trace.farmer.farmerProfile.businessName}`
                     : ''}
                 </div>
-                <div className="text-[11px] text-[#636E72]">
+                <div className="text-[13px] text-muted">
                   {trace.originVillage ? `${place(trace.originVillage)}${t('common.listSep')}` : ''}
                   {place(trace.originCity)}{t('common.listSep')}{place(trace.originProvince)} ·{' '}
                   {t('trace.harvestedOn', { date: day(trace.harvestDate) })}
                 </div>
-                <div className="flex gap-4 mt-2 text-[10px] text-[#636E72]">
+                <div className="flex gap-4 mt-2 text-[12.5px] text-muted">
                   <span>
-                    {t('trace.harvested')} <span className="font-semibold text-charcoal">{kg(trace.quantityKg)}</span>
+                    {t('trace.harvested')} <span className="font-semibold text-ink">{kg(trace.quantityKg)}</span>
                   </span>
                   <span>
-                    {t('trace.unsold')} <span className="font-semibold text-charcoal">{kg(trace.availableKg)}</span>
+                    {t('trace.unsold')} <span className="font-semibold text-ink">{kg(trace.availableKg)}</span>
                   </span>
                   {trace.askingPricePerKg !== null && (
                     <span>
                       {t('trace.asked')}{' '}
-                      <span className="font-semibold text-charcoal">
+                      <span className="font-semibold text-ink">
                         {perKg(trace.askingPricePerKg)}
                       </span>
                     </span>
@@ -212,7 +212,7 @@ export default async function AdminTracePage({
           </Card>
 
           <Card className="mb-4">
-            <h2 className="text-xs font-bold text-charcoal mb-3">{t('trace.priceJourney')}</h2>
+            <h2 className="font-display h-card mb-3 font-semibold">{t('trace.priceJourney')}</h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {journey.map((step) => {
                 const markup =
@@ -220,20 +220,20 @@ export default async function AdminTracePage({
                 return (
                   <div
                     key={step.label}
-                    className="rounded-xl border border-[#E5E7EB] bg-[#F8F9F5] p-3"
+                    className="rounded-xl border border-line bg-paper p-3"
                   >
-                    <div className="text-[10px] uppercase tracking-wider text-[#636E72] font-bold">
+                    <div className="text-[12.5px] uppercase tracking-[.08em] text-muted font-bold">
                       {step.label}
                     </div>
-                    <div className="text-base font-bold text-charcoal mt-0.5">
+                    <div className="text-base font-bold text-ink mt-0.5">
                       {step.price !== null ? perKg(step.price) : '—'}
                     </div>
-                    <div className="text-[10px] text-[#636E72]">{step.role}</div>
+                    <div className="text-[12.5px] text-muted">{step.role}</div>
                     {'note' in step && step.note && (
-                      <div className="text-[10px] text-[#636E72]">{step.note}</div>
+                      <div className="text-[12.5px] text-muted">{step.note}</div>
                     )}
                     {markup !== null && markup > 0 && (
-                      <div className="text-[10px] text-amber-700 font-semibold mt-0.5">
+                      <div className="text-[12.5px] text-warn-fg font-semibold mt-0.5">
                         {t('trace.markup', { pct: markup })}
                       </div>
                     )}
@@ -242,7 +242,7 @@ export default async function AdminTracePage({
               })}
             </div>
             {farmGate !== null && retail !== null && (
-              <p className="text-[11px] text-[#636E72] mt-3">
+              <p className="text-[13px] text-muted mt-3">
                 {t('trace.summary', {
                   farm: perKg(farmGate),
                   retail: perKg(retail),
@@ -253,40 +253,40 @@ export default async function AdminTracePage({
           </Card>
 
           <Card>
-            <h2 className="text-xs font-bold text-charcoal mb-3">
+            <h2 className="font-display h-card mb-3 font-semibold">
               {t('trace.history', { count: trace.chainEvents.length })}
             </h2>
             {trace.chainEvents.length === 0 ? (
-              <div className="py-6 text-center text-[11px] text-[#636E72]">
+              <div className="py-6 text-center text-[13px] text-muted">
                 {t('trace.notMoved')}
               </div>
             ) : (
-              <ol className="relative border-s border-[#E5E7EB] ms-2">
+              <ol className="relative border-s border-line ms-2">
                 {trace.chainEvents.map((event) => (
                   <li key={event.id} className="ps-4 pb-4 last:pb-0 relative">
-                    <span className="absolute -start-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-agri-900 border-2 border-white" />
+                    <span className="absolute -start-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-forest border-2 border-white" />
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-semibold text-charcoal">{storedText(event.title, cropNames)}</span>
+                      <span className="text-sm font-semibold text-ink">{storedText(event.title, cropNames)}</span>
                       <Badge tone="neutral">{t(STAGE_LABEL[event.stage])}</Badge>
                       {event.isConfidential && <Badge tone="amber">{t('trace.confidential')}</Badge>}
                     </div>
-                    <p className="text-[11px] text-[#636E72] mt-0.5">{storedText(event.description, cropNames)}</p>
-                    <div className="flex flex-wrap gap-3 text-[10px] text-[#636E72] mt-1">
+                    <p className="text-[13px] text-muted mt-0.5">{storedText(event.description, cropNames)}</p>
+                    <div className="flex flex-wrap gap-3 text-[12.5px] text-muted mt-1">
                       {event.actor && (
                         <span>
                           {event.actorRole ? `${t(ROLE_LABEL[event.actorRole])}: ` : ''}
-                          <span className="font-semibold text-charcoal">{event.actor.name}</span>
+                          <span className="font-semibold text-ink">{event.actor.name}</span>
                         </span>
                       )}
                       {event.quantityKg !== null && (
-                        <span className="font-semibold text-charcoal">{kg(event.quantityKg)}</span>
+                        <span className="font-semibold text-ink">{kg(event.quantityKg)}</span>
                       )}
                       {event.pricePerKg !== null && (
-                        <span className="font-semibold text-charcoal">{perKg(event.pricePerKg)}</span>
+                        <span className="font-semibold text-ink">{perKg(event.pricePerKg)}</span>
                       )}
                       <span>{when(event.createdAt)}</span>
                       {event.refType && event.refId && (
-                        <span className="font-mono text-[9px] text-[#636E72]/80">
+                        <span className="font-mono text-sm text-muted/80">
                           {event.refType}#{event.refId.slice(-8)}
                         </span>
                       )}

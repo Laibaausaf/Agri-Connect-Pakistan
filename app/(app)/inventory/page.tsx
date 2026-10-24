@@ -5,15 +5,8 @@ import { requireCapability } from '@/lib/authz';
 import { createAuction } from '@/lib/actions/auctions';
 import ActionForm, { Field, inputClass } from '@/components/ui/ActionForm';
 import { getI18n } from '@/lib/i18n/server';
-import {
-  Badge,
-  Card,
-  CropThumb,
-  EmptyState,
-  PageHeader,
-  StatCard,
-  statusTone,
-} from '@/components/ui/kit';
+import { Badge, CropThumb, EmptyState, PageHeader, statusTone } from '@/components/ui/kit';
+import Icon from '@/components/ui/Icon';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,25 +55,30 @@ export default async function InventoryPage() {
   );
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="mx-auto max-w-4xl">
       <PageHeader
         title={t('inventory.title')}
         subtitle={t('inventory.subtitle')}
         action={
-          <Link
-            href="/auction-house"
-            className="text-[11px] font-semibold text-agri-900 hover:underline whitespace-nowrap"
-          >
+          <Link href="/auction-house" className="btn btn-outline btn-sm">
+            <Icon name="gavel" size={16} />
             {t('inventory.auctionHouse')}
           </Link>
         }
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <StatCard label={t('inventory.statLots')} value={String(lots.length)} />
-        <StatCard label={t('inventory.statUnsold')} value={kg(held)} tone="accent" />
-        <StatCard label={t('inventory.statLocked')} value={kg(inAuction)} />
-        <StatCard label={t('inventory.statCapital')} value={money(Math.round(capital))} />
+      <div className="card mb-6 grid grid-cols-2 overflow-hidden lg:grid-cols-4">
+        {[
+          { label: t('inventory.statLots'), value: String(lots.length), gold: false },
+          { label: t('inventory.statUnsold'), value: kg(held), gold: false },
+          { label: t('inventory.statLocked'), value: kg(inAuction), gold: true },
+          { label: t('inventory.statCapital'), value: money(Math.round(capital)), gold: false },
+        ].map((item, i) => (
+          <div key={item.label} className={`border-line p-4 ${i % 2 === 0 ? 'border-e' : ''} ${i < 2 ? 'border-b lg:border-b-0' : ''} lg:border-e lg:last:border-e-0`}>
+            <div className="text-[13px] font-semibold text-muted">{item.label}</div>
+            <div className={`tabular mt-0.5 text-[22px] font-extrabold ${item.gold ? 'text-goldtext' : ''}`}>{item.value}</div>
+          </div>
+        ))}
       </div>
 
       {lots.length === 0 ? (
@@ -91,145 +89,114 @@ export default async function InventoryPage() {
           actionLabel={t('inventory.emptyAction')}
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {lots.map((lot) => {
             const liveAuction = lot.auctions.find((a) => a.status === AuctionStatus.ACTIVE);
             const canAuction = lot.availableQuantityKg > 0;
             const floor = Math.ceil(lot.purchasePricePerKg * 1.05);
+            const auctioned = Math.max(0, lot.receivedQuantityKg - lot.availableQuantityKg);
             return (
-              <Card key={lot.id}>
-                <div className="flex items-start gap-3">
-                  <CropThumb
-                    imageUrl={firstPhoto(lot.photos) ?? lot.crop.imageUrl}
-                    name={lot.crop.name}
-                    size="md"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{crop(lot.crop)}</span>
-                      <Badge tone="neutral">{grade(lot.grade)}</Badge>
+              <article key={lot.id} className="card overflow-hidden">
+                <div className="flex items-start gap-3 p-4">
+                  <CropThumb imageUrl={firstPhoto(lot.photos) ?? lot.crop.imageUrl} name={lot.crop.name} size="lg" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[17px] font-extrabold">
+                      {crop(lot.crop)} · {grade(lot.grade)}
+                    </div>
+                    <div className="mt-1">
                       <Badge tone={statusTone(lot.status)}>{status(lot.status)}</Badge>
                     </div>
-                    <div className="text-[11px] text-[#636E72] font-mono mt-0.5">
-                      {lot.lotNumber}
+                    <div className="mt-1 font-mono text-[12.5px] text-muted">
+                      {lot.lotNumber} ·{' '}
+                      <Link href={`/deals/${lot.deal.id}`} className="underline-offset-2 hover:underline">
+                        {lot.deal.dealNumber}
+                      </Link>
                     </div>
-                    <div className="text-[11px] text-[#636E72]">
-                      {t('inventory.from', { name: lot.deal.farmer.name, city: place(lot.sourceCity), mandi: place(lot.mandi.name) })}
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('inventory.received')}</div>
-                        <div className="font-semibold text-charcoal">
-                          {kg(lot.receivedQuantityKg)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('inventory.available')}</div>
-                        <div className="font-semibold text-agri-900">
-                          {kg(lot.availableQuantityKg)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('inventory.cost')}</div>
-                        <div className="font-semibold text-charcoal">
-                          {perKg(lot.purchasePricePerKg)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('inventory.sourceDeal')}</div>
-                        <Link
-                          href={`/deals/${lot.deal.id}`}
-                          className="font-semibold text-agri-900 hover:underline truncate block"
-                        >
-                          {lot.deal.dealNumber}
-                        </Link>
-                      </div>
-                    </div>
+                    <div className="text-[13px] text-muted">{t('inventory.from', { name: lot.deal.farmer.name, city: place(lot.sourceCity), mandi: place(lot.mandi.name) })}</div>
                   </div>
                 </div>
 
+                {/* Received kilos split into auctioned and still available */}
+                {auctioned > 0 && lot.availableQuantityKg > 0 && (
+                  <div className="px-4 pb-3">
+                    <div className="flex h-2.5 gap-1 overflow-hidden rounded-full" aria-hidden="true">
+                      <span className="rounded-full bg-gold" style={{ flexGrow: auctioned }} />
+                      <span className="rounded-full bg-forest" style={{ flexGrow: lot.availableQuantityKg }} />
+                    </div>
+                    <div className="mt-1.5 flex justify-between gap-2 text-[13px] font-semibold">
+                      <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-gold" />{t('inventory.inAuctionKg', { qty: kg(auctioned) })}</span>
+                      <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-forest" />{t('inventory.availableKg', { qty: kg(lot.availableQuantityKg) })}</span>
+                    </div>
+                  </div>
+                )}
+
+                <dl className="grid grid-cols-3 border-t border-line">
+                  <div className="border-e border-line p-4">
+                    <dt className="text-[12.5px] text-muted">{t('inventory.received')}</dt>
+                    <dd className="text-base font-extrabold">{kg(lot.receivedQuantityKg)}</dd>
+                  </div>
+                  <div className="border-e border-line p-4">
+                    <dt className="text-[12.5px] text-muted">{t('inventory.available')}</dt>
+                    <dd className="text-base font-extrabold">{kg(lot.availableQuantityKg)}</dd>
+                  </div>
+                  <div className="p-4">
+                    <dt className="text-[12.5px] text-muted">{t('inventory.cost')}</dt>
+                    <dd className="text-base font-extrabold">{perKg(lot.purchasePricePerKg)}</dd>
+                  </div>
+                </dl>
+
                 {liveAuction && (
-                  <div className="mt-3 p-2.5 rounded-lg bg-[#E8F3EE] border border-[#B7D4C8] text-[11px] flex items-center justify-between gap-2 flex-wrap">
-                    <span className="text-agri-900 font-semibold">
+                  <Link href="/auction-house" className="flex items-center gap-3 border-t border-line bg-sage px-4 py-3 text-sm font-bold">
+                    <span className="ac-pulse h-2.5 w-2.5 shrink-0 rounded-full bg-gold" />
+                    <span className="min-w-0 flex-1">
                       {t('inventory.liveIn', { qty: kg(liveAuction.quantityKg), auction: liveAuction.auctionNumber })}{' '}
                       {liveAuction.currentHighestBid
                         ? t('inventory.topBid', { rate: perKg(liveAuction.currentHighestBid) })
                         : t('inventory.reserveNoBids', { rate: perKg(liveAuction.reservePrice) })}
                     </span>
-                    <Link
-                      href="/auction-house"
-                      className="font-semibold text-agri-900 hover:underline"
-                    >
-                      {t('inventory.manage')}
-                    </Link>
-                  </div>
+                    {t('inventory.manage')}
+                    <Icon name="chevronright" size={16} />
+                  </Link>
                 )}
 
                 {canAuction && (
-                  <details className="mt-3 pt-3 border-t border-[#E5E7EB]">
-                    <summary className="text-[11px] font-semibold text-agri-900 cursor-pointer">
+                  <details className="border-t border-line bg-paper [&[open]>summary_.chev]:rotate-180">
+                    <summary className="flex min-h-14 cursor-pointer list-none items-center gap-2 px-4 text-[15px] font-bold">
+                      <Icon name="chevrondown" size={18} className="chev transition-transform" />
                       {t('inventory.openAuction')}
                     </summary>
-                    <ActionForm
-                      action={createAuction}
-                      submitLabel={t('inventory.start')}
-                      successMessage={t('inventory.started')}
-                      hidden={{ inventoryLotId: lot.id }}
-                      className="mt-3"
-                    >
-                      <div className="grid sm:grid-cols-2 gap-3">
-                        <Field
-                          label={t('common.qtyKg')}
-                          hint={t('inventory.upTo', { qty: kg(lot.availableQuantityKg) })}
-                        >
-                          <input
-                            type="number"
-                            name="quantityKg"
-                            required
-                            min="1"
-                            step="1"
-                            max={lot.availableQuantityKg}
-                            defaultValue={lot.availableQuantityKg}
-                            className={inputClass}
-                          />
-                        </Field>
-                        <Field
-                          label={t('inventory.reserve')}
-                          hint={t('inventory.reserveHint', { rate: perKg(lot.purchasePricePerKg) })}
-                        >
-                          <input
-                            type="number"
-                            name="reservePrice"
-                            required
-                            min={lot.purchasePricePerKg}
-                            step="0.5"
-                            defaultValue={floor}
-                            className={inputClass}
-                          />
-                        </Field>
-                        <Field label={t('inventory.increment')}>
-                          <input
-                            type="number"
-                            name="minimumIncrement"
-                            min="0.5"
-                            step="0.5"
-                            defaultValue={1}
-                            className={inputClass}
-                          />
-                        </Field>
-                        <Field label={t('inventory.duration')}>
-                          <select name="durationMinutes" defaultValue={30} className={inputClass}>
-                            <option value={15}>{t('inventory.min15')}</option>
-                            <option value={30}>{t('inventory.min30')}</option>
-                            <option value={60}>{t('inventory.hour1')}</option>
-                            <option value={180}>{t('inventory.hour3')}</option>
-                          </select>
-                        </Field>
-                      </div>
-                    </ActionForm>
+                    <div className="px-4 pb-4">
+                      <ActionForm
+                        action={createAuction}
+                        submitLabel={t('inventory.start')}
+                        successMessage={t('inventory.started')}
+                        hidden={{ inventoryLotId: lot.id }}
+                        icon="gavel"
+                      >
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <Field label={t('common.qtyKg')} hint={t('inventory.upTo', { qty: kg(lot.availableQuantityKg) })}>
+                            <input type="number" name="quantityKg" required min="1" step="1" max={lot.availableQuantityKg} defaultValue={lot.availableQuantityKg} className={inputClass} />
+                          </Field>
+                          <Field label={t('inventory.reserve')} hint={t('inventory.reserveHint', { rate: perKg(lot.purchasePricePerKg) })}>
+                            <input type="number" name="reservePrice" required min={lot.purchasePricePerKg} step="0.5" defaultValue={floor} className={inputClass} />
+                          </Field>
+                          <Field label={t('inventory.increment')}>
+                            <input type="number" name="minimumIncrement" min="0.5" step="0.5" defaultValue={1} className={inputClass} />
+                          </Field>
+                          <Field label={t('inventory.duration')}>
+                            <select name="durationMinutes" defaultValue={30} className={inputClass}>
+                              <option value={15}>{t('inventory.min15')}</option>
+                              <option value={30}>{t('inventory.min30')}</option>
+                              <option value={60}>{t('inventory.hour1')}</option>
+                              <option value={180}>{t('inventory.hour3')}</option>
+                            </select>
+                          </Field>
+                        </div>
+                      </ActionForm>
+                    </div>
                   </details>
                 )}
-              </Card>
+              </article>
             );
           })}
         </div>

@@ -43,7 +43,7 @@ export default async function DemandPage() {
         action={
           <Link
             href="/demand/new"
-            className="px-3 py-2 text-[11px] font-semibold rounded-xl bg-agri-900 text-white whitespace-nowrap"
+            className="btn btn-primary btn-sm whitespace-nowrap"
           >
             {t('demand.post')}
           </Link>
@@ -71,53 +71,53 @@ export default async function DemandPage() {
                 <CropThumb imageUrl={request.crop.imageUrl} name={request.crop.name} size="sm" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-bold text-charcoal">{crop(request.crop)}</span>
+                    <span className="text-sm font-bold text-ink">{crop(request.crop)}</span>
                     <Badge tone={request.status === DemandStatus.OPEN ? 'green' : 'neutral'}>
                       {request.status === DemandStatus.OPEN ? t('demand.open') : t('demand.closed')}
                     </Badge>
                     {request.transportOffered && <Badge tone="neutral">{t('demand.transportOffered')}</Badge>}
                   </div>
-                  <div className="text-[11px] text-[#636E72] font-mono mt-0.5">
+                  <div className="text-[13px] text-muted font-mono mt-0.5">
                     {request.requestNumber}
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-sm">
                     <div>
-                      <div className="text-[10px] text-[#636E72]">{t('demand.quantity')}</div>
-                      <div className="font-semibold text-charcoal">
+                      <div className="text-[12.5px] text-muted">{t('demand.quantity')}</div>
+                      <div className="font-semibold text-ink">
                         {kg(request.minQuantityKg)} – {kg(request.maxQuantityKg)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-[#636E72]">{t('demand.rateBand')}</div>
-                      <div className="font-semibold text-agri-900">
+                      <div className="text-[12.5px] text-muted">{t('demand.rateBand')}</div>
+                      <div className="font-semibold text-forest">
                         {request.targetPriceMin && request.targetPriceMax
                           ? `${money(request.targetPriceMin)}–${money(request.targetPriceMax)}`
                           : t('demand.rateOpen')}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-[#636E72]">{t('demand.neededBy')}</div>
-                      <div className="font-semibold text-charcoal">
+                      <div className="text-[12.5px] text-muted">{t('demand.neededBy')}</div>
+                      <div className="font-semibold text-ink">
                         {date(request.neededBy, { day: 'numeric', month: 'short' })}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-[#636E72]">{t('demand.deliverTo')}</div>
-                      <div className="font-semibold text-charcoal truncate">
+                      <div className="text-[12.5px] text-muted">{t('demand.deliverTo')}</div>
+                      <div className="font-semibold text-ink truncate">
                         {place(request.mandi.city)}
                       </div>
                     </div>
                   </div>
                   {origins(request.preferredOrigins).length > 0 && (
-                    <div className="text-[11px] text-[#636E72] mt-2">
+                    <div className="text-[13px] text-muted mt-2">
                       {t('demand.origins', { list: origins(request.preferredOrigins).map(place).join(t('common.listSep')) })}
                     </div>
                   )}
                   {request.gradeWanted && (
-                    <div className="text-[11px] text-[#636E72]">{t('demand.gradeLine', { grade: grade(request.gradeWanted) })}</div>
+                    <div className="text-[13px] text-muted">{t('demand.gradeLine', { grade: grade(request.gradeWanted) })}</div>
                   )}
                   {request.notes && (
-                    <p className="text-[11px] text-[#636E72] mt-1">{request.notes}</p>
+                    <p className="text-[13px] text-muted mt-1">{request.notes}</p>
                   )}
                   {request.status === DemandStatus.OPEN && (
                     <ActionForm

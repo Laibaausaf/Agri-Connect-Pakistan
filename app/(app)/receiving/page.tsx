@@ -5,15 +5,8 @@ import { requireCapability } from '@/lib/authz';
 import { confirmPickup, receiveProduce } from '@/lib/actions/deals';
 import ActionForm, { Field, inputClass } from '@/components/ui/ActionForm';
 import { getI18n } from '@/lib/i18n/server';
-import {
-  Badge,
-  Card,
-  CropThumb,
-  EmptyState,
-  PageHeader,
-  StatCard,
-  statusTone,
-} from '@/components/ui/kit';
+import { Badge, CropThumb, EmptyState, PageHeader, statusTone } from '@/components/ui/kit';
+import Icon from '@/components/ui/Icon';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,17 +46,22 @@ export default async function ReceivingPage() {
   const expectedKg = inbound.reduce((sum, d) => sum + d.agreedQuantityKg, 0);
   const onTruck = inbound.filter((d) => d.status !== DealStatus.PICKUP_SCHEDULED).length;
 
-  return (
-    <div className="max-w-4xl mx-auto">
-      <PageHeader
-        title={t('receiving.title')}
-        subtitle={t('receiving.subtitle')}
-      />
+  const stat = (value: string, label: string) => (
+    <div className="rounded-2xl bg-sage px-4 py-3">
+      <div className="tabular text-xl font-extrabold leading-tight">{value}</div>
+      <div className="text-[12.5px] font-semibold text-muted">{label}</div>
+    </div>
+  );
 
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <StatCard label={t('receiving.statInbound')} value={String(inbound.length)} tone="accent" />
-        <StatCard label={t('receiving.statExpected')} value={kg(expectedKg)} />
-        <StatCard label={t('receiving.statOnRoad')} value={String(onTruck)} />
+  return (
+    <div className="mx-auto max-w-6xl">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <PageHeader title={t('receiving.title')} subtitle={t('receiving.subtitle')} />
+        <div className="mb-6 grid grid-cols-3 gap-2">
+          {stat(String(inbound.length), t('receiving.statInbound'))}
+          {stat(kg(expectedKg), t('receiving.statExpected'))}
+          {stat(String(onTruck), t('receiving.statOnRoad'))}
+        </div>
       </div>
 
       {inbound.length === 0 ? (
@@ -74,86 +72,73 @@ export default async function ReceivingPage() {
           actionLabel={t('receiving.emptyAction')}
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-6">
           {inbound.map((deal) => {
             const awaitingLoad = deal.status === DealStatus.PICKUP_SCHEDULED;
             return (
-              <Card key={deal.id}>
-                <div className="flex items-start gap-3">
-                  <CropThumb imageUrl={deal.crop.imageUrl} name={deal.crop.name} size="md" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{crop(deal.crop)}</span>
+              <div key={deal.id} className="grid items-start gap-5 lg:grid-cols-[1fr_1.15fr]">
+                <article className="card overflow-hidden">
+                  {deal.crop.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={deal.crop.imageUrl} alt={crop(deal.crop)} className="h-40 w-full object-cover" />
+                  )}
+                  <div className="p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[19px] font-extrabold">
+                        {crop(deal.crop)} · {kg(deal.agreedQuantityKg)}
+                      </span>
                       <Badge tone={statusTone(deal.status)}>{status(deal.status)}</Badge>
                     </div>
-                    <div className="text-[11px] text-[#636E72] mt-0.5">
-                      {deal.farmer.name} · {place(deal.sourceCity)} {isUrdu ? '←' : '→'}{' '}
-                      {place(deal.destinationMandi.city)}
+                    <div className="mt-0.5 text-[13px] text-muted">
+                      {deal.farmer.name} · {place(deal.sourceCity)} {isUrdu ? '←' : '→'} {place(deal.destinationMandi.city)}
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('receiving.expected')}</div>
-                        <div className="font-semibold text-charcoal">
-                          {kg(deal.agreedQuantityKg)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('receiving.rate')}</div>
-                        <div className="font-semibold text-agri-900">
-                          {perKg(deal.agreedPricePerKg)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('receiving.driver')}</div>
-                        <div className="font-semibold text-charcoal truncate">
-                          {deal.pickup?.driverName ?? t('receiving.notBooked')}
-                        </div>
-                        {deal.pickup?.vehiclePlate && (
-                          <div className="text-[10px] text-[#636E72]">
-                            {deal.pickup.vehiclePlate}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-[#636E72]">{t('receiving.eta')}</div>
-                        <div className="font-semibold text-charcoal">
-                          {deal.pickup?.tracking
-                            ? t('receiving.minutes', { count: deal.pickup.tracking.etaMinutes ?? 0 })
-                            : deal.pickup?.expectedArrivalAt
-                              ? dateTime(deal.pickup.expectedArrivalAt, {
-                                  day: 'numeric',
-                                  month: 'short',
-                                  hour: 'numeric',
-                                })
-                              : '—'}
-                        </div>
-                      </div>
-                    </div>
-                    <Link
-                      href={`/deals/${deal.id}`}
-                      className="inline-block mt-2 text-[11px] font-semibold text-agri-900 hover:underline"
-                    >
+                    <Link href={`/deals/${deal.id}`} className="mt-1 inline-flex min-h-11 items-center gap-1 text-sm font-bold">
                       {t('receiving.deal', { deal: deal.dealNumber })}
+                      <Icon name="chevronright" size={16} />
                     </Link>
                   </div>
-                </div>
+                  <dl className="grid grid-cols-2 border-t border-line text-sm">
+                    <div className="border-b border-e border-line p-4">
+                      <dt className="text-[12.5px] text-muted">{t('receiving.expected')}</dt>
+                      <dd className="text-base font-extrabold">{kg(deal.agreedQuantityKg)}</dd>
+                    </div>
+                    <div className="border-b border-line p-4">
+                      <dt className="text-[12.5px] text-muted">{t('receiving.rate')}</dt>
+                      <dd className="text-base font-extrabold">{perKg(deal.agreedPricePerKg)}</dd>
+                    </div>
+                    <div className="border-e border-line p-4">
+                      <dt className="text-[12.5px] text-muted">{t('receiving.driver')}</dt>
+                      <dd className="text-base font-extrabold">{deal.pickup?.driverName ?? t('receiving.notBooked')}</dd>
+                      {deal.pickup?.vehiclePlate && <dd className="text-[12.5px] text-muted">{deal.pickup.vehiclePlate}</dd>}
+                    </div>
+                    <div className="p-4">
+                      <dt className="text-[12.5px] text-muted">{t('receiving.eta')}</dt>
+                      <dd className="text-base font-extrabold">
+                        {deal.pickup?.tracking
+                          ? t('receiving.minutes', { count: deal.pickup.tracking.etaMinutes ?? 0 })
+                          : deal.pickup?.expectedArrivalAt
+                            ? dateTime(deal.pickup.expectedArrivalAt, { day: 'numeric', month: 'short', hour: 'numeric' })
+                            : '—'}
+                      </dd>
+                      {/* Tracking notes are typed text, shown as stored. */}
+                      {deal.pickup?.tracking?.statusNotes && <dd className="text-[12.5px] text-muted">{deal.pickup.tracking.statusNotes}</dd>}
+                    </div>
+                  </dl>
+                </article>
 
                 {awaitingLoad ? (
-                  <div className="mt-3 pt-3 border-t border-[#E5E7EB]">
-                    <p className="text-[11px] text-[#636E72]">
-                      {t('receiving.waitingLoad', { city: place(deal.sourceCity) })}
-                    </p>
-                    <ActionForm
-                      action={confirmPickup}
-                      submitLabel={t('receiving.confirmLoaded')}
-                      variant="inline"
-                      hidden={{ dealId: deal.id }}
-                      className="inline-block"
-                    />
-                  </div>
+                  <section className="card p-5">
+                    <h3 className="flex items-center gap-2 text-[17px] font-bold">
+                      <Icon name="truck" size={20} />
+                      {t('receiving.confirmLoaded')}
+                    </h3>
+                    <p className="mt-1 text-sm text-muted">{t('receiving.waitingLoad', { city: place(deal.sourceCity) })}</p>
+                    <ActionForm action={confirmPickup} submitLabel={t('receiving.confirmLoaded')} variant="secondary" icon="truck" hidden={{ dealId: deal.id }} />
+                  </section>
                 ) : (
-                  <div className="mt-3 pt-3 border-t border-[#E5E7EB]">
-                    <h3 className="text-[11px] font-bold text-charcoal mb-2">
+                  <section className="card border-[1.5px] border-gold p-5">
+                    <h3 className="mb-4 flex items-center gap-2 text-[17px] font-bold">
+                      <Icon name="scale" size={20} />
                       {t('receiving.kanta')}
                     </h3>
                     <ActionForm
@@ -161,72 +146,62 @@ export default async function ReceivingPage() {
                       submitLabel={t('receiving.record')}
                       successMessage={t('receiving.recorded')}
                       hidden={{ dealId: deal.id }}
+                      icon="checkcircle"
                     >
-                      <div className="grid sm:grid-cols-2 gap-3">
-                        <Field
-                          label={t('receiving.weighed')}
-                          hint={t('receiving.max', { qty: kg(Math.round(deal.agreedQuantityKg * 1.05)) })}
-                        >
-                          <input
-                            type="number"
-                            name="receivedQuantityKg"
-                            required
-                            min="1"
-                            step="1"
-                            max={Math.round(deal.agreedQuantityKg * 1.05)}
-                            className={inputClass}
-                            placeholder={String(deal.agreedQuantityKg)}
-                          />
+                      <div className="grid gap-4 sm:grid-cols-[1.2fr_1fr]">
+                        <Field label={t('receiving.weighed')} hint={t('receiving.max', { qty: kg(Math.round(deal.agreedQuantityKg * 1.05)) })}>
+                          {/* The kanta read-out: large digits on a dark display. */}
+                          <span className="relative block">
+                            <input
+                              type="number"
+                              name="receivedQuantityKg"
+                              required
+                              min="1"
+                              step="1"
+                              max={Math.round(deal.agreedQuantityKg * 1.05)}
+                              className="tabular h-[72px] w-full rounded-2xl border-0 bg-[#0B1A14] pe-14 ps-4 text-[34px] font-extrabold text-[#9FD8B1] placeholder:text-[#9FD8B1]/40 focus:outline-none focus:ring-4 focus:ring-gold/40"
+                              placeholder={String(deal.agreedQuantityKg)}
+                              dir="ltr"
+                            />
+                            <span className="pointer-events-none absolute end-4 top-1/2 -translate-y-1/2 text-base font-bold text-[#9FD8B1]">{t('wizard.kgUnit')}</span>
+                          </span>
                         </Field>
                         <Field label={t('receiving.operator')}>
-                          <input
-                            name="verifierName"
-                            required
-                            className={inputClass}
-                            placeholder={t('deal.placeholderOperator')}
-                          />
+                          <input name="verifierName" required className={`field-input bg-paper`} placeholder={t('deal.placeholderOperator')} />
                         </Field>
                       </div>
                     </ActionForm>
-                  </div>
+                  </section>
                 )}
-              </Card>
+              </div>
             );
           })}
         </div>
       )}
 
       {recent.length > 0 && (
-        <section className="mt-6">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-[#636E72] mb-2">
-            {t('receiving.recent')}
-          </h2>
-          <div className="space-y-2">
+        <section className="mt-8">
+          <h2 className="font-display h-section mb-2 font-semibold">{t('receiving.recent')}</h2>
+          <div className="divide-y divide-line">
             {recent.map((deal) => (
-              <Card key={deal.id} padded={false}>
-                <div className="px-3 py-2.5 flex items-center gap-3 text-xs">
-                  <CropThumb imageUrl={deal.crop.imageUrl} name={deal.crop.name} size="sm" />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-charcoal truncate">
-                      {t('receiving.qtyCrop', { qty: kg(deal.receivedQuantityKg ?? 0), crop: crop(deal.crop) })}
-                    </div>
-                    <div className="text-[10px] text-[#636E72]">
-                      {t('receiving.from', {
-                        name: deal.farmer.name,
-                        date: deal.receivedAt ? date(deal.receivedAt, { day: 'numeric', month: 'short' }) : '',
-                      })}
-                    </div>
+              <div key={deal.id} className="flex items-center gap-3 py-3">
+                <CropThumb imageUrl={deal.crop.imageUrl} name={deal.crop.name} size="md" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[15px] font-bold">{t('receiving.qtyCrop', { qty: kg(deal.receivedQuantityKg ?? 0), crop: crop(deal.crop) })}</div>
+                  <div className="text-[13px] text-muted">
+                    {t('receiving.from', {
+                      name: deal.farmer.name,
+                      date: deal.receivedAt ? date(deal.receivedAt, { day: 'numeric', month: 'short' }) : '',
+                    })}
                   </div>
-                  {deal.inventoryLot && (
-                    <Link
-                      href="/inventory"
-                      className="text-[10px] font-mono font-semibold text-agri-900 hover:underline whitespace-nowrap"
-                    >
-                      {deal.inventoryLot.lotNumber}
-                    </Link>
-                  )}
                 </div>
-              </Card>
+                {deal.inventoryLot && (
+                  <Link href="/inventory" className="hidden min-h-11 items-center font-mono text-[13px] font-semibold sm:inline-flex">
+                    {deal.inventoryLot.lotNumber}
+                  </Link>
+                )}
+                <Badge tone={statusTone(deal.status)}>{status(deal.status)}</Badge>
+              </div>
             ))}
           </div>
         </section>

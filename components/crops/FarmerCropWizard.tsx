@@ -242,7 +242,7 @@ export default function FarmerCropWizard({ action, crops, priceByCrop, defaults 
               {field(
                 t('wizard.qtyLabel'),
                 <span className="relative block">
-                  <input className={`${inputClass} pe-14 tabular`} type="number" inputMode="decimal" min="1" max="500000" step="any" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder={t('wizard.qtyPlaceholder')} autoFocus />
+                  <input className={`field-input pe-14 tabular`} type="number" inputMode="decimal" min="1" max="500000" step="any" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder={t('wizard.qtyPlaceholder')} autoFocus />
                   <span className="pointer-events-none absolute end-4 top-1/2 -translate-y-1/2 text-base font-bold text-muted">{t('wizard.kgUnit')}</span>
                 </span>,
                 t('wizard.qtyHint')
@@ -278,7 +278,7 @@ export default function FarmerCropWizard({ action, crops, priceByCrop, defaults 
                 t('wizard.ownPrice'),
                 t('wizard.ownPriceHint'),
                 priceChoice === 'custom' && (
-                  <input className={`${inputClass} mt-3`} type="number" min="1" step="0.5" value={price} onClick={(e) => e.stopPropagation()} onChange={(e) => setPrice(e.target.value)} placeholder={t('wizard.ownPricePlaceholder')} />
+                  <input className={`field-input mt-3`} type="number" min="1" step="0.5" value={price} onClick={(e) => e.stopPropagation()} onChange={(e) => setPrice(e.target.value)} placeholder={t('wizard.ownPricePlaceholder')} />
                 )
               )}
               {choice(priceChoice === 'offers', () => setPriceChoice('offers'), t('wizard.offers'), t('wizard.offersHint'))}

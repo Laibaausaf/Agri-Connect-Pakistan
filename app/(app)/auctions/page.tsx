@@ -100,7 +100,7 @@ export default async function AuctionsPage() {
             const left = minutesLeft(auction.endTime);
             return (
               <Link key={auction.id} href={`/auctions/${auction.id}`} className="block">
-                <Card className="hover:border-[#B7D4C8] transition-colors h-full">
+                <Card className="hover:border-line transition-colors h-full">
                   <div className="flex items-start gap-3">
                     <CropThumb
                       imageUrl={firstPhoto(auction.photos) ?? auction.inventoryLot.crop.imageUrl}
@@ -109,48 +109,48 @@ export default async function AuctionsPage() {
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-bold text-charcoal">
+                        <span className="text-sm font-bold text-ink">
                           {crop(auction.inventoryLot.crop)}
                         </span>
                         <Badge tone="live">{t('common.live')}</Badge>
                         {isLeading && <Badge tone="green">{t('auctions.leading')}</Badge>}
                       </div>
-                      <div className="text-[11px] text-[#636E72] mt-0.5">
+                      <div className="text-[13px] text-muted mt-0.5">
                         {auction.arhti.name} · {place(auction.mandi.name)}
                       </div>
-                      <div className="text-[10px] text-[#636E72]">
+                      <div className="text-[12.5px] text-muted">
                         {t('auctions.grownBy', { name: auction.inventoryLot.sourceFarmerName, city: place(auction.inventoryLot.sourceCity) })}
                       </div>
-                      <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                      <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
                         <div>
-                          <div className="text-[10px] text-[#636E72]">{t('auctions.quantity')}</div>
-                          <div className="font-semibold text-charcoal">
+                          <div className="text-[12.5px] text-muted">{t('auctions.quantity')}</div>
+                          <div className="font-semibold text-ink">
                             {kg(auction.quantityKg)}
                           </div>
                         </div>
                         <div>
-                          <div className="text-[10px] text-[#636E72]">{t('auctions.grade')}</div>
-                          <div className="font-semibold text-charcoal">{grade(auction.grade)}</div>
+                          <div className="text-[12.5px] text-muted">{t('auctions.grade')}</div>
+                          <div className="font-semibold text-ink">{grade(auction.grade)}</div>
                         </div>
                         <div>
-                          <div className="text-[10px] text-[#636E72]">
+                          <div className="text-[12.5px] text-muted">
                             {top ? t('auctions.topBid') : t('auctions.reserve')}
                           </div>
-                          <div className="font-semibold text-agri-900">
+                          <div className="font-semibold text-forest">
                             {perKg(top?.amountPerKg ?? auction.reservePrice)}
                           </div>
-                          <div className="text-[10px] text-[#636E72]">
+                          <div className="text-[12.5px] text-muted">
                             {t('auctions.commission', {
                               rate: ((auction.arhti.arhtiProfile?.commissionRate ?? DEFAULT_COMMISSION_RATE) * 100).toFixed(1),
                             })}
                           </div>
                         </div>
                         <div>
-                          <div className="text-[10px] text-[#636E72]">{t('auctions.closesIn')}</div>
-                          <div className="font-semibold text-charcoal">
+                          <div className="text-[12.5px] text-muted">{t('auctions.closesIn')}</div>
+                          <div className="font-semibold text-ink">
                             {left > 0 ? t('auctions.minutes', { count: left }) : t('auctions.closing')}
                           </div>
-                          <div className="text-[10px] text-[#636E72]">
+                          <div className="text-[12.5px] text-muted">
                             {plural('auctionHouse.bid', auction.bidCount)}
                           </div>
                         </div>
@@ -166,29 +166,29 @@ export default async function AuctionsPage() {
 
       {won.length > 0 && (
         <section className="mt-6">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-[#636E72] mb-2">
+          <h2 className="font-display h-section mb-2 font-semibold">
             {t('auctions.won')}
           </h2>
           <div className="space-y-2">
             {won.map((auction) => (
               <Card key={auction.id} padded={false}>
-                <div className="px-3 py-2.5 flex items-center gap-3 text-xs">
+                <div className="px-3 py-2.5 flex items-center gap-3 text-sm">
                   <CropThumb
                     imageUrl={auction.inventoryLot.crop.imageUrl}
                     name={auction.inventoryLot.crop.name}
                     size="sm"
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-charcoal">
+                    <div className="font-semibold text-ink">
                       {kg(auction.quantityKg)} {crop(auction.inventoryLot.crop)}
                     </div>
-                    <div className="text-[10px] text-[#636E72]">
+                    <div className="text-[12.5px] text-muted">
                       {perKg(auction.currentHighestBid ?? 0)} · {place(auction.mandi.city)}
                     </div>
                   </div>
                   <Link
                     href="/stock"
-                    className="text-[10px] font-semibold text-agri-900 hover:underline whitespace-nowrap"
+                    className="text-[12.5px] font-semibold text-forest hover:underline whitespace-nowrap"
                   >
                     {t('auctions.inWarehouse')}
                   </Link>

@@ -51,7 +51,7 @@ export default async function NewVendorOfferPage() {
         action={
           <Link
             href="/wholesale-shop"
-            className="text-[11px] font-semibold text-agri-900 hover:underline"
+            className="inline-flex min-h-11 items-center text-sm font-bold hover:underline"
           >
             {t('wshopNew.cancel')}
           </Link>

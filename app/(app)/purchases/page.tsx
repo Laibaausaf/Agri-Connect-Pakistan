@@ -51,7 +51,7 @@ export default async function PurchasesPage() {
         action={
           <Link
             href="/wholesale"
-            className="text-[11px] font-semibold text-agri-900 hover:underline whitespace-nowrap"
+            className="btn btn-outline btn-sm whitespace-nowrap"
           >
             {t('purchases.market')}
           </Link>
@@ -90,43 +90,43 @@ export default async function PurchasesPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">
+                      <span className="text-[17px] font-bold text-ink">
                         {crop(purchase.offer.crop)}
                       </span>
                       <Badge tone={statusTone(purchase.status)}>
                         {status(purchase.status)}
                       </Badge>
                     </div>
-                    <div className="text-[11px] text-[#636E72] font-mono mt-0.5">
+                    <div className="text-[13px] text-muted font-mono mt-0.5">
                       {purchase.saleNumber}
                     </div>
-                    <div className="text-[11px] text-[#636E72]">
+                    <div className="text-[13px] text-muted">
                       {t('purchases.from', {
                         vendor: purchase.vendor.vendorProfile?.businessName ?? purchase.vendor.name,
                         farm: place(purchase.offer.stock.sourceFarmCity),
                         mandi: place(purchase.offer.stock.sourceMandiCity),
                       })}
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-sm">
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('purchases.quantity')}</div>
-                        <div className="font-semibold text-charcoal">{kg(purchase.quantityKg)}</div>
+                        <div className="text-[12.5px] text-muted">{t('purchases.quantity')}</div>
+                        <div className="font-semibold text-ink">{kg(purchase.quantityKg)}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('purchases.ratePaid')}</div>
-                        <div className="font-semibold text-charcoal">
+                        <div className="text-[12.5px] text-muted">{t('purchases.ratePaid')}</div>
+                        <div className="font-semibold text-ink">
                           {perKg(purchase.ratePerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('purchases.orderValue')}</div>
-                        <div className="font-semibold text-agri-900">
+                        <div className="text-[12.5px] text-muted">{t('purchases.orderValue')}</div>
+                        <div className="font-semibold text-forest">
                           {money(purchase.grossAmount)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('purchases.ordered')}</div>
-                        <div className="font-semibold text-charcoal">
+                        <div className="text-[12.5px] text-muted">{t('purchases.ordered')}</div>
+                        <div className="font-semibold text-ink">
                           {date(purchase.createdAt, { day: 'numeric', month: 'short' })}
                         </div>
                       </div>
@@ -135,15 +135,15 @@ export default async function PurchasesPage() {
                 </div>
 
                 {stock && (
-                  <div className="mt-3 pt-3 border-t border-[#E5E7EB] flex items-center justify-between gap-2 text-[11px]">
-                    <span className="text-[#636E72]">
+                  <div className="mt-3 pt-3 border-t border-line flex items-center justify-between gap-2 text-[13px]">
+                    <span className="text-muted">
                       {t('purchases.inShopAs')} <span className="font-mono">{stock.stockNumber}</span> ·{' '}
                       {t('purchases.unlisted', { qty: kg(stock.availableKg) })}
                       {soldOn > 0 ? t('purchases.moved', { qty: kg(soldOn) }) : ''}
                     </span>
                     <Link
                       href="/shop-stock"
-                      className="font-semibold text-agri-900 hover:underline whitespace-nowrap"
+                      className="font-semibold text-forest hover:underline whitespace-nowrap"
                     >
                       {t('purchases.openStock')}
                     </Link>

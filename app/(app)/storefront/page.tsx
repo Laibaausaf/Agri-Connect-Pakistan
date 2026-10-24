@@ -68,7 +68,7 @@ export default async function StorefrontPage() {
         action={
           <Link
             href="/storefront/new"
-            className="bg-agri-900 hover:bg-agri-800 text-white text-[11px] font-semibold px-3 py-2 rounded-xl whitespace-nowrap"
+            className="bg-forest hover:opacity-90 text-white text-[13px] font-semibold px-3 py-2 rounded-xl whitespace-nowrap"
           >
             {t('storefront.add')}
           </Link>
@@ -77,8 +77,8 @@ export default async function StorefrontPage() {
 
       {profile && (
         <Card className="mb-4">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-[#636E72]">
-            <span className="font-semibold text-charcoal">{place(profile.city)}</span>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-muted">
+            <span className="font-semibold text-ink">{place(profile.city)}</span>
             <span>
               {t('storefront.open', { from: profile.opensAt ?? '', to: profile.closesAt ?? '' })}
             </span>
@@ -92,7 +92,7 @@ export default async function StorefrontPage() {
                 : t('storefront.noRatings')}
             </span>
             {liveOrders > 0 && (
-              <Link href="/retail-orders" className="font-semibold text-agri-900 hover:underline">
+              <Link href="/retail-orders" className="font-semibold text-forest hover:underline">
                 {plural('storefront.toFulfil', liveOrders)}
               </Link>
             )}
@@ -129,43 +129,43 @@ export default async function StorefrontPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{listing.title}</span>
+                      <span className="text-[17px] font-bold text-ink">{listing.title}</span>
                       <Badge tone="green">{t('storefront.live')}</Badge>
                     </div>
-                    <div className="text-[11px] text-[#636E72] font-mono mt-0.5">
+                    <div className="text-[13px] text-muted font-mono mt-0.5">
                       {listing.listingNumber} · {listing.stock.stockNumber}
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-sm">
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('storefront.retailPrice')}</div>
-                        <div className="font-semibold text-agri-900">
+                        <div className="text-[12.5px] text-muted">{t('storefront.retailPrice')}</div>
+                        <div className="font-semibold text-forest">
                           {perKg(listing.pricePerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('storefront.cost')}</div>
-                        <div className="font-semibold text-charcoal">
+                        <div className="text-[12.5px] text-muted">{t('storefront.cost')}</div>
+                        <div className="font-semibold text-ink">
                           {perKg(listing.stock.costPerKg)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('storefront.margin')}</div>
-                        <div className="font-semibold text-charcoal">+{perKg(marginPerKg)}</div>
+                        <div className="text-[12.5px] text-muted">{t('storefront.margin')}</div>
+                        <div className="font-semibold text-ink">+{perKg(marginPerKg)}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('storefront.pack')}</div>
-                        <div className="font-semibold text-charcoal">{kg(listing.packSizeKg)}</div>
+                        <div className="text-[12.5px] text-muted">{t('storefront.pack')}</div>
+                        <div className="font-semibold text-ink">{kg(listing.packSizeKg)}</div>
                       </div>
                     </div>
-                    <div className="mt-2 h-1.5 rounded-full bg-[#F2F4F7] overflow-hidden">
+                    <div className="mt-2 h-1.5 rounded-full bg-sage overflow-hidden">
                       <div
-                        className="h-full bg-agri-900"
+                        className="h-full bg-forest"
                         style={{
                           width: `${Math.min(100, Math.round((sold / listing.listedQuantityKg) * 100))}%`,
                         }}
                       />
                     </div>
-                    <div className="text-[10px] text-[#636E72] mt-1">
+                    <div className="text-[12.5px] text-muted mt-1">
                       {t('storefront.soldLeft', { sold: kg(sold), left: kg(listing.remainingKg), total: kg(listing.listedQuantityKg) })}
                     </div>
                   </div>
@@ -176,22 +176,22 @@ export default async function StorefrontPage() {
 
           {cleared.length > 0 && (
             <div className="pt-2">
-              <h2 className="text-[11px] font-bold uppercase tracking-wider text-[#636E72] mb-2">
+              <h2 className="text-[13px] font-bold uppercase tracking-[.08em] text-muted mb-2">
                 {t('storefront.cleared')}
               </h2>
               <Card padded={false}>
-                <div className="divide-y divide-[#E5E7EB]">
+                <div className="divide-y divide-line">
                   {cleared.map((listing) => (
                     <div
                       key={listing.id}
-                      className="p-3 flex items-center justify-between gap-3 text-[11px]"
+                      className="p-3 flex items-center justify-between gap-3 text-[13px]"
                     >
                       <div className="min-w-0">
-                        <div className="font-semibold text-charcoal truncate">{listing.title}</div>
-                        <div className="text-[#636E72] font-mono">{listing.listingNumber}</div>
+                        <div className="font-semibold text-ink truncate">{listing.title}</div>
+                        <div className="text-muted font-mono">{listing.listingNumber}</div>
                       </div>
                       <div className="text-end whitespace-nowrap">
-                        <div className="font-semibold text-charcoal">
+                        <div className="font-semibold text-ink">
                           {perKg(listing.pricePerKg)}
                         </div>
                         <Badge tone="neutral">{status(listing.status)}</Badge>

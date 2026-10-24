@@ -41,7 +41,7 @@ export default async function NewRetailListingPage() {
         action={
           <Link
             href="/storefront"
-            className="text-[11px] font-semibold text-agri-900 hover:underline"
+            className="inline-flex min-h-11 items-center text-sm font-bold hover:underline"
           >
             {t('storefrontNew.cancel')}
           </Link>

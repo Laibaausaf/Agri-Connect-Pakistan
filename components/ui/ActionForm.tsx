@@ -64,9 +64,13 @@ export default function ActionForm({
         Object.entries(hidden).map(([name, value]) => (
           <input key={name} type="hidden" name={name} value={value} />
         ))}
+      {/* Forms with fields list what to fix at the top; a lone button shows it beside the button. */}
+      {state?.error && children && (
+        <FixList items={errorList(state.error)} title={plural('form.fix', errorList(state.error).length)} className="mb-4 mt-0" />
+      )}
       {children}
 
-      {state?.error && <FixList items={errorList(state.error)} title={plural('form.fix', errorList(state.error).length)} />}
+      {state?.error && !children && <FixList items={errorList(state.error)} title={plural('form.fix', errorList(state.error).length)} />}
       {state?.success && successMessage && (
         <div role="status" className="ac-up mt-3 flex items-start gap-2 rounded-2xl bg-ok-bg p-3 text-sm font-semibold text-ok-fg">
           <Icon name="checkcircle" size={18} className="mt-0.5" />
@@ -88,9 +92,9 @@ export default function ActionForm({
 }
 
 /** "N things to fix" summary for a form, one line per problem. */
-export function FixList({ items, title }: { items: string[]; title: string }) {
+export function FixList({ items, title, className = 'mt-3' }: { items: string[]; title: string; className?: string }) {
   return (
-    <div role="alert" className="ac-shake mt-3 rounded-2xl border-[1.5px] border-err-fg bg-err-bg p-3 text-err-fg">
+    <div role="alert" className={`ac-shake ${className} rounded-2xl border-[1.5px] border-err-fg bg-err-bg p-3 text-err-fg`}>
       <div className="flex items-center gap-2 text-sm font-extrabold">
         <Icon name="alert" size={18} />
         {title}

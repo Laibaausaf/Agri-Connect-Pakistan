@@ -85,7 +85,7 @@ export default async function VendorStockPage() {
         action={
           <Link
             href="/wholesale-shop"
-            className="text-[11px] font-semibold text-agri-900 hover:underline whitespace-nowrap"
+            className="btn btn-outline btn-sm whitespace-nowrap"
           >
             {t('stock.myShop')}
           </Link>
@@ -128,39 +128,39 @@ export default async function VendorStockPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-charcoal">{crop(stock.crop)}</span>
+                      <span className="text-[17px] font-bold text-ink">{crop(stock.crop)}</span>
                       <Badge tone="neutral">{grade(stock.grade)}</Badge>
                       <Badge tone={statusTone(stock.status)}>{status(stock.status)}</Badge>
                     </div>
-                    <div className="text-[11px] text-[#636E72] font-mono mt-0.5">
+                    <div className="text-[13px] text-muted font-mono mt-0.5">
                       {stock.stockNumber}
                     </div>
-                    <div className="text-[11px] text-[#636E72]">
+                    <div className="text-[13px] text-muted">
                       {t('stock.origin', { farm: place(stock.sourceFarmCity), mandi: place(stock.sourceMandiCity), arhti: stock.sale.auction.arhti.name })}
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-sm">
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('stock.won')}</div>
-                        <div className="font-semibold text-charcoal">{kg(stock.quantityKg)}</div>
+                        <div className="text-[12.5px] text-muted">{t('stock.won')}</div>
+                        <div className="font-semibold text-ink">{kg(stock.quantityKg)}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('stock.unlisted')}</div>
-                        <div className="font-semibold text-agri-900">{kg(stock.availableKg)}</div>
+                        <div className="text-[12.5px] text-muted">{t('stock.unlisted')}</div>
+                        <div className="font-semibold text-forest">{kg(stock.availableKg)}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('stock.costInclCommission')}</div>
-                        <div className="font-semibold text-charcoal">
+                        <div className="text-[12.5px] text-muted">{t('stock.costInclCommission')}</div>
+                        <div className="font-semibold text-ink">
                           {t('common.perKgExact', { amount: number(stock.costPerKg, 2) })}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-[#636E72]">{t('stock.auction')}</div>
-                        <div className="font-semibold text-charcoal font-mono truncate">
+                        <div className="text-[12.5px] text-muted">{t('stock.auction')}</div>
+                        <div className="font-semibold text-ink font-mono truncate">
                           {stock.sale.auction.auctionNumber}
                         </div>
                       </div>
                     </div>
-                    <div className="text-[11px] text-[#636E72] mt-2">
+                    <div className="text-[13px] text-muted mt-2">
                       {t('stock.paidLine', {
                         paid: money(stock.sale.grossAmount + stock.sale.commission),
                         value: money(stock.sale.grossAmount),
@@ -173,13 +173,13 @@ export default async function VendorStockPage() {
                 </div>
 
                 {activeOffers.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-[#E5E7EB] space-y-1.5">
+                  <div className="mt-3 pt-3 border-t border-line space-y-1.5">
                     {activeOffers.map((offer) => (
                       <div
                         key={offer.id}
-                        className="flex items-center justify-between gap-2 text-[11px]"
+                        className="flex items-center justify-between gap-2 text-[13px]"
                       >
-                        <span className="text-[#636E72]">
+                        <span className="text-muted">
                           <span className="font-mono">{offer.offerNumber}</span> ·{' '}
                           {t('stock.offerLine', { left: kg(offer.remainingKg), total: kg(offer.offeredQuantityKg), rate: perKg(offer.pricePerKg) })}
                         </span>
@@ -192,8 +192,8 @@ export default async function VendorStockPage() {
                 )}
 
                 {canList && (
-                  <details className="mt-3 pt-3 border-t border-[#E5E7EB]">
-                    <summary className="text-[11px] font-semibold text-agri-900 cursor-pointer">
+                  <details className="mt-3 pt-3 border-t border-line">
+                    <summary className="flex min-h-12 cursor-pointer items-center text-[15px] font-bold">
                       {t('stock.list')}
                     </summary>
                     <ActionForm

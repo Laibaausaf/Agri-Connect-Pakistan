@@ -2,7 +2,9 @@ import Link from 'next/link';
 import { ConsumerOrderStatus, OfferListingStatus, StockStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { getI18n } from '@/lib/i18n/server';
-import { Badge, Card, CropThumb, StatCard, statusTone } from '@/components/ui/kit';
+import { Badge, Card, CropThumb, statusTone } from '@/components/ui/kit';
+import Icon from '@/components/ui/Icon';
+import BrandGlow from '@/components/ui/BrandGlow';
 
 const OPEN_ORDERS: ConsumerOrderStatus[] = [
   ConsumerOrderStatus.PLACED,
@@ -111,48 +113,89 @@ export default async function ShopkeeperHome({ userId, name }: { userId: string;
     .filter((offer) => !myCity || cityList(offer.deliveryCities).includes(myCity))
     .slice(0, 4);
 
+  const [waiting] = orders;
+  const waitingItem = waiting?.items[0];
+  const tile = (value: string, label: string, hint: string, warn = false) => (
+    <div className="rounded-2xl bg-sage p-4">
+      <div className={`tabular text-[22px] font-extrabold leading-tight ${warn ? 'text-warn-fg' : ''}`}>{value}</div>
+      <div className="text-[13.5px] font-bold">{label}</div>
+      <div className="text-[12.5px] text-muted">{hint}</div>
+    </div>
+  );
+
   return (
     <>
-      <Card className="mb-4 bg-agri-900 border-agri-900">
-        <div className="text-white">
-          <div className="text-[11px] text-white/70">{t('shome.role')}</div>
-          <h1 className="text-lg font-bold">{profile?.shopName ?? name}</h1>
-          <p className="text-[11px] text-white/80 mt-1 max-w-lg">
-            {profile?.city ? t('shome.serving', { city: place(profile.city) }) : ''}
-            {profile?.ratingCount
-              ? t('shome.rating', { rating: profile.rating.toFixed(1), count: profile.ratingCount })
-              : ''}
-            {t('shome.tagline')}
-          </p>
-        </div>
-      </Card>
+      <div className="ac-up mb-5">
+        <p className="text-[15px] text-muted">
+          {t('home.greeting')}, {name}
+        </p>
+        <h1 className="font-display h-page font-semibold">{profile?.shopName ?? name}</h1>
+        <p className="mt-1 max-w-2xl text-sm text-muted">
+          {t('shome.role')} · {profile?.city ? t('shome.serving', { city: place(profile.city) }) : ''}
+          {profile?.ratingCount ? t('shome.rating', { rating: profile.rating.toFixed(1), count: profile.ratingCount }) : ''}
+          {t('shome.tagline')}
+        </p>
+      </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <StatCard
-          label={t('shome.toFulfil')}
-          value={String(orders.length)}
-          tone={orders.length ? 'warn' : 'default'}
-          hint={orders.length ? t('shome.waiting') : t('shome.allClear')}
-        />
-        <StatCard label={t('shome.takings')} value={money(todayTakings._sum.totalAmount ?? 0)} hint={t('shome.ordersCount', { count: todayTakings._count })} />
-        <StatCard label={t('shome.backRoom')} value={kg(stockKg)} hint={t('shome.liveListings', { count: listings.length })} />
-        <StatCard
-          label={t('shome.notOnShelf')}
-          value={String(unlisted.length)}
-          tone={unlisted.length ? 'warn' : 'default'}
-          hint={t('shome.noListing')}
-        />
+      {/* Today's takings, with the one order that needs an answer */}
+      <section className="ac-up ac-d1 relative mb-5 overflow-hidden rounded-hero bg-brand p-5 text-white sm:p-6">
+        <BrandGlow />
+        <div className="relative grid gap-5 lg:grid-cols-[1fr_1.2fr] lg:items-center">
+          <div className="flex items-end justify-between gap-3 lg:block">
+            <div>
+              <div className="text-[15px] font-bold text-[#D6E6D9]">{t('shome.takings')}</div>
+              <div className="tabular text-[40px] font-extrabold leading-tight text-[#F6C871]">{money(todayTakings._sum.totalAmount ?? 0)}</div>
+            </div>
+            <div className="text-[13px] text-[#D6E6D9]">{t('shome.ordersCount', { count: todayTakings._count })}</div>
+          </div>
+          {waiting ? (
+            <div className="rounded-2xl bg-sf p-4 text-ink">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2 text-sm font-bold text-warn-fg">
+                  <span className="ac-pulse h-2 w-2 rounded-full bg-gold" />
+                  {t('shome.waiting')}
+                </span>
+                <Badge tone={statusTone(waiting.status)}>{status(waiting.status)}</Badge>
+              </div>
+              <div className="mt-3 flex items-center gap-3">
+                {waitingItem && <CropThumb imageUrl={waitingItem.listing.crop.imageUrl} name={waitingItem.listing.crop.name} size="md" />}
+                <div className="min-w-0 flex-1">
+                  <div className="text-[15px] font-extrabold">
+                    {waitingItem ? `${kg(waitingItem.quantityKg)} ${crop(waitingItem.listing.crop)}` : t('shome.order')}
+                    {waiting.items.length > 1 ? t('shome.more', { count: waiting.items.length - 1 }) : ''}
+                  </div>
+                  <div className="text-[13px] text-muted">
+                    <span className="font-mono">{waiting.orderNumber}</span> · {t('shome.promised', { name: waiting.consumer.name, count: waiting.etaMinutes ?? 0 })}
+                  </div>
+                </div>
+                <span className="tabular shrink-0 text-lg font-extrabold">{money(waiting.totalAmount)}</span>
+              </div>
+              <Link href="/retail-orders" className="btn btn-primary mt-4 w-full">
+                <Icon name="check" size={20} />
+                {t('shome.openOrder')}
+              </Link>
+            </div>
+          ) : (
+            <p className="rounded-2xl bg-white/10 p-4 text-sm">{t('shome.noOrder')}</p>
+          )}
+        </div>
+      </section>
+
+      <div className="mb-5 grid grid-cols-3 gap-2 sm:gap-3">
+        {tile(String(orders.length), t('shome.toFulfil'), orders.length ? t('shome.waiting') : t('shome.allClear'), orders.length > 0)}
+        {tile(kg(stockKg), t('shome.backRoom'), t('shome.liveListings', { count: listings.length }))}
+        {tile(String(unlisted.length), t('shome.notOnShelf'), t('shome.noListing'), unlisted.length > 0)}
       </div>
 
       <Card className="mb-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-bold text-charcoal">{t('shome.customerOrders')}</h2>
-          <Link href="/retail-orders" className="text-[11px] font-semibold text-agri-900 hover:underline">
+          <h2 className="text-[17px] font-bold text-ink">{t('shome.customerOrders')}</h2>
+          <Link href="/retail-orders" className="inline-flex min-h-11 items-center text-sm font-bold hover:underline">
             {t('shome.queue')}
           </Link>
         </div>
         {orders.length === 0 ? (
-          <p className="text-[11px] text-[#636E72] py-4 text-center">{t('shome.noOrder')}</p>
+          <p className="text-[13px] text-muted py-4 text-center">{t('shome.noOrder')}</p>
         ) : (
           <div className="space-y-2">
             {orders.map((order) => {
@@ -162,7 +205,7 @@ export default async function ShopkeeperHome({ userId, name }: { userId: string;
                 <Link
                   key={order.id}
                   href="/retail-orders"
-                  className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 hover:bg-amber-100"
+                  className="flex items-start gap-3 rounded-xl border border-line bg-warn-bg p-3 hover:bg-warn-bg"
                 >
                   {first && (
                     <CropThumb
@@ -173,14 +216,14 @@ export default async function ShopkeeperHome({ userId, name }: { userId: string;
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-semibold text-charcoal">{order.orderNumber}</span>
+                      <span className="text-sm font-semibold text-ink">{order.orderNumber}</span>
                       <Badge tone={statusTone(order.status)}>{status(order.status)}</Badge>
                     </div>
-                    <div className="text-[11px] text-[#636E72]">
+                    <div className="text-[13px] text-muted">
                       {first ? `${kg(first.quantityKg)} ${crop(first.listing.crop)}` : t('shome.order')}
                       {extra > 0 ? t('shome.more', { count: extra }) : ''} · {money(order.totalAmount)}
                     </div>
-                    <div className="text-[10px] text-[#636E72]">
+                    <div className="text-[12.5px] text-muted">
                       {t('shome.promised', { name: order.consumer.name, count: order.etaMinutes ?? 0 })}
                     </div>
                   </div>
@@ -194,10 +237,10 @@ export default async function ShopkeeperHome({ userId, name }: { userId: string;
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-bold text-charcoal">
+            <h2 className="text-[17px] font-bold text-ink">
               {unlisted.length ? t('shome.notShelfTitle') : t('shome.onShelf')}
             </h2>
-            <Link href="/shop-stock" className="text-[11px] font-semibold text-agri-900 hover:underline">
+            <Link href="/shop-stock" className="inline-flex min-h-11 items-center text-sm font-bold hover:underline">
               {t('shome.shopStock')}
             </Link>
           </div>
@@ -206,27 +249,24 @@ export default async function ShopkeeperHome({ userId, name }: { userId: string;
               {unlisted.slice(0, 4).map((stock) => (
                 <div
                   key={stock.id}
-                  className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3"
+                  className="flex items-start gap-3 rounded-xl border border-line bg-warn-bg p-3"
                 >
                   <CropThumb imageUrl={stock.crop.imageUrl} name={stock.crop.name} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold text-charcoal">{crop(stock.crop)}</div>
-                    <div className="text-[11px] text-[#636E72]">
+                    <div className="text-sm font-semibold text-ink">{crop(stock.crop)}</div>
+                    <div className="text-[13px] text-muted">
                       {t('shome.costLine', { qty: kg(stock.availableKg), rate: perKg(stock.costPerKg) })}
                     </div>
-                    <div className="text-[10px] text-[#636E72]">{t('shome.hidden')}</div>
+                    <div className="text-[12.5px] text-muted">{t('shome.hidden')}</div>
                   </div>
-                  <Link
-                    href="/storefront/new"
-                    className="bg-agri-900 hover:bg-agri-800 text-white text-[10px] font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap"
-                  >
+                  <Link href="/storefront/new" className="btn btn-secondary btn-sm shrink-0">
                     {t('shome.listIt')}
                   </Link>
                 </div>
               ))}
             </div>
           ) : listings.length === 0 ? (
-            <p className="text-[11px] text-[#636E72] py-4 text-center">{t('shome.nothingListed')}</p>
+            <p className="text-[13px] text-muted py-4 text-center">{t('shome.nothingListed')}</p>
           ) : (
             <div className="space-y-2">
               {listings.map((listing) => {
@@ -235,7 +275,7 @@ export default async function ShopkeeperHome({ userId, name }: { userId: string;
                 return (
                   <div
                     key={listing.id}
-                    className="flex items-start gap-3 rounded-xl border border-[#E5E7EB] p-3"
+                    className="flex items-start gap-3 rounded-xl border border-line p-3"
                   >
                     <CropThumb
                       imageUrl={listing.imageUrl ?? listing.crop.imageUrl}
@@ -244,17 +284,17 @@ export default async function ShopkeeperHome({ userId, name }: { userId: string;
                     />
                     <div className="min-w-0 flex-1">
                       {/* The listing title is typed by the shopkeeper and shown as stored. */}
-                      <div className="text-xs font-semibold text-charcoal truncate">{listing.title}</div>
-                      <div className="text-[11px] text-[#636E72]">
+                      <div className="text-sm font-semibold text-ink truncate">{listing.title}</div>
+                      <div className="text-[13px] text-muted">
                         {t('shome.listingLine', {
                           rate: perKg(listing.pricePerKg),
                           qty: kg(listing.remainingKg),
                           margin: perKg(listing.pricePerKg - listing.stock.costPerKg),
                         })}
                       </div>
-                      <div className="h-1 rounded-full bg-[#F2F4F7] mt-1.5">
+                      <div className="h-1 rounded-full bg-sage mt-1.5">
                         <div
-                          className="h-1 rounded-full bg-agri-900"
+                          className="h-1 rounded-full bg-forest"
                           style={{ width: `${Math.min(100, pct)}%` }}
                         />
                       </div>
@@ -268,13 +308,13 @@ export default async function ShopkeeperHome({ userId, name }: { userId: string;
 
         <Card>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-bold text-charcoal">{t('shome.cheapest')}</h2>
-            <Link href="/wholesale" className="text-[11px] font-semibold text-agri-900 hover:underline">
+            <h2 className="text-[17px] font-bold text-ink">{t('shome.cheapest')}</h2>
+            <Link href="/wholesale" className="inline-flex min-h-11 items-center text-sm font-bold hover:underline">
               {t('shome.market')}
             </Link>
           </div>
           {bestDeals.length === 0 ? (
-            <p className="text-[11px] text-[#636E72] py-4 text-center">
+            <p className="text-[13px] text-muted py-4 text-center">
               {t('shome.noVendor', { city: myCity ? place(myCity) : t('shome.yourCity') })}
             </p>
           ) : (
@@ -283,15 +323,15 @@ export default async function ShopkeeperHome({ userId, name }: { userId: string;
                 <Link
                   key={offer.id}
                   href="/wholesale"
-                  className="flex items-start gap-3 rounded-xl border border-[#E5E7EB] p-3 hover:bg-[#F8F9F5]"
+                  className="flex items-start gap-3 rounded-xl border border-line p-3 hover:bg-paper"
                 >
                   <CropThumb imageUrl={offer.crop.imageUrl} name={offer.crop.name} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold text-charcoal">{crop(offer.crop)}</div>
-                    <div className="text-[11px] text-[#636E72]">
+                    <div className="text-sm font-semibold text-ink">{crop(offer.crop)}</div>
+                    <div className="text-[13px] text-muted">
                       {t('shome.minOrder', { rate: perKg(offer.pricePerKg), qty: kg(offer.minOrderKg) })}
                     </div>
-                    <div className="text-[10px] text-[#636E72]">
+                    <div className="text-[12.5px] text-muted">
                       {t('shome.delivers', {
                         vendor: offer.vendor.vendorProfile?.businessName ?? offer.vendor.name,
                         hours: offer.deliveryEtaHours,

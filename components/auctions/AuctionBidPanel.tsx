@@ -6,18 +6,8 @@ import { getAuctionLiveState, placeBid } from '@/lib/actions/bid';
 import { useSocket } from '@/hooks/useSocket';
 import { useI18n } from '@/components/i18n/LanguageProvider';
 import { vendorPaysPerKg } from '@/lib/commission';
-import {
-  Gavel,
-  Clock,
-  TrendingUp,
-  AlertCircle,
-  Loader2,
-  ArrowRight,
-  Scale,
-  MapPin,
-  User,
-  CheckCircle2,
-} from 'lucide-react';
+import Icon, { type IconName } from '@/components/ui/Icon';
+import BrandGlow from '@/components/ui/BrandGlow';
 
 type BidWithBidder = Prisma.BidGetPayload<{ include: { bidder: true } }>;
 
@@ -237,230 +227,211 @@ export default function AuctionBidPanel({
   const payBid = typedBid && typedBid >= minimumNextBid ? typedBid : minimumNextBid;
   const currentBidderName = bids[0]?.bidder?.name ?? latestBidderName;
 
+  // The − / + buttons only fill the bid box; the server still checks the bid.
+  const step = (direction: 1 | -1) => {
+    const input = amountRef.current;
+    if (!input) return;
+    const current = Number(input.value) || minimumNextBid;
+    const next = Math.max(minimumNextBid, current + direction * auction.minimumIncrement);
+    input.value = String(next);
+    setTypedBid(next);
+  };
+  const fact = (icon: IconName, label: string, value: React.ReactNode, hint?: React.ReactNode) => (
+    <div className="flex gap-2.5 p-4">
+      <Icon name={icon} size={18} className="mt-0.5 shrink-0 text-forest" />
+      <div className="min-w-0">
+        <div className="text-[12.5px] text-muted">{label}</div>
+        <div className="text-[15px] font-bold">{value}</div>
+        {hint && <div className="text-[12.5px] text-muted">{hint}</div>}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Lot info */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-xl bg-[#F8F9F5] border border-[#E5E7EB] flex items-center justify-center text-2xl">
-                  {cropEmoji(auction.inventoryLot.crop.name)}
+    <div className="grid items-start gap-6 lg:grid-cols-[1.4fr_1fr]">
+      {/* Bid panel: first on phones, beside the lot on desktop */}
+      <div className="space-y-4 lg:sticky lg:top-24 lg:col-start-2 lg:row-start-1">
+        <section className="relative overflow-hidden rounded-hero bg-brand p-5 text-white">
+          <BrandGlow />
+          <div className="relative">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[13px] font-semibold text-[#D6E6D9]">{t('bid.current')}</div>
+                <div key={currentHighestBid} className="ac-pop tabular text-[44px] font-extrabold leading-none text-[#F6C871]">
+                  {formatCurrency(currentHighestBid)}
                 </div>
-                <div>
-                  <h1 className="text-lg font-bold text-charcoal">
-                    {crop(auction.inventoryLot.crop)} • {grade(auction.grade)}
-                  </h1>
-                  <p className="text-[11px] text-[#636E72] font-mono">
-                    {auction.auctionNumber} · {auction.inventoryLot.lotNumber}
-                  </p>
+                <div className="mt-1 text-[13px] text-[#D6E6D9]">
+                  {t('bid.perKg')} · {plural('auctionHouse.bid', bidCount)}
                 </div>
               </div>
-              <span
-                className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
-                  isEnded
-                    ? 'bg-[#F2F4F7] text-[#636E72] border-[#E5E7EB]'
-                    : 'bg-agri-900 text-white border-agri-900 animate-pulse'
-                }`}
-              >
-                {isEnded ? t('bid.closed') : t('bid.live')}
-              </span>
-            </div>
-
-            <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-              <div className="bg-[#F8F9F5] p-3 rounded-xl border border-[#E5E7EB]">
-                <div className="text-[10px] text-[#636E72] mb-1">{t('bid.quantity')}</div>
-                <div className="font-semibold text-charcoal flex items-center gap-1">
-                  <Scale className="w-3.5 h-3.5 text-agri-900" />
-                  {auction.quantityKg.toLocaleString()} {isUrdu ? 'کلو' : 'kg'}
+              <div className="text-end">
+                <div className="flex items-center justify-end gap-1 text-[13px] font-semibold text-[#D6E6D9]">
+                  <Icon name="clock" size={15} />
+                  {isEnded ? t('bid.closed') : t('auctionHouse.closesIn')}
                 </div>
-              </div>
-              <div className="bg-[#F8F9F5] p-3 rounded-xl border border-[#E5E7EB]">
-                <div className="text-[10px] text-[#636E72] mb-1">{t('bid.mandi')}</div>
-                <div className="font-semibold text-charcoal flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-agri-900" />
-                  {place(auction.mandi.name)}
+                <div className="tabular text-[24px] font-extrabold">
+                  {isEnded ? t('bid.ended') : formatTimeLeft(timeLeftMs, (hours, minutes) => t('bid.hoursMinutes', { hours, minutes }))}
                 </div>
-              </div>
-              <div className="bg-[#F8F9F5] p-3 rounded-xl border border-[#E5E7EB]">
-                <div className="text-[10px] text-[#636E72] mb-1">{t('bid.arhti')}</div>
-                <div className="font-semibold text-charcoal flex items-center gap-1">
-                  <User className="w-3.5 h-3.5 text-agri-900" />
-                  {auction.arhti.name}
-                </div>
-              </div>
-              <div className="bg-[#F8F9F5] p-3 rounded-xl border border-[#E5E7EB]">
-                <div className="text-[10px] text-[#636E72] mb-1">{t('bid.grownBy')}</div>
-                <div className="font-semibold text-charcoal">
-                  {auction.inventoryLot.sourceFarmerName}
-                </div>
-                <div className="text-[10px] text-[#636E72]">{place(auction.inventoryLot.sourceCity)}</div>
               </div>
             </div>
-
-            <div className="mt-5 pt-4 border-t border-[#E5E7EB]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] text-[#636E72]">{t('bid.reserve')}</div>
-                  <div className="text-sm font-semibold text-charcoal">
-                    {perKgText(auction.reservePrice)}
-                  </div>
-                </div>
-                <div className="text-end">
-                  <div className="text-[10px] text-[#636E72]">{t('bid.increment')}</div>
-                  <div className="text-sm font-semibold text-charcoal">
-                    +{perKgText(auction.minimumIncrement)}
-                  </div>
-                </div>
-              </div>
-              <div className="mt-3 text-[11px] text-[#636E72]">
-                <span className="font-semibold text-charcoal">{t('bid.commission')}:</span>{' '}
-                {t('bid.commissionNote', { rate: commissionPercent })}
-              </div>
-            </div>
-          </div>
-
-          {/* Bid history */}
-          <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-charcoal mb-3 flex items-center gap-2">
-              <Gavel className="w-4 h-4 text-agri-900" /> {t('bid.history')}
-            </h2>
-            {bids.length === 0 ? (
-              <div className="text-xs text-[#636E72] py-4">{t('bid.noBids')}</div>
-            ) : (
-              <div className="divide-y divide-[#E5E7EB]">
-                {bids.map((bid, idx) => (
-                  <div key={bid.id} className="py-3 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                          idx === 0 ? 'bg-agri-900 text-white' : 'bg-[#F2F4F7] text-[#636E72]'
-                        }`}
-                      >
-                        {idx + 1}
-                      </span>
-                      <div>
-                        <div className="font-semibold text-charcoal">{bid.bidder.name}</div>
-                        <div className="text-[10px] text-[#636E72]">
-                          {time(bid.timestamp, {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-end">
-                      <div className="font-bold text-agri-900">{perKgText(bid.amountPerKg)}</div>
-                      {idx === 0 && <div className="text-[10px] text-amber-700 font-medium">{t('bid.highest')}</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bid panel */}
-        <div className="space-y-6">
-          <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-sm sticky top-4">
-            <div className="text-[10px] text-[#636E72] uppercase tracking-wider font-bold mb-1">
-              {t('bid.current')}
-            </div>
-            <div className="text-3xl font-bold text-agri-900">{formatCurrency(currentHighestBid)}</div>
-            <div className="text-xs text-[#636E72] mt-0.5">{t('bid.perKg')}</div>
-
-            <div className="mt-4 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1.5 text-[#636E72]">
-                <TrendingUp className="w-3.5 h-3.5" />
-                {plural('auctionHouse.bid', bidCount)}
-              </div>
-              <div
-                className={`flex items-center gap-1.5 font-semibold ${
-                  isEnded ? 'text-[#636E72]' : 'text-amber-700'
-                }`}
-              >
-                <Clock className="w-3.5 h-3.5" />
-                {isEnded ? t('bid.ended') : formatTimeLeft(timeLeftMs, (hours, minutes) => t('bid.hoursMinutes', { hours, minutes }))}
-              </div>
-            </div>
-
             {currentBidderName && (
-              <div className="mt-3 text-[11px] text-[#636E72]">
-                {t('bid.highestBidder')} <span className="font-semibold text-charcoal">{currentBidderName}</span>
+              <div className="mt-3 text-[13px] text-[#D6E6D9]">
+                {t('bid.highestBidder')} <span className="font-bold text-white">{currentBidderName}</span>
               </div>
             )}
-
             {userIsHighest && !isEnded && (
-              <div className="mt-4 p-3 rounded-xl bg-[#E8F3EE] border border-[#B7D4C8] flex items-start gap-2 text-xs text-agri-900">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <div className="mt-3 flex items-center gap-2 rounded-xl bg-white/[.14] px-3 py-2.5 text-sm font-bold">
+                <Icon name="checkcircle" size={18} />
                 {t('bid.youLead')}
               </div>
             )}
-
-            {canBid && !isEnded && (
-              <form action={formAction} className="mt-5 space-y-3">
-                <input type="hidden" name="auctionId" value={auction.id} />
-                <div>
-                  <label className="block text-xs font-medium mb-1">{t('bid.yourBid')}</label>
-                  <input
-                    ref={amountRef}
-                    type="number"
-                    name="amountPerKg"
-                    min={minimumNextBid}
-                    step="1"
-                    placeholder={t('bid.minPlaceholder', { amount: minimumNextBid })}
-                    required
-                    className="w-full rounded-xl border border-[#E5E7EB] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-agri-500"
-                    onInput={(e) => setTypedBid(Number((e.target as HTMLInputElement).value) || null)}
-                  />
-                  <div className="text-[10px] text-[#636E72] mt-1">
-                    {t('bid.minValid', { rate: perKgText(minimumNextBid) })}
-                  </div>
-                  <div className="text-[11px] text-charcoal mt-1">
-                    {t('bid.youPay', {
-                      bid: perKgText(payBid),
-                      rate: perKgExact(vendorPaysPerKg(payBid, commissionRate)),
-                      percent: commissionPercent,
-                    })}
-                  </div>
-                </div>
-
-                {state?.error && (
-                  <div className="p-3 rounded-lg bg-red-50 text-red-700 text-xs flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                    {errorText(state.error)}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="w-full bg-agri-900 hover:bg-agri-800 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors"
-                >
-                  {pending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Gavel className="w-4 h-4" />}
-                  {t('bid.place')}
-                </button>
-
-                <div className="text-[10px] text-center text-[#636E72]">
-                  {connected ? t('bid.connected') : t('bid.reconnecting')}
-                </div>
-              </form>
-            )}
-
-            {isEnded && (
-              <div className="mt-5 p-3 rounded-xl bg-[#F2F4F7] border border-[#E5E7EB] text-xs text-[#636E72] text-center">
-                {t('bid.endedText', { rate: perKgText(currentHighestBid) })}
-              </div>
-            )}
-
-            {!canBid && !isEnded && (
-              <div className="mt-5 p-3 rounded-xl bg-[#F8F9F5] border border-[#E5E7EB] text-xs text-[#636E72] text-center">
-                {t('bid.vendorsOnly')}
-              </div>
-            )}
           </div>
-        </div>
+        </section>
+
+        {canBid && !isEnded && (
+          <form action={formAction} className="card space-y-3 p-5">
+            <input type="hidden" name="auctionId" value={auction.id} />
+            <label htmlFor="bid-amount" className="block text-[15px] font-bold">
+              {t('bid.yourBid')}
+            </label>
+            <div className="flex items-stretch gap-2" dir="ltr">
+              <button
+                type="button"
+                onClick={() => step(-1)}
+                aria-label={t('bid.lower')}
+                className="ac-press inline-flex w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-sage text-[11px] font-bold"
+              >
+                <Icon name="minus" size={18} />
+                {formatCurrency(auction.minimumIncrement)}
+              </button>
+              <input
+                id="bid-amount"
+                ref={amountRef}
+                type="number"
+                name="amountPerKg"
+                min={minimumNextBid}
+                step="1"
+                placeholder={t('bid.minPlaceholder', { amount: minimumNextBid })}
+                required
+                aria-invalid={state?.error ? true : undefined}
+                className="tabular h-16 min-w-0 flex-1 rounded-2xl border-2 border-gold bg-sf px-4 text-center text-[26px] font-extrabold text-ink placeholder:text-base placeholder:font-semibold placeholder:text-muted focus:outline-none focus:ring-4 focus:ring-gold/30 aria-[invalid=true]:border-err-fg aria-[invalid=true]:bg-err-bg"
+                onInput={(e) => setTypedBid(Number((e.target as HTMLInputElement).value) || null)}
+              />
+              <button
+                type="button"
+                onClick={() => step(1)}
+                aria-label={t('bid.higher')}
+                className="ac-press inline-flex w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-sage text-[11px] font-bold"
+              >
+                <Icon name="plus" size={18} />
+                {formatCurrency(auction.minimumIncrement)}
+              </button>
+            </div>
+            <p className="text-[13px] text-muted">{t('bid.minValid', { rate: perKgText(minimumNextBid) })}</p>
+            <p className="text-[13px]">
+              {t('bid.youPay', {
+                bid: perKgText(payBid),
+                rate: perKgExact(vendorPaysPerKg(payBid, commissionRate)),
+                percent: commissionPercent,
+              })}
+            </p>
+
+            {state?.error && (
+              <div role="alert" className="ac-shake flex items-start gap-2 rounded-2xl bg-err-bg p-3 text-sm font-bold text-err-fg">
+                <Icon name="alert" size={18} className="mt-0.5" />
+                {errorText(state.error)}
+              </div>
+            )}
+
+            <button type="submit" disabled={pending} className="btn btn-primary w-full">
+              <Icon name={pending ? 'refresh' : 'gavel'} size={20} className={pending ? 'animate-spin' : ''} />
+              {payBid ? t('bid.placeAt', { rate: perKgText(payBid) }) : t('bid.place')}
+            </button>
+            <p className="flex items-center justify-center gap-1.5 text-[12.5px] text-muted">
+              <span className={`h-2 w-2 rounded-full ${connected ? 'bg-ok-fg' : 'bg-warn-fg'}`} />
+              {connected ? t('bid.connected') : t('bid.reconnecting')}
+            </p>
+          </form>
+        )}
+
+        {isEnded && (
+          <div className="card p-4 text-center text-sm text-muted">{t('bid.endedText', { rate: perKgText(currentHighestBid) })}</div>
+        )}
+        {!canBid && !isEnded && <div className="card p-4 text-center text-sm text-muted">{t('bid.vendorsOnly')}</div>}
+      </div>
+
+      {/* Lot */}
+      <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-1">
+        <section className="card overflow-hidden">
+          <div className="flex items-center gap-4 p-5">
+            {auction.inventoryLot.crop.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={auction.inventoryLot.crop.imageUrl} alt={crop(auction.inventoryLot.crop)} className="h-20 w-20 shrink-0 rounded-2xl object-cover" />
+            ) : (
+              <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-sage text-3xl">{cropEmoji(auction.inventoryLot.crop.name)}</span>
+            )}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="font-display h-section font-semibold">
+                  {crop(auction.inventoryLot.crop)} · {grade(auction.grade)}
+                </h1>
+                {isEnded ? (
+                  <span className="inline-flex h-7 items-center rounded-full bg-sage px-2.5 text-[12.5px] font-bold">{t('bid.closed')}</span>
+                ) : (
+                  <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-gold px-2.5 text-[12.5px] font-extrabold text-ongold">
+                    <span className="ac-pulse h-2 w-2 rounded-full bg-current" />
+                    {t('bid.live')}
+                  </span>
+                )}
+              </div>
+              <p className="font-mono text-[12.5px] text-muted">
+                {auction.auctionNumber} · {auction.inventoryLot.lotNumber}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 border-t border-line sm:grid-cols-3 [&>*]:border-b [&>*]:border-line">
+            {fact('scale', t('bid.quantity'), `${auction.quantityKg.toLocaleString()} ${isUrdu ? 'کلو' : 'kg'}`)}
+            {fact('pin', t('bid.mandi'), place(auction.mandi.name))}
+            {fact('user', t('bid.arhti'), auction.arhti.name)}
+            {fact('sprout', t('bid.grownBy'), auction.inventoryLot.sourceFarmerName, place(auction.inventoryLot.sourceCity))}
+            {fact('tag', t('bid.reserve'), perKgText(auction.reservePrice))}
+            {fact('trendup', t('bid.increment'), `+${perKgText(auction.minimumIncrement)}`)}
+          </div>
+          <p className="flex items-start gap-2 px-5 py-3 text-[13px] text-muted">
+            <Icon name="info" size={16} className="mt-0.5 shrink-0" />
+            <span>
+              <span className="font-bold text-ink">{t('bid.commission')}:</span> {t('bid.commissionNote', { rate: commissionPercent })}
+            </span>
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-display h-section mb-3 flex items-center gap-2 font-semibold">
+            <Icon name="gavel" size={22} />
+            {t('bid.history')}
+          </h2>
+          {bids.length === 0 ? (
+            <p className="card p-4 text-sm text-muted">{t('bid.noBids')}</p>
+          ) : (
+            <ol className="card divide-y divide-line">
+              {bids.map((bid, idx) => (
+                <li key={bid.id} className={`flex items-center gap-3 px-4 py-3 ${idx === 0 ? 'ac-flash' : ''}`}>
+                  <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-extrabold ${idx === 0 ? 'bg-gold text-ongold' : 'bg-sage'}`}>
+                    {idx + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[15px] font-bold">{bid.bidder.name}</div>
+                    <div className="text-[12.5px] text-muted">{time(bid.timestamp, { hour: '2-digit', minute: '2-digit' })}</div>
+                  </div>
+                  <div className="text-end">
+                    <div className="tabular text-lg font-extrabold">{perKgText(bid.amountPerKg)}</div>
+                    {idx === 0 && <div className="text-[12.5px] font-bold text-goldtext">{t('bid.highest')}</div>}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
       </div>
     </div>
   );
